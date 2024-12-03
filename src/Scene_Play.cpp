@@ -5,6 +5,8 @@
 #include "Components.hpp"
 #include "Action.hpp"
 
+#include <fstream>
+
 Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
     : Scene(gameEngine), m_levelPath(levelPath)
 {
@@ -19,10 +21,14 @@ void Scene_Play::init(const std::string &levelPath)
     registerAction(sf::Keyboard::C, "TOGLLE_COLLISION");
     registerAction(sf::Keyboard::G, "TOGLLE_GRID");
 
-    // TODO: register all other gameplay actions
+    // player
+    registerAction(sf::Keyboard::W, "JUMP");
+    registerAction(sf::Keyboard::A, "LEFT");
+    registerAction(sf::Keyboard::D, "RIGHT");
+    registerAction(sf::Keyboard::J, "SHOOT");
 
     m_gridText.setCharacterSize(12);
-    m_gridText.setFont(m_game.assets().getFont("Tech"));
+    m_gridText.setFont(m_game.assets().getFont("PixelCowboy"));
 
     loadLevel(levelPath);
 }
@@ -34,31 +40,64 @@ Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entit
     // use the entity's animation size to position it correctly
     // the size of the grid width and height is stored in m_gridSize
     // the bottom left corner of the animation should align with the bottom left corner of the grid cell
-
     // remember that SFML has (0, 0) in top left
 
-    return Vec2f(0, 0);
+    float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2;
+    float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2;
+
+    return Vec2f(xPos, yPos);
 }
 
 void Scene_Play::loadLevel(const std::string &filename)
 {
     // reset the entity manager every time we load a level
+
     m_entityManager = EntityManager();
 
-    // TODO: read in the level file and add the appropriate entities
-    // use the PlayerConfig struct m_playerConfig to store player properties
-    // this struct is defined at the top of Scene_Play.h
+    // read in the level file and add the appropriate entities
+    // std::ifstream file(filename);
+    // std::string type;
+    // while (file >> type)
+    // {
+    //     if (type == "Tile")
+    //     {
+    //         std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
+
+    //         std::string animation;
+    //         file >> animation;
+    //         tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
+
+    //         float gridX, gridY;
+    //         file >> gridX >> gridY;
+    //         // add CTransform with position
+
+    //         tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
+    //     }
+    //     else if (type == "Dec")
+    //     {
+
+    //     }
+    //     else if (type == "Player")
+    //     {
+    //         file >> m_playerConfig.GX >> m_playerConfig.GY >> m_playerConfig.CW >> m_playerConfig.CH >> m_playerConfig.SX >> m_playerConfig.SY >> m_playerConfig.SM >> m_playerConfig.GRAVITY >> m_playerConfig.BA;
+    //     }
+    //     else
+    //     {
+    //         std::cerr << "Type not allowed: " << type << std::endl;
+    //         exit(-1);
+    //     }
+    // }
 
     // note: all code below is sample code which shows how to set up, it should be removed
 
     spawnPlayer();
 
     // some sample entities
-    auto brick = m_entityManager.addEntity("tile");
+    std::shared_ptr<Entity> brick = m_entityManager.addEntity("tile");
 
     // always add CAnimation component first so that gridToMidPixel works
-    brick->add<CAnimation>(m_game.assets().getAnimation("Brick"), true);
-    brick->add<CTransform>(Vec2f(96, 480));
+    brick->add<CAnimation>(m_game.assets().getAnimation("TileBlack"), true);
+    brick->add<CTransform>(gridToMidPixel(3, 3, brick));
 
     // note: final code should position entity with the grid position read from config file
     // brick->add<CTransform>(gridToMidPixel(gridX, gridY, brick));
@@ -68,16 +107,16 @@ void Scene_Play::loadLevel(const std::string &filename)
         // good way of identifying if a tile is a brick
     }
 
-    auto block = m_entityManager.addEntity("tile");
-    block->add<CAnimation>(m_game.assets().getAnimation("Block"), true);
-    block->add<CTransform>(Vec2f(224, 480));
+    // auto block = m_entityManager.addEntity("tile");
+    // block->add<CAnimation>(m_game.assets().getAnimation("Block"), true);
+    // block->add<CTransform>(Vec2f(224, 480));
 
     // add a bounding box, this will now show up if we press the 'c' key
-    block->add<CBoundingBox>(m_game.assets().getAnimation("Block").getSize());
+    // block->add<CBoundingBox>(m_game.assets().getAnimation("Block").getSize());
 
-    auto question = m_entityManager.addEntity("tile");
-    question->add<CAnimation>(m_game.assets().getAnimation("Question"), true);
-    question->add<CTransform>(Vec2f(352, 480));
+    // auto question = m_entityManager.addEntity("tile");
+    // question->add<CAnimation>(m_game.assets().getAnimation("Question"), true);
+    // question->add<CTransform>(Vec2f(352, 480));
 
     // note: example
     // components are now returned as references rather than pointers
@@ -90,9 +129,9 @@ void Scene_Play::spawnPlayer()
 {
     // here is a sample player entity to use to construct other ones
     auto player = m_entityManager.addEntity("player");
-    player->add<CAnimation>(m_game.assets().getAnimation("Stand"), true);
-    player->add<CTransform>(Vec2f(224, 352));
-    player->add<CBoundingBox>(Vec2f(48, 48));
+    player->add<CAnimation>(m_game.assets().getAnimation("TileBlack"), true);
+    player->add<CTransform>(gridToMidPixel(3, 4, player));
+    // player->add<CBoundingBox>(Vec2f(48, 48));
     player->add<CState>("stand");
     player->add<CInput>();
 
@@ -100,6 +139,7 @@ void Scene_Play::spawnPlayer()
     // destory dead player if respawning
 }
 
+// spawn a bullet at the location of entity in the direction the entity is facing
 void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
     // spawn bullet
@@ -140,6 +180,7 @@ void Scene_Play::sCollision()
     // don't let player walk off left side of map
 }
 
+// TODO: more to add
 void Scene_Play::sDoAction(const Action &action)
 {
     if (action.type() == "START")
@@ -164,10 +205,35 @@ void Scene_Play::sDoAction(const Action &action)
         {
             onEnd();
         }
+        else if (action.name() == "JUMP")
+        {
+            if (player()->get<CInput>().canJump)
+            {
+                player()->get<CTransform>().velocity.y = -m_playerConfig.SY;
+            }
+        }
+        else if (action.name() == "LEFT")
+        {
+            player()->get<CTransform>().velocity.x = -m_playerConfig.SX;
+        }
+        else if (action.name() == "RIGHT")
+        {
+            player()->get<CTransform>().velocity.x = m_playerConfig.SX;
+        }
+        else if (action.name() == "SHOOT")
+        {
+            if (player()->get<CInput>().canShoot)
+            {
+                spawnBullet(player());
+            }
+        }
     }
     else if (action.type() == "END")
     {
-        // fill in here for other action (and above too)
+        if (action.name() == "JUMP")
+        {
+            player()->get<CTransform>().velocity.y = 0;
+        }
     }
 }
 

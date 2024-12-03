@@ -18,7 +18,7 @@ void Scene_Menu::init()
     registerAction(sf::Keyboard::D, "PLAY");
     registerAction(sf::Keyboard::Escape, "QUIT");
 
-    m_title = "Mario Bros";
+    m_title = "2D Platformer";
     m_menuStrings.push_back("Level 1");
     m_menuStrings.push_back("Level 2");
     m_menuStrings.push_back("Level 3");
@@ -27,13 +27,13 @@ void Scene_Menu::init()
     m_levelPaths.push_back("level2.txt");
     m_levelPaths.push_back("level3.txt");
 
-    m_menuText.setFont(m_game.assets().getFont("Mario"));
+    m_menuText.setFont(m_game.assets().getFont("PixelCowboy"));
     m_menuText.setCharacterSize(64);
 }
 
 void Scene_Menu::update()
 {
-    // only one thing to update in Menu scene
+    // only one thing to update in Menu scene, rendering
     sRender();
 }
 

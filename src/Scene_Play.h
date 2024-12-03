@@ -7,8 +7,8 @@ class Scene_Play : public Scene
 {
     struct PlayerConfig
     {
-        float X, Y, CX, CY, SPEED, MAXSPEED, JUMP, GRAVITY;
-        std::string WEAPON;
+        float GX, GY, CW, CH, SX, SY, SM, GRAVITY; // grid pos, bounding box size, speed in X and Y and max, gravity
+        std::string BA; // bullet animation
     };
 
 protected:
@@ -18,7 +18,7 @@ protected:
     bool m_drawTextures = true;
     bool m_drawCollision = false;
     bool m_drawGrid = false;
-    const Vec2f m_gridSize = {64, 64};
+    const Vec2f m_gridSize = {40, 40}; // cell size
     sf::Text m_gridText;
 
     void init(const std::string &levelPath);

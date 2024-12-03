@@ -1,5 +1,3 @@
-Texture TexStand images/mario/stand64.png
-...
-Animation Stand TextStand 1 0 // will have some animations with only one texture, so speed is 0
-...
-Font Mario fonts/mario/ttf
+Texture Tiles ../bin/images/tiles.png
+Animation TileBlack Tiles 1 0 72 64 40 40
+Font PixelCowboy ../bin/fonts/PixelCowboy.ttf

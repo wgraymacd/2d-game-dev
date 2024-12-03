@@ -15,7 +15,7 @@ void GameEngine::init(const std::string& path)
 {
     m_assets.loadFromFile(path);
 
-    m_window.create(sf::VideoMode(1280, 768), "Mario Bros");
+    m_window.create(sf::VideoMode(40*48, 40*27), "2D Platformer"); // 40 pixel width and height for each block in game, so grid is 48 x 27 cells
     m_window.setFramerateLimit(60);
 
     // go to menu screen
@@ -40,13 +40,13 @@ void GameEngine::sUserInput()
             quit();
         }
 
-        if (event.type == sf::Event::KeyPressed)
-        {
-            if (event.key.code == sf::Keyboard::X)
-            {
-                // OPTIONAL: take a screenshot with sf::Texture object
-            }
-        }
+        // if (event.type == sf::Event::KeyPressed)
+        // {
+        //     if (event.key.code == sf::Keyboard::X)
+        //     {
+        //         // OPTIONAL: take a screenshot with sf::Texture object
+        //     }
+        // }
 
         if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
         {
@@ -60,7 +60,6 @@ void GameEngine::sUserInput()
             const std::string actionType = (event.type == sf::Event::KeyPressed) ? "START" : "END";
 
             // look up the action and send the action to the current scene
-            // TODO: this could be doAction in the main Scene class which then calls sDoAction per scene, not totally sure
             currentScene()->sDoAction(Action(currentScene()->getActionMap().at(event.key.code), actionType));
         }
     }

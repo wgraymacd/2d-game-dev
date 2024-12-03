@@ -87,7 +87,6 @@ public:
         {
             m_entityMap[tag] = EntityVec();
         }
-        // m_entityMap[tag].push_back(entity); // this was in handout code, but I think it should go up in update func
 
         return entity;
     }

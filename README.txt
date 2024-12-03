@@ -82,7 +82,7 @@ config files:
 
 asset config:
 - Texture N P | name, file path | std::string (x2)
-- Animation N T F S | name, texture name, fram count, speed | std::string (x2), int (x2)
+- Animation N T F S | name, texture/sprite name, frame count, speed, pixelX (optional), pixelY (optional), width (optional), height (optional) | std::string (x2), int (x6)
 - Font N P | name, file path | std::string (x2)
 
 level config:
@@ -90,7 +90,7 @@ notes: grid coord systems (0, 0) is in the bottom left to make things more intui
 entity should be positioned such that bottom left corner is aligned with bottom left corner of grid coordinate (not all textures are the size 64x64 pixels)
 - Tile N GX GY | animation name, grid x, grid y | std::string, float (x2)
 - Dec N GX GY | anim name, grid x, grid y | std::string, float (x2)
-- Player GX GY CW CH SX SY SM GY B | grid pos, bounding box width/height, horizontal speed, jump speed, max speed, gravity, bullet animation | float, ..., float, std::string
+- Player GX GY CW CH SX SY SM GRAVITY BA | grid pos, bounding box width/height, horizontal speed, jump speed, max speed, gravity, bullet animation | float, ..., float, std::string
 
 hints:
 
