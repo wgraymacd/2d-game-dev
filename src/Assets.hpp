@@ -86,8 +86,8 @@ public:
             else if (str == "Animation")
             {
                 std::string name, texture;
-                size_t frameCount, frameDuration, xPos, yPos, width, height;
-                file >> name >> texture >> frameCount >> frameDuration >> xPos >> yPos >> width >> height;
+                size_t frameCount, frameDuration;
+                file >> name >> texture >> frameCount >> frameDuration;
                 addAnimation(name, texture, frameCount, frameDuration);
             }
             else if (str == "Font")
@@ -101,6 +101,7 @@ public:
                 std::cerr << "Unknown asset type: " << str << std::endl;
             }
         }
+        file.close();
     }
 
     const sf::Texture &getTexture(const std::string &textureName) const

@@ -1,3 +1,3 @@
 Texture Tiles ../bin/images/tiles.png
-Animation TileBlack Tiles 1 0 72 64 40 40
+AnimationStatic Ground Tiles 72 64 40 40
 Font PixelCowboy ../bin/fonts/PixelCowboy.ttf

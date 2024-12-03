@@ -23,9 +23,9 @@ void Scene_Menu::init()
     m_menuStrings.push_back("Level 2");
     m_menuStrings.push_back("Level 3");
 
-    m_levelPaths.push_back("level1.txt");
-    m_levelPaths.push_back("level2.txt");
-    m_levelPaths.push_back("level3.txt");
+    m_levelPaths.push_back("../bin/level1.txt");
+    m_levelPaths.push_back("../bin/level2.txt");
+    m_levelPaths.push_back("../bin/level3.txt");
 
     m_menuText.setFont(m_game.assets().getFont("PixelCowboy"));
     m_menuText.setCharacterSize(64);
@@ -52,7 +52,7 @@ void Scene_Menu::sDoAction(const Action &action)
         }
         else if (action.name() == "PLAY")
         {
-            m_game.changeScene("PLAY", std::make_shared<Scene_Play>(m_game, m_levelPaths[m_selectedMenuIndex]));
+            m_game.addScene("PLAY", std::make_shared<Scene_Play>(m_game, m_levelPaths[m_selectedMenuIndex]));
         }
         else if (action.name() == "QUIT")
         {

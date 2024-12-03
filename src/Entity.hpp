@@ -15,8 +15,7 @@ using ComponentTuple = std::tuple<
     CBoundingBox,
     CAnimation,
     CGravity,
-    CState
->;
+    CState>;
 
 class Entity
 {
@@ -28,12 +27,11 @@ class Entity
     size_t m_id = 0;
 
     // private constructor + friend class EntityManager means only EntityManager can make new entities
-    Entity(const size_t& id, const std::string& tag)
-        : m_tag(tag), m_id(id) { }
-    
-public:
+    Entity(const size_t &id, const std::string &tag)
+        : m_tag(tag), m_id(id) {}
 
-    bool isActive() const 
+public:
+    bool isActive() const
     {
         return m_active;
     }
@@ -48,7 +46,7 @@ public:
         return m_id;
     }
 
-    const std::string& tag() const
+    const std::string &tag() const
     {
         return m_tag;
     }
@@ -73,23 +71,23 @@ public:
     }
 
     template <typename T, typename... TArgs>
-    T& add(TArgs&&... mArgs)
+    T &add(TArgs &&...mArgs)
     {
-        auto& component = get<T>();
+        auto &component = get<T>();
         component = T(std::forward<TArgs>(mArgs)...);
         component.exists = true;
         return component;
     }
 
     template <typename T>
-    T& get()
+    T &get()
     {
         return std::get<T>(m_components);
     }
 
     // const correctness
     template <typename T>
-    const T& get() const
+    const T &get() const
     {
         return std::get<T>(m_components);
     }

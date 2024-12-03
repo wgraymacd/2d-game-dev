@@ -19,7 +19,7 @@ void GameEngine::init(const std::string& path)
     m_window.setFramerateLimit(60);
 
     // go to menu screen
-    changeScene("MENU", std::make_shared<Scene_Menu>(*this));
+    addScene("MENU", std::make_shared<Scene_Menu>(*this));
 }
 
 // update the game state
@@ -39,14 +39,6 @@ void GameEngine::sUserInput()
         {
             quit();
         }
-
-        // if (event.type == sf::Event::KeyPressed)
-        // {
-        //     if (event.key.code == sf::Keyboard::X)
-        //     {
-        //         // OPTIONAL: take a screenshot with sf::Texture object
-        //     }
-        // }
 
         if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
         {
@@ -104,8 +96,13 @@ const Assets& GameEngine::assets() const
 	return m_assets;
 }
 
-void GameEngine::changeScene(const std::string& sceneName, std::shared_ptr<Scene> scene)
+void GameEngine::addScene(const std::string& sceneName, std::shared_ptr<Scene> scene, bool endThisScene)
 {
     m_sceneMap[sceneName] = scene;
+	m_currentScene = sceneName;
+}
+
+void GameEngine::changeScene(const std::string& sceneName, bool endThisScene)
+{
 	m_currentScene = sceneName;
 }
