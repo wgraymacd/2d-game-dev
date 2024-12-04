@@ -22,7 +22,7 @@ public:
     CTransform(const Vec2f& p)
         : pos(p) { }
     CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a)
-        : pos(p), prevPos(p), velocity(v), scale (sc), rotAngle(a) { }
+        : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) { }
 };
 
 class CLifespan : public Component 
@@ -45,7 +45,7 @@ public:
     bool right = false;
     bool shoot = false;
     bool canShoot = true;
-    bool canJump = true;
+    bool canJump = false;
 
     CInput() = default;
 };

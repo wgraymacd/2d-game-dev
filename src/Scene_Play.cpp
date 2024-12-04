@@ -17,9 +17,9 @@ void Scene_Play::init(const std::string &levelPath)
 {
     registerAction(sf::Keyboard::P, "PAUSE");
     registerAction(sf::Keyboard::Escape, "QUIT");
-    registerAction(sf::Keyboard::T, "TOGLLE_TEXTURE");
-    registerAction(sf::Keyboard::C, "TOGLLE_COLLISION");
-    registerAction(sf::Keyboard::G, "TOGLLE_GRID");
+    registerAction(sf::Keyboard::T, "TOGGLE_TEXTURE");
+    registerAction(sf::Keyboard::C, "TOGGLE_COLLISION");
+    registerAction(sf::Keyboard::G, "TOGGLE_GRID");
 
     // player
     registerAction(sf::Keyboard::W, "JUMP");
@@ -33,17 +33,11 @@ void Scene_Play::init(const std::string &levelPath)
     loadLevel(levelPath);
 }
 
+// return Vec2f indicating where the center pos of the entity should be
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entity> entity)
 {
-    // TODO: this func takes in a grid (x, y) pos and an entity
-    // return Vec2f indicating where the center pos of the entity should be
-    // use the entity's animation size to position it correctly
-    // the size of the grid width and height is stored in m_gridSize
-    // the bottom left corner of the animation should align with the bottom left corner of the grid cell
-    // remember that SFML has (0, 0) in top left
-
-    float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2;
-    float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2;
+    float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2.0f;
+    float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2.0f;
 
     return Vec2f(xPos, yPos);
 }
@@ -66,7 +60,6 @@ void Scene_Play::loadLevel(const std::string &filename)
 
     while (file >> type)
     {
-        std::cout << "type: " << type << std::endl;
         if (type == "Tile")
         {
             std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
@@ -82,11 +75,10 @@ void Scene_Play::loadLevel(const std::string &filename)
 
             tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
 
-            std::cout << "added Tile: " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << " " << tile->get<CTransform>().pos.y << std::endl;
+            std::cout << "added Tile: " << tile->id() << " " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << " " << tile->get<CTransform>().pos.y << std::endl;
         }
         else if (type == "Dec")
         {
-
         }
         else if (type == "Player")
         {
@@ -100,7 +92,6 @@ void Scene_Play::loadLevel(const std::string &filename)
     }
     file.close();
 
-    std::cout << "Spawnign player" << std::endl;
     spawnPlayer();
 }
 
@@ -123,7 +114,11 @@ void Scene_Play::spawnPlayer()
 // spawn a bullet at the location of entity in the direction the entity is facing
 void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
-    // spawn bullet
+    std::shared_ptr<Entity> bullet = m_entityManager.addEntity("bullet");
+    bullet->add<CAnimation>(m_game.assets().getAnimation("Ground"), true);
+    bullet->add<CTransform>(entity->get<CTransform>().pos, Vec2f(entity->get<CTransform>().scale.x * 5.0f, 0.0f), Vec2f(1.0f, 1.0f), 0.0f);
+    bullet->add<CBoundingBox>(bullet->get<CAnimation>().animation.getSize());
+    bullet->add<CLifespan>(60, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
 }
 
 void Scene_Play::update()
@@ -144,8 +139,7 @@ void Scene_Play::update()
 
 void Scene_Play::sMovement()
 {
-    // TODO: player movement based on CInput, gravity, max speed in x and y
-    // note: use scale.x = -1 to flip entity direction
+    // player 
 
     std::string &state = player()->get<CState>().state;
     CInput &input = player()->get<CInput>();
@@ -153,24 +147,50 @@ void Scene_Play::sMovement()
 
     Vec2f velToAdd(0, 0);
 
+    velToAdd.y += m_playerConfig.GRAVITY;
+
+    if (!input.left && !input.right)
+    {
+        // float slowing = m_playerConfig.SX / 2;
+        float slowing = 1;
+        if (abs(trans.velocity.x) >= slowing)
+        {
+            velToAdd.x += (trans.velocity.x > 0 ? -slowing : slowing);
+        }
+        else
+        {
+            velToAdd.x = (trans.velocity.x > 0 ? -trans.velocity.x : trans.velocity.x);
+        }
+    }
+
     if (input.right)
     {
-        if (abs(trans.velocity.x) <= m_playerConfig.SM)
+        if (trans.velocity.x + m_playerConfig.SX <= m_playerConfig.SM)
         {
             velToAdd.x += m_playerConfig.SX;
+        }
+        else
+        {
+            velToAdd.x = m_playerConfig.SM - trans.velocity.x;
         }
         state = "run";
         trans.scale.x = abs(trans.scale.x);
     }
+
     if (input.left)
     {
-        if (abs(trans.velocity.x) <= m_playerConfig.SM)
+        if (trans.velocity.x - m_playerConfig.SX >= -m_playerConfig.SM)
         {
             velToAdd.x -= m_playerConfig.SX;
+        }
+        else
+        {
+            velToAdd.x = -m_playerConfig.SM - trans.velocity.x;
         }
         state = "run";
         trans.scale.x = -abs(trans.scale.x);
     }
+
     if (input.up && input.canJump)
     {
         velToAdd.y -= m_playerConfig.SY;
@@ -178,24 +198,129 @@ void Scene_Play::sMovement()
         input.canJump = false; // set to true in sCollision (must see if on the ground)
     }
 
-    velToAdd.y += m_playerConfig.GRAVITY;
     trans.velocity += velToAdd;
+    trans.prevPos = trans.pos;
     trans.pos += trans.velocity;
+
+    if (trans.velocity.x == 0 && trans.velocity.y == 0)
+    {
+        if (input.down)
+        {
+            state = "crouch";
+        }
+        else
+        {
+            state = "stand";
+        }
+    }
+
+
+    // bullets
+
+    for (auto &bullet : m_entityManager.getEntities("bullet"))
+    {
+        bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
+    }
+
+    if (input.shoot && input.canShoot)
+    {
+        spawnBullet(player());
+    }
 }
 
+// TODO: not working, fix
 void Scene_Play::sLifespan()
 {
-    // TODO: check lifespan of entities that have time, and destroy them if they go over
+    for (auto &e : m_entityManager.getEntities())
+    {
+        if (e->has<CLifespan>())
+        {
+            int lifespan = e->get<CLifespan>().lifespan;
+
+            if (lifespan <= 0)
+            {
+                e->destroy();
+            }
+            else
+            {
+                lifespan--;
+            }
+        }
+    }
 }
 
 void Scene_Play::sCollision()
 {
-    // recall SFML (0, 0) in top left
-
-    // TODO: implement Physics::GetOverlap()
+    // TODO:
     // implement bullet/tile, player tile (remember to set CState for the animation system to use)
     // check if player has fallen in hole
     // don't let player walk off left side of map
+
+    for (auto &tile : m_entityManager.getEntities("tile"))
+    {
+        // player and tiles
+
+        Vec2f overlap = Physics::GetOverlap(player(), tile);
+        Vec2f prevOverlap = Physics::GetPreviousOverlap(player(), tile);
+
+        CTransform &trans = player()->get<CTransform>();
+
+        // collision
+        if (overlap.y > 0 && overlap.x > 0)
+        {
+            // we are colliding in y-direction this frame since previous frame already had x-direction overlap
+            if (prevOverlap.x > 0)
+            {
+                // player moving down
+                if (trans.velocity.y > 0)
+                {
+                    trans.pos.y -= overlap.y;
+                    player()->get<CState>().state = "stand";
+                    player()->get<CInput>().canJump = true; // set to false after jumping in sMovement()
+                }
+                // player moving up
+                else if (trans.velocity.y < 0)
+                {
+                    trans.pos.y += overlap.y;
+                }
+                trans.velocity.y = 0;
+            }
+            // colliding in x-direction this frame
+            if (prevOverlap.y > 0)
+            {
+                // player moving right
+                if (trans.velocity.x > 0)
+                {
+                    trans.pos.x -= overlap.x;
+                }
+                // player moving left
+                else if (trans.velocity.x < 0)
+                {
+                    trans.pos.x += overlap.x;
+                }
+                trans.velocity.x = 0;
+
+            }
+        }
+    }
+
+    // TODO: put inner for loop inside the one above? keep like this to isolate scopes?
+    // something wrong with bullet collision when using a scale that is not 1:1 (and maybe in general too)
+    for (auto &tile : m_entityManager.getEntities("tile"))
+    {
+        for (auto &bullet : m_entityManager.getEntities("bullet"))
+        {
+            // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
+            Vec2f overlap = Physics::GetOverlap(tile, bullet);
+
+            if (overlap.x > 0 && overlap.y > 0)
+            {
+                std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
+                // TODO: do whatever else here I might want (animations, tile weakening, etc.)
+                bullet->destroy();
+            }
+        }
+    }
 }
 
 // set CInput variables accordingly, no action logic here
@@ -253,6 +378,10 @@ void Scene_Play::sDoAction(const Action &action)
         else if (action.name() == "RIGHT")
         {
             player()->get<CInput>().right = false;
+        }
+        else if (action.name() == "SHOOT")
+        {
+            player()->get<CInput>().shoot = false;
         }
     }
 }
@@ -320,7 +449,7 @@ void Scene_Play::sRender()
         }
     }
 
-    // draw all entity collision bounding boxed with a rectangle
+    // draw all entity collision bounding boxes with a rectangle
     if (m_drawCollision)
     {
         for (auto e : m_entityManager.getEntities())
@@ -330,7 +459,7 @@ void Scene_Play::sRender()
                 auto &box = e->get<CBoundingBox>();
                 auto &transform = e->get<CTransform>();
                 sf::RectangleShape rect;
-                rect.setSize(sf::Vector2f(box.size)); // again, may have to use x and y components as separate arguments for these lines 
+                rect.setSize(sf::Vector2f(box.size));
                 rect.setOrigin(sf::Vector2f(box.halfSize));
                 rect.setPosition(transform.pos);
                 rect.setFillColor(sf::Color(0, 0, 0, 0));
@@ -373,10 +502,9 @@ void Scene_Play::sRender()
 
 void Scene_Play::drawLine(const Vec2f &p1, const Vec2f &p2)
 {
-    // sf::Vertex line[] = {sf::Vector(p1.x, p1.y), sf::Vector2f /* more here */};
-    // m_game.window().draw(line, 2, sf::Lines);
+    sf::Vertex line[] = { sf::Vector2f(p1.x, p1.y), sf::Vector2f(p2.x, p2.y) };
+    m_game.window().draw(line, 2, sf::Lines);
 }
-
 
 // helper function to get player easily
 std::shared_ptr<Entity> Scene_Play::player()
