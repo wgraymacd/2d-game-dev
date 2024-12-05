@@ -437,11 +437,11 @@ void Scene_Play::sRender()
     }
 
     // set the viewport of the window to be centered on the player if player is not on left bound of world
-    // auto &pPos = player()->get<CTransform>().pos;
-    // float windowCenterX = std::max(m_game.window().getSize().x / /* more here */);
-    // sf::View view = m_game.window().getView();
-    // view.setCenter(windowCenterX, m_game.window().getSize().y - /* more here */);
-    // m_game.window().setView(view);
+    auto &pPos = player()->get<CTransform>().pos;
+    float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
+    sf::View view = m_game.window().getView();
+    view.setCenter(windowCenterX, m_game.window().getSize().y / 2.0f);
+    m_game.window().setView(view);
 
     // draw all entity textures / animations
     if (m_drawTextures)
@@ -482,39 +482,53 @@ void Scene_Play::sRender()
         }
     }
 
-    // draw the grid
-    // if (m_drawGrid)
-    // {
-    //     float leftX = m_game.window().getView().getCenter().x - /* more here */;
-    //     float rightX = leftX + width() + m_gridSize.x;
-    //     float nextGridX = leftX - ((int)leftX % (int)m_gridSize./* more here */);
+    if (m_drawGrid)
+    {
+        // calculate the view dimensions and offsets
+        float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
+        float rightX = leftX + m_game.window().getView().getSize().x;
+        float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
+        float topY = bottomY - m_game.window().getView().getSize().y;
 
-    //     for (float x = nextGridX; x < rightX; x += m_gridSize.x)
-    //     {
-    //         drawLine(Vec2f(x, 0), Vec2f(x, height()));
-    //     }
+        // find the next grid line starting point
+        float nextGridX = leftX - fmodf(leftX, m_gridSize.x);
+        float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
 
-    //     for (float y = 0; y < height(); y += m_gridSize.y)
-    //     {
-    //         drawLine(Vec2f(leftX, height() - y), Vec2f(rightX, h /* more here */));
+        // vertical grid lines
+        for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+        {
+            drawLine(Vec2f(x, topY), Vec2f(x, bottomY));
+        }
 
-    //         for (float x = nextGridX; x < rightX; x += m_gridSize /* may be more here */)
-    //         {
-    //             std::string xCell = std::to_string((int)x / (int)/* more here */);
-    //             std::string yCell = std::to_string((int)y / (int)/* more here */);
-    //             m_gridText.setString("(" + xCell + "," + yCell + /* more here */);
-    //             m_gridText.setPosition(x + 3, height() - y - m_gridSize /* possible more here */);
-    //             m_game.window().draw(m_gridText);
-    //         }
-    //     }
-    // }
+        // horizontal grid lines
+        for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
+        {
+            drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
+
+            // grid cell labels
+            for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+            {
+                std::string xCell = std::to_string((int)(x / m_gridSize.x));
+                std::string yCell = std::to_string((int)((bottomY - y) / m_gridSize.y)); // Bottom-left is (0,0)
+
+                m_gridText.setString("(" + xCell + "," + yCell + ")");
+                m_gridText.setPosition(x + 3, y - m_gridSize.y + 3); // position label inside cell
+                m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
+                m_game.window().draw(m_gridText);
+            }
+        }
+    }
 
     m_game.window().display();
 }
 
 void Scene_Play::drawLine(const Vec2f &p1, const Vec2f &p2)
 {
-    sf::Vertex line[] = { sf::Vector2f(p1.x, p1.y), sf::Vector2f(p2.x, p2.y) };
+    sf::Vertex line[] = 
+    { 
+        sf::Vertex(sf::Vector2f(p1.x, p1.y), sf::Color(255, 255, 255, 50)),
+        sf::Vertex(sf::Vector2f(p2.x, p2.y), sf::Color(255, 255, 255, 50))
+    };
     m_game.window().draw(line, 2, sf::Lines);
 }
 

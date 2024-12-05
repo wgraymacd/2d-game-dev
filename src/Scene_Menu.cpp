@@ -85,8 +85,10 @@ void Scene_Menu::sRender()
 
     // draw the controls in the bottom left
     m_menuText.setCharacterSize(20);
-    m_menuText.setFillColor(sf::Color::Black);
     m_menuText.setString("up: w    down: s    play: d    back: esc");
+    m_menuText.setFillColor(sf::Color::Black);
+    m_menuText.setPosition(sf::Vector2f(10, m_game.window().getSize().y - m_menuText.getLocalBounds().height - 10));
+    m_game.window().draw(m_menuText);
 
     m_game.window().display();
 }
