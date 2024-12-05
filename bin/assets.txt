@@ -1,3 +1,10 @@
 Texture Tiles ../bin/images/tiles.png
-AnimationStatic Ground Tiles 72 64 40 40
+AnimationStatic WallBlack Tiles 152 12 24 16
+AnimationStatic GroundBlack Tiles 72 64 40 40
+AnimationStatic GroundDirt Tiles 8 8 40 40
+AnimationStatic GroundStone Tiles 72 8 40 40
+AnimationStatic GroundGrass Tiles 8 64 40 40
+AnimationStatic GroundSnow Tiles 8 120 40 40
+AnimationStatic GroundBrick Tiles 72 120 40 40
+AnimationStatic Bullet Tiles 62 126 4 4
 Font PixelCowboy ../bin/fonts/PixelCowboy.ttf

@@ -82,7 +82,8 @@ config files:
 
 asset config:
 - Texture N P | name, file path | std::string (x2)
-- Animation N T F S | name, texture/sprite name, frame count, speed, pixelX (optional), pixelY (optional), width (optional), height (optional) | std::string (x2), int (x6)
+- Animation N T F S | name, texture/sprite name, frame count, speed | std::string (x2), int (x2)
+- AnimationStatic N T X Y W H | name texture name, pixelX, pixelY, width, height | std::string (x2), int (x4)
 - Font N P | name, file path | std::string (x2)
 
 level config:

@@ -80,7 +80,6 @@ public:
                 std::string name, texture;
                 Vec2f pos, size;
                 file >> name >> texture >> pos.x >> pos.y >> size.x >> size.y;
-
                 addAnimation(name, texture, pos, size);
             }
             else if (str == "Animation")

@@ -103,7 +103,7 @@ void Scene_Play::spawnPlayer()
     }
 
     std::shared_ptr<Entity> player = m_entityManager.addEntity("player");
-    player->add<CAnimation>(m_game.assets().getAnimation("Ground"), true);
+    player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
     player->add<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, player));
     player->add<CBoundingBox>(Vec2f(m_playerConfig.CW, m_playerConfig.CH));
     player->add<CState>("stand");
@@ -115,8 +115,8 @@ void Scene_Play::spawnPlayer()
 void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
     std::shared_ptr<Entity> bullet = m_entityManager.addEntity("bullet");
-    bullet->add<CAnimation>(m_game.assets().getAnimation("Ground"), true);
-    bullet->add<CTransform>(entity->get<CTransform>().pos, Vec2f(entity->get<CTransform>().scale.x * 5.0f, 0.0f), Vec2f(1.0f, 1.0f), 0.0f);
+    bullet->add<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
+    bullet->add<CTransform>(entity->get<CTransform>().pos, Vec2f(entity->get<CTransform>().scale.x * 15.0f, 0.0f), Vec2f(1.0f, 1.0f), 0.0f);
     bullet->add<CBoundingBox>(bullet->get<CAnimation>().animation.getSize());
     bullet->add<CLifespan>(60, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
 }
@@ -198,6 +198,12 @@ void Scene_Play::sMovement()
         input.canJump = false; // set to true in sCollision (must see if on the ground)
     }
 
+    // on release of jump key
+    if (!input.up && trans.velocity.y < 0)
+    {
+        trans.velocity.y = 0;
+    }
+
     trans.velocity += velToAdd;
     trans.prevPos = trans.pos;
     trans.pos += trans.velocity;
@@ -214,14 +220,11 @@ void Scene_Play::sMovement()
         }
     }
 
-
     // bullets
-
     for (auto &bullet : m_entityManager.getEntities("bullet"))
     {
         bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
     }
-
     if (input.shoot && input.canShoot)
     {
         spawnBullet(player());
@@ -251,10 +254,7 @@ void Scene_Play::sLifespan()
 
 void Scene_Play::sCollision()
 {
-    // TODO:
-    // implement bullet/tile, player tile (remember to set CState for the animation system to use)
-    // check if player has fallen in hole
-    // don't let player walk off left side of map
+    CTransform &trans = player()->get<CTransform>();
 
     for (auto &tile : m_entityManager.getEntities("tile"))
     {
@@ -262,8 +262,6 @@ void Scene_Play::sCollision()
 
         Vec2f overlap = Physics::GetOverlap(player(), tile);
         Vec2f prevOverlap = Physics::GetPreviousOverlap(player(), tile);
-
-        CTransform &trans = player()->get<CTransform>();
 
         // collision
         if (overlap.y > 0 && overlap.x > 0)
@@ -320,6 +318,20 @@ void Scene_Play::sCollision()
                 bullet->destroy();
             }
         }
+    }
+
+    // player falls below map
+    if (trans.pos.y - player()->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
+    {
+        spawnPlayer();
+    }
+
+    // side of map
+    Animation &anim = player()->get<CAnimation>().animation;
+    if (trans.pos.x < anim.getSize().x / 2)
+    {
+        trans.pos.x = anim.getSize().x / 2;
+        trans.velocity.x = 0;
     }
 }
 
@@ -398,7 +410,7 @@ void Scene_Play::sAnimation()
     {
         // change its animation to a repeating run animation
         // note: adding a component that already exists simple overwrites it
-        player()->add<CAnimation>(m_game.assets().getAnimation("Ground"), true);
+        player()->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
     }
 }
 
@@ -471,31 +483,31 @@ void Scene_Play::sRender()
     }
 
     // draw the grid
-    if (m_drawGrid)
-    {
-        // float leftX = m_game.window().getView().getCenter().x - /* more here */;
-        // float rightX = leftX + width() + m_gridSize.x;
-        // float nextGridX = leftX - ((int)leftX % (int)m_gridSize./* more here */);
+    // if (m_drawGrid)
+    // {
+    //     float leftX = m_game.window().getView().getCenter().x - /* more here */;
+    //     float rightX = leftX + width() + m_gridSize.x;
+    //     float nextGridX = leftX - ((int)leftX % (int)m_gridSize./* more here */);
 
-        // for (float x = nextGridX; x < rightX; x += m_gridSize.x)
-        // {
-        //     drawLine(Vec2f(x, 0), Vec2f(x, height()));
-        // }
+    //     for (float x = nextGridX; x < rightX; x += m_gridSize.x)
+    //     {
+    //         drawLine(Vec2f(x, 0), Vec2f(x, height()));
+    //     }
 
-        // for (float y = 0; y < height(); y += m_gridSize.y)
-        // {
-        //     drawLine(Vec2f(leftX, height() - y), Vec2f(rightX, h /* more here */));
+    //     for (float y = 0; y < height(); y += m_gridSize.y)
+    //     {
+    //         drawLine(Vec2f(leftX, height() - y), Vec2f(rightX, h /* more here */));
 
-        //     for (float x = nextGridX; x < rightX; x += m_gridSize /* may be more here */)
-        //     {
-        //         std::string xCell = std::to_string((int)x / (int)/* more here */);
-        //         std::string yCell = std::to_string((int)y / (int)/* more here */);
-        //         m_gridText.setString("(" + xCell + "," + yCell + /* more here */);
-        //         m_gridText.setPosition(x + 3, height() - y - m_gridSize /* possible more here */);
-        //         m_game.window().draw(m_gridText);
-        //     }
-        // }
-    }
+    //         for (float x = nextGridX; x < rightX; x += m_gridSize /* may be more here */)
+    //         {
+    //             std::string xCell = std::to_string((int)x / (int)/* more here */);
+    //             std::string yCell = std::to_string((int)y / (int)/* more here */);
+    //             m_gridText.setString("(" + xCell + "," + yCell + /* more here */);
+    //             m_gridText.setPosition(x + 3, height() - y - m_gridSize /* possible more here */);
+    //             m_game.window().draw(m_gridText);
+    //         }
+    //     }
+    // }
 
     m_game.window().display();
 }
