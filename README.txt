@@ -9,10 +9,6 @@ This Repo:
 ==========
 This repo sets the foundation for a 2D-Platformer, a small project I took on to learn some things before creating my own game.
 
-Acknowledgements:
------------------
-I referrenced some of the skeleton code for this project from a course assignment written by Dave Churchill (https://www.youtube.com/@DaveChurchill) in Fall 2024.
-
 Project Info:
 -------------
 
