@@ -1,21 +1,23 @@
 #include "GameEngine.h"
-#include "Assets.hpp"
-#include "Scene_Play.h"
 #include "Scene_Menu.h"
+#include "Assets.hpp"
 
-#include <iostream>
+#include <string>
+#include <memory>
+#include <SFML/Graphics.hpp>
 
-GameEngine::GameEngine(const std::string& path)
+// constructor
+GameEngine::GameEngine(const std::string &path)
 {
     init(path);
 }
 
 // initializer loads assets, creates window, and opens MENU scene
-void GameEngine::init(const std::string& path)
+void GameEngine::init(const std::string &path)
 {
     m_assets.loadFromFile(path);
 
-    m_window.create(sf::VideoMode(40*32, 40*18), "2D Platformer"); // 40 pixel width and height for each block in game, so grid is 48 x 27 cells
+    m_window.create(sf::VideoMode(40 * 32, 40 * 18), "2D Platformer"); // 40 pixel width and height for each block in game, so grid is 48 x 27 cells
     m_window.setFramerateLimit(60);
 
     // go to menu screen
@@ -25,8 +27,8 @@ void GameEngine::init(const std::string& path)
 // update the game state
 void GameEngine::update()
 {
-	sUserInput();
-	currentScene()->update();
+    sUserInput();
+    currentScene()->update();
 }
 
 // user input system
@@ -54,6 +56,57 @@ void GameEngine::sUserInput()
             // look up the action and send the action to the current scene
             currentScene()->sDoAction(Action(currentScene()->getActionMap().at(event.key.code), actionType));
         }
+
+        // mouse clicking
+        if (event.type == sf::Event::MouseButtonPressed)
+        {
+            Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
+            switch (event.mouseButton.button)
+            {
+            case sf::Mouse::Left:
+            {
+                currentScene()->sDoAction(Action("LEFT_CLICK", "START", mpos));
+                break;
+            }
+            case sf::Mouse::Middle:
+            {
+                currentScene()->sDoAction(Action("MIDDLE_CLICK", "START", mpos));
+                break;
+            }
+            case sf::Mouse::Right:
+            {
+                currentScene()->sDoAction(Action("RIGHT_CLICK", "START", mpos));
+                break;
+            }
+            default:
+                break;
+            }
+        }
+
+        if (event.type == sf::Event::MouseButtonReleased)
+        {
+            Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
+            switch (event.mouseButton.button)
+            {
+            case sf::Mouse::Left:
+            {
+                currentScene()->sDoAction(Action("LEFT_CLICK", "END", mpos));
+                break;
+            }
+            case sf::Mouse::Middle:
+            {
+                currentScene()->sDoAction(Action("MIDDLE_CLICK", "END", mpos));
+                break;
+            }
+            case sf::Mouse::Right:
+            {
+                currentScene()->sDoAction(Action("RIGHT_CLICK", "END", mpos));
+                break;
+            }
+            default:
+                break;
+            }
+        }
     }
 }
 
@@ -69,7 +122,7 @@ void GameEngine::run()
 // quit the game (stop running)
 void GameEngine::quit()
 {
-	m_running = false;
+    m_running = false;
 }
 
 // get a bool representing the game state
@@ -85,24 +138,24 @@ std::shared_ptr<Scene> GameEngine::currentScene()
 }
 
 // return a reference to the window object
-sf::RenderWindow& GameEngine::window()
+sf::RenderWindow &GameEngine::window()
 {
     return m_window;
 }
 
 // return game engine assets
-const Assets& GameEngine::assets() const
+const Assets &GameEngine::assets() const
 {
-	return m_assets;
+    return m_assets;
 }
 
-void GameEngine::addScene(const std::string& sceneName, std::shared_ptr<Scene> scene, bool endThisScene)
+void GameEngine::addScene(const std::string &sceneName, std::shared_ptr<Scene> scene, bool endThisScene)
 {
     m_sceneMap[sceneName] = scene;
-	m_currentScene = sceneName;
+    m_currentScene = sceneName;
 }
 
-void GameEngine::changeScene(const std::string& sceneName, bool endThisScene)
+void GameEngine::changeScene(const std::string &sceneName, bool endThisScene)
 {
-	m_currentScene = sceneName;
+    m_currentScene = sceneName;
 }

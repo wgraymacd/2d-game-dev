@@ -2,6 +2,10 @@
 
 #include "Scene.h"
 #include "GameEngine.h"
+#include "Action.hpp"
+
+#include <string>
+#include <vector>
 
 class Scene_Menu : public Scene
 {

@@ -1,5 +1,3 @@
-// very simple class, so use .hpp and include definitions with declarations (slight compiler optimization too since they're inlined)
-
 #pragma once 
 
 #include <SFML/Graphics.hpp>

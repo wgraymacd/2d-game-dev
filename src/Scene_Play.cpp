@@ -1,11 +1,19 @@
 #include "Scene_Play.h"
-#include "Physics.hpp"
-#include "Assets.hpp"
+#include "Scene.h"
 #include "GameEngine.h"
+#include "EntityManager.hpp"
+#include "Entity.hpp"
 #include "Components.hpp"
+#include "Vec2.hpp"
+#include "Physics.hpp"
+#include "Animation.hpp"
 #include "Action.hpp"
 
+#include <SFML/Graphics.hpp>
+
+#include <string>
 #include <fstream>
+#include <memory>
 
 Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
     : Scene(gameEngine), m_levelPath(levelPath)
@@ -33,6 +41,7 @@ void Scene_Play::init(const std::string &levelPath)
     loadLevel(levelPath);
 }
 
+// TODO: remove this function and replace with getPosition, think about optimizing or using grid from top to bottom like SFML
 // return Vec2f indicating where the center pos of the entity should be
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entity> entity)
 {
@@ -95,6 +104,19 @@ void Scene_Play::loadLevel(const std::string &filename)
     spawnPlayer();
 }
 
+Vec2f Scene_Play::getPosition(int rx, int ry, int tx, int ty) const
+{
+    // TODO: return the game world position of the center of the entity
+
+    // code from grid to mid pixel func
+    // float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2.0f;
+    // float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2.0f;
+
+    // return Vec2f(xPos, yPos);
+
+    return Vec2f(0, 0);
+}
+
 void Scene_Play::spawnPlayer()
 {
     if (!m_entityManager.getEntities("player").empty())
@@ -102,13 +124,13 @@ void Scene_Play::spawnPlayer()
         m_entityManager.getEntities("player").front()->destroy();
     }
 
-    std::shared_ptr<Entity> player = m_entityManager.addEntity("player");
-    player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
-    player->add<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, player));
-    player->add<CBoundingBox>(Vec2f(m_playerConfig.CW, m_playerConfig.CH));
-    player->add<CState>("stand");
-    player->add<CInput>();
-    player->add<CGravity>(m_playerConfig.GRAVITY);
+    m_player = m_entityManager.addEntity("player");
+    m_player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
+    m_player->add<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, m_player));
+    m_player->add<CBoundingBox>(Vec2f(m_playerConfig.CW, m_playerConfig.CH));
+    m_player->add<CState>("stand");
+    m_player->add<CInput>();
+    m_player->add<CGravity>(m_playerConfig.GRAVITY);
 }
 
 // spawn a bullet at the location of entity in the direction the entity is facing
@@ -121,16 +143,24 @@ void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
     bullet->add<CLifespan>(60, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
 }
 
+void Scene_Play::spawnSword(std::shared_ptr<Entity> entity)
+{
+    // TODO: spawn a sword if I want to follow the Zelda thing
+}
+
 void Scene_Play::update()
 {
     if (!m_paused)
     {
         m_entityManager.update();
 
+        // TODO: think about order here if it even matters
+        sAI();
         sMovement();
-        sLifespan();
+        sStatus();
         sCollision();
         sAnimation();
+        sCamera();
     }
 
     sGUI();
@@ -141,9 +171,9 @@ void Scene_Play::sMovement()
 {
     // player 
 
-    std::string &state = player()->get<CState>().state;
-    CInput &input = player()->get<CInput>();
-    CTransform &trans = player()->get<CTransform>();
+    std::string &state = m_player->get<CState>().state;
+    CInput &input = m_player->get<CInput>();
+    CTransform &trans = m_player->get<CTransform>();
 
     Vec2f velToAdd(0, 0);
 
@@ -227,41 +257,20 @@ void Scene_Play::sMovement()
     }
     if (input.shoot && input.canShoot)
     {
-        spawnBullet(player());
-    }
-}
-
-// TODO: not working, fix
-void Scene_Play::sLifespan()
-{
-    for (auto &e : m_entityManager.getEntities())
-    {
-        if (e->has<CLifespan>())
-        {
-            int lifespan = e->get<CLifespan>().lifespan;
-
-            if (lifespan <= 0)
-            {
-                e->destroy();
-            }
-            else
-            {
-                lifespan--;
-            }
-        }
+        spawnBullet(m_player);
     }
 }
 
 void Scene_Play::sCollision()
 {
-    CTransform &trans = player()->get<CTransform>();
+    CTransform &trans = m_player->get<CTransform>();
 
     for (auto &tile : m_entityManager.getEntities("tile"))
     {
         // player and tiles
 
-        Vec2f overlap = Physics::GetOverlap(player(), tile);
-        Vec2f prevOverlap = Physics::GetPreviousOverlap(player(), tile);
+        Vec2f overlap = Physics::GetOverlap(m_player, tile);
+        Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
 
         // collision
         if (overlap.y > 0 && overlap.x > 0)
@@ -273,8 +282,8 @@ void Scene_Play::sCollision()
                 if (trans.velocity.y > 0)
                 {
                     trans.pos.y -= overlap.y;
-                    player()->get<CState>().state = "stand";
-                    player()->get<CInput>().canJump = true; // set to false after jumping in sMovement()
+                    m_player->get<CState>().state = "stand";
+                    m_player->get<CInput>().canJump = true; // set to false after jumping in sMovement()
                 }
                 // player moving up
                 else if (trans.velocity.y < 0)
@@ -321,13 +330,13 @@ void Scene_Play::sCollision()
     }
 
     // player falls below map
-    if (trans.pos.y - player()->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
+    if (trans.pos.y - m_player->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
     {
         spawnPlayer();
     }
 
     // side of map
-    Animation &anim = player()->get<CAnimation>().animation;
+    Animation &anim = m_player->get<CAnimation>().animation;
     if (trans.pos.x < anim.getSize().x / 2)
     {
         trans.pos.x = anim.getSize().x / 2;
@@ -362,40 +371,84 @@ void Scene_Play::sDoAction(const Action &action)
         }
         else if (action.name() == "JUMP")
         {
-            player()->get<CInput>().up = true;
+            m_player->get<CInput>().up = true;
         }
         else if (action.name() == "LEFT")
         {
-            player()->get<CInput>().left = true;
+            m_player->get<CInput>().left = true;
         }
         else if (action.name() == "RIGHT")
         {
-            player()->get<CInput>().right = true;
+            m_player->get<CInput>().right = true;
         }
         else if (action.name() == "SHOOT")
         {
-            player()->get<CInput>().shoot = true;
+            m_player->get<CInput>().shoot = true;
         }
+        // else if (action.name() == "LEFT_CLICK")
+        // {
+        //     m_selectedEntity = {};
+        //     sf::Vector2f worldPos = m_game.window().mapPixelToCoords(action.pos());
+        //     for (auto e : m_entityManager.getEntities())
+        //     {
+        //         if (Physics::IsInside(worldPos, e))
+        //         {
+        //             m_selectedEntity = e;
+        //             break;
+        //         }
+        //     }
+        // }
     }
     else if (action.type() == "END")
     {
         if (action.name() == "JUMP")
         {
-            player()->get<CInput>().up = false;
+            m_player->get<CInput>().up = false;
         }
         else if (action.name() == "LEFT")
         {
-            player()->get<CInput>().left = false;
+            m_player->get<CInput>().left = false;
         }
         else if (action.name() == "RIGHT")
         {
-            player()->get<CInput>().right = false;
+            m_player->get<CInput>().right = false;
         }
         else if (action.name() == "SHOOT")
         {
-            player()->get<CInput>().shoot = false;
+            m_player->get<CInput>().shoot = false;
         }
     }
+}
+
+void Scene_Play::sAI()
+{
+    // TODO: implement NPC AI follow and patrol behavior
+}
+
+void Scene_Play::sStatus()
+{
+    // TODO: lifespan implementation here, invincibility implementation here
+
+    // lifespan (not working in last project)
+    for (auto &e : m_entityManager.getEntities())
+    {
+        if (e->has<CLifespan>())
+        {
+            int lifespan = e->get<CLifespan>().lifespan;
+
+            if (lifespan <= 0)
+            {
+                e->destroy();
+            }
+            else
+            {
+                lifespan--;
+            }
+        }
+    }
+
+    // invincibility
+    
 }
 
 void Scene_Play::sAnimation()
@@ -406,17 +459,46 @@ void Scene_Play::sAnimation()
 
     // set animation of player based on its CState component
     // here's an example
-    if (player()->get<CState>().state == "stand")
+    if (m_player->get<CState>().state == "stand")
     {
         // change its animation to a repeating run animation
         // note: adding a component that already exists simple overwrites it
-        player()->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
+        m_player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
     }
+}
+
+void Scene_Play::sCamera()
+{
+    // TODO: camera view logic
+
+    // get current view
+    sf::View view = m_game.window().getView();
+
+    if (m_follow)
+    {
+        // calc view for player follow cam
+    }
+    else
+    {
+        // room-based cam
+    }
+
+    // OLD CODE: set the viewport of the window to be centered on the player if player is not on left bound of world
+    // auto &pPos = m_player->get<CTransform>().pos;
+    // float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
+    // sf::View view = m_game.window().getView();
+    // view.setCenter(windowCenterX, m_game.window().getSize().y / 2.0f);
+    // m_game.window().setView(view);
+
+    // set window view
+    m_game.window().setView(view);
 }
 
 void Scene_Play::onEnd()
 {
     m_game.changeScene("MENU");
+
+    // TODO: stop music, play menu music
 }
 
 void Scene_Play::sGUI()
@@ -436,34 +518,116 @@ void Scene_Play::sRender()
         m_game.window().clear(sf::Color(10, 10, 10));
     }
 
-    // set the viewport of the window to be centered on the player if player is not on left bound of world
-    auto &pPos = player()->get<CTransform>().pos;
-    float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
-    sf::View view = m_game.window().getView();
-    view.setCenter(windowCenterX, m_game.window().getSize().y / 2.0f);
-    m_game.window().setView(view);
+    sf::RectangleShape tick({1.0f, 6.0f});
+    tick.setFillColor(sf::Color::Black);
 
     // draw all entity textures / animations
     if (m_drawTextures)
     {
         for (auto e : m_entityManager.getEntities()) // getEntities() returns reference
         {
+            auto &transform = e->get<CTransform>();
+
+            sf::Color c = sf::Color::White;
+            if (e->has<CInvincibility>())
+            {
+                c = sf::Color(255, 255, 255, 128);
+            }
+
             if (e->has<CAnimation>())
             {
-                auto &transform = e->get<CTransform>();
                 auto &animation = e->get<CAnimation>().animation;
                 animation.getSprite().setRotation(transform.rotAngle);
                 animation.getSprite().setPosition(transform.pos);
                 animation.getSprite().setScale(transform.scale);
+                animation.getSprite().setColor(c);
 
                 m_game.window().draw(animation.getSprite());
             }
         }
-    }
 
+        for (auto e : m_entityManager.getEntities())
+        {
+            auto &transform = e->get<CTransform>();
+            if (e->has<CHealth>())
+            {
+                auto &h = e->get<CHealth>();
+                Vec2f size(64, 6);
+                sf::RectangleShape rect({size.x, size.y});
+                rect.setPosition(transform.pos.x - 32, transform.pos.y - 48);
+                rect.setFillColor(sf::Color(96, 96, 96));
+                rect.setOutlineColor(sf::Color::Black);
+                rect.setOutlineThickness(2);
+
+                m_game.window().draw(rect);
+
+                float ratio = static_cast<float>(h.current) / static_cast<float>(h.max);
+                size.x *= ratio;
+                rect.setSize({size.x, size.y});
+                rect.setFillColor(sf::Color(255, 0, 0));
+                rect.setOutlineThickness(0);
+                
+                m_game.window().draw(rect);
+
+                for (int i = 0; i < h.max; i++)
+                {
+                    tick.setPosition(rect.getPosition().x + i * 64.0f / h.max, rect.getPosition().y);
+                    m_game.window().draw(tick);
+                }
+            }
+        }
+
+        if (m_drawGrid)
+        {
+            float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
+            float rightX = leftX + m_game.window().getView().getSize().x; // + m_gridSize.x maybe
+            float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
+            float topY = bottomY - m_game.window().getView().getSize().y;
+            // logic if grid (0, 0) at top left
+            // float topY = m_game.window().getView().getCenter().y - m_game.window().getView().getSize().y / 2;
+            // float bottomY = topY + m_game.window().getView().getSize().y; // + m_gridSize.y maybe
+
+            float nextGridX = leftX - fmodf(leftX, m_gridSize.x);
+            float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
+            // logic if grid (0, 0) at top left
+            // float nextGridY = topY - fmodf(topY, m_gridSize.y);
+
+            // vertical grid lines
+            for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+            {
+                drawLine(Vec2f(x, topY), Vec2f(x, bottomY));
+            }
+
+            // horizontal grid lines
+            for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
+            // logic if grid (0, 0) at top left
+            // for (float y = nextGridY; y <= bottomY; y += m_gridSize.y)
+            {
+                drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
+
+                // grid cell labels
+                for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+                {
+                    std::string xCell = std::to_string(static_cast<int>(x / m_gridSize.x));
+                    std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_gridSize.y));
+                    // logic if grid (0, 0) at top left
+                    // std::string yCell = std::to_string(static_cast<int>(y / m_gridSize.y));
+
+                    m_gridText.setString("(" + xCell + "," + yCell + ")");
+                    m_gridText.setPosition(x + 3, y - m_gridSize.y + 2); // position label inside cell
+                    // top left: m_gridText.setPosition(x + 3, y + 2); // position label inside cell
+                    m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
+                    m_game.window().draw(m_gridText);
+                }
+            }
+        }
+    }
+    
     // draw all entity collision bounding boxes with a rectangle
     if (m_drawCollision)
     {
+        sf::CircleShape dot(4);
+        dot.setFillColor(sf::Color::Black);
         for (auto e : m_entityManager.getEntities())
         {
             if (e->has<CBoundingBox>())
@@ -471,50 +635,56 @@ void Scene_Play::sRender()
                 auto &box = e->get<CBoundingBox>();
                 auto &transform = e->get<CTransform>();
                 sf::RectangleShape rect;
-                rect.setSize(sf::Vector2f(box.size));
-                rect.setOrigin(sf::Vector2f(box.halfSize));
+                rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
+                rect.setOrigin(box.halfSize);
                 rect.setPosition(transform.pos);
                 rect.setFillColor(sf::Color(0, 0, 0, 0));
                 rect.setOutlineColor(sf::Color(255, 255, 255, 255));
+
+                if (box.blockMove && box.blockVision)
+                {
+                    rect.setOutlineColor(sf::Color::Black);
+                }
+                if (box.blockMove && !box.blockVision)
+                {
+                    rect.setOutlineColor(sf::Color::Blue);
+                }
+                if (!box.blockMove && box.blockVision)
+                {
+                    rect.setOutlineColor(sf::Color::Red);
+                }
+                if (!box.blockMove && !box.blockVision)
+                {
+                    rect.setOutlineColor(sf::Color::White);
+                }
+
                 rect.setOutlineThickness(1);
+
                 m_game.window().draw(rect);
             }
-        }
-    }
 
-    if (m_drawGrid)
-    {
-        // calculate the view dimensions and offsets
-        float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
-        float rightX = leftX + m_game.window().getView().getSize().x;
-        float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
-        float topY = bottomY - m_game.window().getView().getSize().y;
-
-        // find the next grid line starting point
-        float nextGridX = leftX - fmodf(leftX, m_gridSize.x);
-        float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
-
-        // vertical grid lines
-        for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
-        {
-            drawLine(Vec2f(x, topY), Vec2f(x, bottomY));
-        }
-
-        // horizontal grid lines
-        for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
-        {
-            drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
-
-            // grid cell labels
-            for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+            if (e->has<CPatrol>())
             {
-                std::string xCell = std::to_string((int)(x / m_gridSize.x));
-                std::string yCell = std::to_string((int)((bottomY - y) / m_gridSize.y)); // Bottom-left is (0,0)
+                auto &patrol = e->get<CPatrol>().positions;
+                for (size_t p = 0; p < patrol.size(); p++)
+                {
+                    dot.setPosition(patrol[p].x, patrol[p].y);
+                    m_game.window().draw(dot);
+                }
+            }
 
-                m_gridText.setString("(" + xCell + "," + yCell + ")");
-                m_gridText.setPosition(x + 3, y - m_gridSize.y + 3); // position label inside cell
-                m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
-                m_game.window().draw(m_gridText);
+            if (e->has<CFollowPlayer>())
+            {
+                sf::VertexArray lines(sf::LinesStrip, 2);
+                lines[0].position.x = e->get<CTransform>().pos.x;
+                lines[0].position.y = e->get<CTransform>().pos.y;
+                lines[0].color = sf::Color::Black;
+                lines[1].position.x = m_player->get<CTransform>().pos.x;
+                lines[1].position.y = m_player->get<CTransform>().pos.y;
+                lines[1].color = sf::Color::Black;
+                m_game.window().draw(lines);
+                dot.setPosition(e->get<CFollowPlayer>().home);
+                m_game.window().draw(dot);
             }
         }
     }
@@ -530,20 +700,4 @@ void Scene_Play::drawLine(const Vec2f &p1, const Vec2f &p2)
         sf::Vertex(sf::Vector2f(p2.x, p2.y), sf::Color(255, 255, 255, 50))
     };
     m_game.window().draw(line, 2, sf::Lines);
-}
-
-// helper function to get player easily
-std::shared_ptr<Entity> Scene_Play::player()
-{
-    auto &players = m_entityManager.getEntities("player");
-
-    if (!players.empty())
-    {
-        return players.front();
-    }
-    else
-    {
-        std::cerr << "No active players" << std::endl;
-        exit(-1);
-    }
 }

@@ -1,6 +1,11 @@
 #pragma once
 
 #include "Assets.hpp"
+#include <SFML/Graphics.hpp>
+
+#include <map>
+#include <string>
+#include <memory>
 
 class Scene; // forward declaration to resolve circular dependency, no need to include Scene.h here since GameEngine.h doesn't need to know the details
 

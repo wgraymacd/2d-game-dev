@@ -11,11 +11,16 @@ class EntityManager;
 using ComponentTuple = std::tuple<
     CTransform,
     CLifespan,
+    CDamage,
+    CInvincibility, // breif moment after taking damage
+    CHealth,
     CInput,
     CBoundingBox,
     CAnimation,
     CGravity,
-    CState>;
+    CState,
+    CFollowPlayer, // NPC behavior
+    CPatrol>; // NPC behavior
 
 class Entity
 {
@@ -50,19 +55,6 @@ public:
     {
         return m_tag;
     }
-
-    // template <typename T>
-    // bool has()
-    // {
-    //     return get<T>().exists;
-    // }
-
-    // // const correctness
-    // template <typename T>
-    // const bool has() const
-    // {
-    //     return get<T>().exists;
-    // }
 
     template <typename T>
     bool has() const

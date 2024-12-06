@@ -3,8 +3,7 @@
 #include "Action.hpp"
 #include <map>
 
-// #include "GameEngine.h" DONT include this because it created circular dependency with GameEngine.h, just let Scene.h know that GameEngine.h exists
-class GameEngine;
+class GameEngine; // DONT include GameEngine.h this because it created circular dependency with GameEngine.h, just let Scene.h know that GameEngine.h exists with this forward declaration
 
 class Scene
 {

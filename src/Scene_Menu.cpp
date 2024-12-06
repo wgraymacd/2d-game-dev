@@ -1,9 +1,11 @@
 #include "Scene_Menu.h"
 #include "Scene_Play.h"
+#include "Scene.h"
 #include "Assets.hpp"
 #include "GameEngine.h"
-#include "Components.hpp"
 #include "Action.hpp"
+
+#include <SFML/Graphics.hpp>
 
 Scene_Menu::Scene_Menu(GameEngine &gameEngine)
     : Scene(gameEngine)

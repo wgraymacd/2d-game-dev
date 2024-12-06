@@ -93,12 +93,79 @@ entity should be positioned such that bottom left corner is aligned with bottom 
 - Dec N GX GY | anim name, grid x, grid y | std::string, float (x2)
 - Player GX GY CW CH SX SY SM GRAVITY BA | grid pos, bounding box width/height, horizontal speed, jump speed, max speed, gravity, bullet animation | float, ..., float, std::string
 
-hints:
 
-- aside from what is "already implemented"
-- implement Animation::update() and Animation::hasEnded() whenever, independent of gameplay
-- implement Scene_Play::loadLevel() first (requires implementing gridToMidPixel first)
-- spawnPlayer()
-- implement movement so that can start testing the rest
-- spawnBullet()
-- Physics namespace
+
+
+
+TOP DOWN GAME A3 ZELDA:
+
+Project Info:
+-------------
+
+assets:
+
+entities rendered with textures and animations
+will also use fonts and sounds
+loaded once at beginning and stored in Assets class, which is stored by the GameEngine class
+all Assets defined in assets.txt, with syntax defined below
+
+player:
+- your typical Top-Down 2D platformer controls of up, down, left, right, attack (for all directions), this may evolve as I toon this to my liking
+
+other entities:
+- either block movement or vision now, not just movement (line of sight functionality)
+
+NPCs:
+- given AI behavior (either follow or patrol)
+- take note of oscillating when NPCs returning to home positioned
+
+animations:
+- implemented by storing multiple frames inside a texture
+- can be repeating (loop forever) or non-repeating
+- if non-repeating, should be destroyed once animation has ended (one cycle)
+- will use everywhere, even if just one frame (not using textures explicitly in code)
+- will also use for textures in a texture atlas (different spec in config files)
+
+decoration:
+- drawn to the screen, do not interact with other entities
+- can be given any animation
+
+tiles:
+- entities that define the level geometry and interact with players
+- given animation defined in assets file
+- tiles given CBoundingBox equal to size of the animation
+
+drawing:
+- change camera position (window.view()) of the game window to alternate between two modes based on the m_follow variable
+- true: follow mode - camera centered on player
+- false: room mode - camera centered on middle of room
+
+rooms:
+- each level split up into rooms (rx, ry)
+- defined by rect (rx * w, ry * h, w, h)
+- each tile given a (tx, ty) grid pos in room
+- camera centered on room that player is in
+
+misc:
+- 'p' pauses game
+- 't' toggles drawing textures
+- 'c' toggles drawing of bounding boxes
+- 'g' toggles drawing of grid
+- 'y' toggles camera mode
+- 'esc' goes back to main menu or quits if on main menu
+
+config files:
+-------------
+
+asset config:
+- Texture N P | name, file path | std::string (x2)
+- Animation N T F S | name, texture/sprite name, frame count, speed | std::string (x2), int (x2)
+- Font N P | name, file path | std::string (x2)
+- Sound N P | name, path | std::string (x2)
+
+level config:
+- Player X Y BX BY S H | spawn pos, bounding box size, spped, health | int (x4), float, int
+- Tile N RX RY TX TY BM BV | anim name, room coord, tile pos, block movement, blocks vision | std::string, int (x6)
+- NPC N RX RY TX TY BM BV H D AI ... | anim name, room coord, tile pos, block move, blocks vision, max health, damage, AI behavior, AI params | std::string, int (x8), std::string, see below
+    - AI = follow: ... = S | follow speed | float
+    - AI = patrol: ... = S N X1 Y1 X2 Y2 ... XN YN | patrol speed, patrol positions, position 1 to N | float, int, int (x2N)

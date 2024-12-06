@@ -1,4 +1,8 @@
 #include "Scene.h"
+#include "GameEngine.h"
+
+#include <string>
+#include <map>
 
 Scene::Scene(GameEngine &game)
     : m_game(game) {}

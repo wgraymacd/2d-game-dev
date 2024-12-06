@@ -2,8 +2,10 @@
 
 #include "Animation.hpp"
 #include "Vec2.hpp"
+#include <string>
+#include <vector>
 
-class Component 
+class Component
 {
 public:
     bool exists = false;
@@ -12,20 +14,21 @@ public:
 class CTransform : public Component
 {
 public:
-    Vec2f pos = { 0.0, 0.0 };
-    Vec2f prevPos = { 0.0, 0.0 }; // pos last frame
-    Vec2f scale = { 1.0, 1.0 };
-    Vec2f velocity = { 0.0, 0.0 };
+    Vec2f pos = {0.0, 0.0};
+    Vec2f prevPos = {0.0, 0.0}; // pos last frame
+    Vec2f scale = {1.0, 1.0};
+    Vec2f velocity = {0.0, 0.0};
+    Vec2f facing = {0.0, 1.0}; // this would be down
     float rotAngle = 0;
 
     CTransform() = default;
-    CTransform(const Vec2f& p)
-        : pos(p) { }
-    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a)
-        : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) { }
+    CTransform(const Vec2f &p)
+        : pos(p) {}
+    CTransform(const Vec2f &p, const Vec2f &v, const Vec2f &sc, float a)
+        : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {}
 };
 
-class CLifespan : public Component 
+class CLifespan : public Component
 {
 public:
     int lifespan = 0;
@@ -33,7 +36,35 @@ public:
 
     CLifespan() = default;
     CLifespan(int duration, int frame)
-        : lifespan(duration), frameCreated(frame) { }
+        : lifespan(duration), frameCreated(frame) {}
+};
+
+class CDamage : public Component
+{
+public:
+    int damage = 1;
+    CDamage() = default;
+    CDamage(int d)
+        : damage(d) {}
+};
+
+class CInvincibility : public Component
+{
+public:
+    int iframes = 0;
+    CInvincibility() = default;
+    CInvincibility(int f)
+        : iframes(f) {}
+};
+
+class CHealth : public Component
+{
+public:
+    int max = 1;
+    int current = 1;
+    CHealth() = default;
+    CHealth(int m, int c)
+        : max(m), current(c) {}
 };
 
 class CInput : public Component
@@ -55,9 +86,13 @@ class CBoundingBox : public Component
 public:
     Vec2f size;
     Vec2f halfSize;
+    bool blockMove = false;
+    bool blockVision = false;
     CBoundingBox() = default;
-    CBoundingBox(const Vec2f& s)
-        : size(s), halfSize(s.x / 2, s.y/2) { }
+    CBoundingBox(const Vec2f &s)
+        : size(s), halfSize(s.x / 2, s.y / 2) {}
+    CBoundingBox(const Vec2f &s, bool m, bool v)
+        : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2, s.y / 2) {}
 };
 
 class CAnimation : public Component
@@ -66,8 +101,8 @@ public:
     Animation animation;
     bool repeat = false;
     CAnimation() = default;
-    CAnimation(const Animation& animation, bool r)
-        : animation(animation), repeat(r) { }
+    CAnimation(const Animation &animation, bool r)
+        : animation(animation), repeat(r) {}
 };
 
 class CGravity : public Component
@@ -75,14 +110,34 @@ class CGravity : public Component
 public:
     float gravity = 0;
     CGravity() = default;
-    CGravity(float g) : gravity(g) { }
+    CGravity(float g) : gravity(g) {}
 };
 
-// bookkeeping
-class CState: public Component
+class CState : public Component
 {
 public:
     std::string state = "none";
     CState() = default;
-    CState(const std::string& s) : state(s) { }
+    CState(const std::string &s) : state(s) {}
+};
+
+class CFollowPlayer : public Component
+{
+public:
+    Vec2f home = {0, 0};
+    float speed = 0;
+    CFollowPlayer() = default;
+    CFollowPlayer(Vec2f &p, float s)
+        : home(p), speed(s) {}
+};
+
+class CPatrol : public Component
+{
+public:
+    std::vector<Vec2f> positions;
+    size_t currentPosition = 0;
+    float speed = 0;
+    CPatrol() = default;
+    CPatrol(std::vector<Vec2f> &pos, float s)
+        : positions(pos), speed(s) {}
 };

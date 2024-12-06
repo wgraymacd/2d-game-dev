@@ -2,6 +2,13 @@
 
 #include "Scene.h"
 #include "EntityManager.hpp"
+#include "Vec2.hpp"
+#include "GameEngine.h"
+
+#include <SFML/Graphics.hpp>
+
+#include <string>
+#include <memory>
 
 class Scene_Play : public Scene
 {
@@ -15,6 +22,10 @@ protected:
     std::string m_levelPath;
     PlayerConfig m_playerConfig;
     EntityManager m_entityManager;
+    std::shared_ptr<Entity> m_player;
+
+    bool m_follow = false;
+    
     bool m_drawTextures = true;
     bool m_drawCollision = false;
     bool m_drawGrid = false;
@@ -29,15 +40,18 @@ protected:
     void onEnd() override;
     void spawnPlayer();
     void spawnBullet(std::shared_ptr<Entity> entity);
-
+    void spawnSword(std::shared_ptr<Entity> entity);
     Vec2f gridToMidPixel(float x, float y, std::shared_ptr<Entity> entity);
     std::shared_ptr<Entity> player();
+    Vec2f getPosition(int rx, int ry, int tx, int ty) const;
 
     void sMovement();
-    void sLifespan();
+    void sStatus(); // lifespan and invincibility
     void sCollision();
     void sDoAction(const Action &action) override;
     void sAnimation();
+    void sAI(); // NPC behavior
+    void sCamera(); // room vs center of player vs anything I might want
     void sGUI();
     void sRender() override;
 

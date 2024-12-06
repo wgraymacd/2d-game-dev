@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Entity.hpp"
-
-#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+#include <memory> // shared pointers
 
 using EntityVec = std::vector<std::shared_ptr<Entity>>;
 
@@ -30,26 +32,21 @@ public:
 
     void update()
     {
-        // add entities from m_entitiesToAdd to the proper locations (first vector of all entities then inside the map with the tag as the key)
-        
         // bool print = false;
         // if (m_entitiesToAdd.size() > 0)
         // {
         //     print = true;
         // }
 
-        for (auto& e : m_entitiesToAdd) // remember, & means e is NOT a copy of the shared pointers to entities in m_entitiesToAdd
+        for (auto& e : m_entitiesToAdd)
         {
             m_entities.push_back(e);
             m_entityMap[e->tag()].push_back(e);
         }
         m_entitiesToAdd.clear();
 
-        // remove dead entities from the vector of all entities
         removeDeadEntities(m_entities);
 
-        // remove dead entities from each vector in the entity map
-        // c++20 way or iterating through [key, value] pairs in a map
         for (auto &[tag, entityVec] : m_entityMap)
         {
             removeDeadEntities(entityVec);
@@ -74,15 +71,13 @@ public:
         // }
     }
 
+    // add entity
     std::shared_ptr<Entity> addEntity(const std::string& tag)
     {
-        // create the entity shared pointer
         std::shared_ptr<Entity> entity = std::shared_ptr<Entity>(new Entity(m_totalEntities++, tag));
 
-        // add it to the vec of all entities
         m_entitiesToAdd.push_back(entity);
 
-        // add it to the entity map
         if (m_entityMap.find(tag) == m_entityMap.end())
         {
             m_entityMap[tag] = EntityVec();
@@ -107,6 +102,7 @@ public:
         return m_entityMap[tag];
     }
 
+    // return the map of entity string tags to entities
     const std::map<std::string, EntityVec> &getEntityMap()
     {
         return m_entityMap;

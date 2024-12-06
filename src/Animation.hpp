@@ -2,14 +2,16 @@
 
 #include "Vec2.hpp"
 #include <SFML/Graphics.hpp>
+#include <string>
 
+// TODO: may want to consider a rework to separate textures and animations
 class Animation
 {
     std::string m_name = "none";
-    size_t m_frameCount = 1; // number of frames in the animation
+    size_t m_frameCount = 1;    // number of frames in the animation
     size_t m_frameDuration = 1; // length of one frame
-    Vec2f m_position = {0, 0}; // for regions of texture atlases
-    Vec2f m_size; // dimensions of animation frame
+    Vec2f m_position = {0, 0};  // for regions of texture atlases
+    Vec2f m_size;               // dimensions of animation frame
 
     size_t m_currentFrame = 0; // current frame of the animation
     size_t m_framesPassed = 0; // number of game frames passed since created

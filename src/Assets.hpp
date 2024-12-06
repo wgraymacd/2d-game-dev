@@ -2,6 +2,7 @@
 
 #include "Animation.hpp"
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 
 #include <cassert>
 #include <iostream>
@@ -12,6 +13,8 @@ class Assets
     std::map<std::string, sf::Texture> m_textureMap;
     std::map<std::string, Animation> m_animationMap;
     std::map<std::string, sf::Font> m_fontMap;
+    std::map<std::string, sf::SoundBuffer> m_soundBufferMap;
+    std::map<std::string, sf::Sound> m_soundMap;
 
     // can be for single sprites or for atlas
     void addTexture(const std::string &textureName, const std::string &path, bool smooth)
@@ -33,15 +36,13 @@ class Assets
     // animations with their own texture file
     void addAnimation(const std::string &animationName, const std::string &textureName, const size_t frameCount, const size_t frameDuration)
     {
-        const sf::Texture &texture = getTexture(textureName);
-        m_animationMap[animationName] = Animation(animationName, texture, frameCount, frameDuration);
+        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
 
     // static animations (images) found in texture atlases
     void addAnimation(const std::string &animationName, const std::string &textureName, const Vec2f &position, const Vec2f &location)
     {
-        const sf::Texture &texture = getTexture(textureName);
-        m_animationMap[animationName] = Animation(animationName, texture, position, location);
+        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, location);
     }
 
     void addFont(const std::string &fontName, const std::string &path)
@@ -55,6 +56,22 @@ class Assets
         else
         {
             std::cout << "Loaded font: " << path << std::endl;
+        }
+    }
+
+    void addSound(const std::string &soundName, const std::string &path)
+    {
+        m_soundBufferMap[soundName] = sf::SoundBuffer();
+        if (!m_soundBufferMap[soundName].loadFromFile(path))
+        {
+            std::cerr << "Could not load sound file: " << path << std::endl;
+            m_soundBufferMap.erase(soundName);
+        }
+        else
+        {
+            std::cout << "Loaded sound: " << path << std::endl;
+            m_soundMap[soundName] = sf::Sound(m_soundBufferMap[soundName]);
+            m_soundMap[soundName].setVolume(25);
         }
     }
 
@@ -129,5 +146,11 @@ public:
     const std::map<std::string, Animation> &getAnimations() const
     {
         return m_animationMap;
+    }
+
+    sf::Sound &getSound(const std::string &soundName)
+    {
+        assert(m_soundMap.find(soundName) != m_soundMap.end());
+        return m_soundMap.at(soundName);
     }
 };
