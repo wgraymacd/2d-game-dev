@@ -3,7 +3,7 @@ Big-Picture Goal:
 I am building a 2D video game from scratch using:
 - ECS architecture
 - C++ and only the SFML library (will attempt using lower-level libraries later on)
-Ultimately, I will build a 3D game engine (or simulator, something like that), focusing mainly on the physics, math, and logic. I aim to master 3D math for use in games, simulators, AR/VR, etc.
+Next, I will build a 3D game engine (or simulator, something like that), focusing mainly on the physics, math, and logic. I aim to practice 3D math and physics for use in games, simulators, AR/VR, etc.
 
 This Repo:
 ==========
