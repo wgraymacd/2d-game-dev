@@ -23,20 +23,30 @@ Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
 
 void Scene_Play::init(const std::string &levelPath)
 {
+    // misc keybind setup
     registerAction(sf::Keyboard::P, "PAUSE");
     registerAction(sf::Keyboard::Escape, "QUIT");
     registerAction(sf::Keyboard::T, "TOGGLE_TEXTURE");
     registerAction(sf::Keyboard::C, "TOGGLE_COLLISION");
     registerAction(sf::Keyboard::G, "TOGGLE_GRID");
 
-    // player
+    // player keyboard setup
     registerAction(sf::Keyboard::W, "JUMP");
     registerAction(sf::Keyboard::A, "LEFT");
     registerAction(sf::Keyboard::D, "RIGHT");
-    registerAction(sf::Keyboard::J, "SHOOT");
 
+    // player mouse setup
+    registerAction(sf::Mouse::Button::Left, "SHOOT", true);
+
+    // grid text setup
     m_gridText.setCharacterSize(12);
     m_gridText.setFont(m_game.assets().getFont("PixelCowboy"));
+
+    // fps counter setup
+    m_fpsText.setFont(m_game.assets().getFont("PixelCowboy"));
+    m_fpsText.setCharacterSize(16);
+    m_fpsText.setFillColor(sf::Color::White);
+    m_fpsText.setPosition(10.f, 10.f); // top-left corner
 
     loadLevel(levelPath);
 }
@@ -136,16 +146,20 @@ void Scene_Play::spawnPlayer()
 // spawn a bullet at the location of entity in the direction the entity is facing
 void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
+    Vec2f &entityPos = entity->get<CTransform>().pos;
+    float bulletSpeed = 15.0f;
+    const Vec2i &target = sf::Mouse::getPosition(); // TODO: fix this, find way to hold down mouse and keep shooting with updated mouse position
+
     std::shared_ptr<Entity> bullet = m_entityManager.addEntity("bullet");
     bullet->add<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
-    bullet->add<CTransform>(entity->get<CTransform>().pos, Vec2f(entity->get<CTransform>().scale.x * 15.0f, 0.0f), Vec2f(1.0f, 1.0f), 0.0f);
+    bullet->add<CTransform>(entityPos, (target.to<float>() - entityPos) * bulletSpeed / target.to<float>().dist(entityPos), Vec2f(1.0f, 1.0f), 0.0f);
     bullet->add<CBoundingBox>(bullet->get<CAnimation>().animation.getSize());
     bullet->add<CLifespan>(60, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
 }
 
-void Scene_Play::spawnSword(std::shared_ptr<Entity> entity)
+void Scene_Play::spawnMelee(std::shared_ptr<Entity> entity)
 {
-    // TODO: spawn a sword if I want to follow the Zelda thing
+    // TODO: spawn a sword or a knife for melee attacks
 }
 
 void Scene_Play::update()
@@ -163,14 +177,12 @@ void Scene_Play::update()
         sCamera();
     }
 
-    sGUI();
     sRender();
 }
 
 void Scene_Play::sMovement()
 {
-    // player 
-
+    /* player */
     std::string &state = m_player->get<CState>().state;
     CInput &input = m_player->get<CInput>();
     CTransform &trans = m_player->get<CTransform>();
@@ -250,12 +262,12 @@ void Scene_Play::sMovement()
         }
     }
 
-    // bullets
+    /* bullets */
     for (auto &bullet : m_entityManager.getEntities("bullet"))
     {
         bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
     }
-    if (input.shoot && input.canShoot)
+    if (input.shoot && input.canShoot) 
     {
         spawnBullet(m_player);
     }
@@ -322,7 +334,7 @@ void Scene_Play::sCollision()
 
             if (overlap.x > 0 && overlap.y > 0)
             {
-                std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
+                // std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
                 // TODO: do whatever else here I might want (animations, tile weakening, etc.)
                 bullet->destroy();
             }
@@ -501,11 +513,6 @@ void Scene_Play::onEnd()
     // TODO: stop music, play menu music
 }
 
-void Scene_Play::sGUI()
-{
-    // some GUI if I want
-}
-
 void Scene_Play::sRender()
 {
     // color the background darker so you know that the game is paused
@@ -521,7 +528,7 @@ void Scene_Play::sRender()
     sf::RectangleShape tick({1.0f, 6.0f});
     tick.setFillColor(sf::Color::Black);
 
-    // draw all entity textures / animations
+    /* draw all entity textures / animations */
     if (m_drawTextures)
     {
         for (auto e : m_entityManager.getEntities()) // getEntities() returns reference
@@ -577,6 +584,7 @@ void Scene_Play::sRender()
             }
         }
 
+        /* grid */
         if (m_drawGrid)
         {
             float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
@@ -623,7 +631,7 @@ void Scene_Play::sRender()
         }
     }
     
-    // draw all entity collision bounding boxes with a rectangle
+    /* draw all entity collision bounding boxes with a rectangle */
     if (m_drawCollision)
     {
         sf::CircleShape dot(4);
@@ -688,6 +696,12 @@ void Scene_Play::sRender()
             }
         }
     }
+
+    /* fps counter */
+    float elapsedTime = m_fpsClock.restart().asSeconds();
+    float fps = 1.0f / elapsedTime;
+    m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
+    m_game.window().draw(m_fpsText);
 
     m_game.window().display();
 }

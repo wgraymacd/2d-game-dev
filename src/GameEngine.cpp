@@ -31,7 +31,7 @@ void GameEngine::update()
     currentScene()->update();
 }
 
-// user input system
+/* user input system */
 void GameEngine::sUserInput()
 {
     sf::Event event;
@@ -42,6 +42,7 @@ void GameEngine::sUserInput()
             quit();
         }
 
+        // keyboard clicking
         if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
         {
             // if current scene does not have an action associated with key code, skip it
@@ -58,55 +59,12 @@ void GameEngine::sUserInput()
         }
 
         // mouse clicking
-        if (event.type == sf::Event::MouseButtonPressed)
+        if (event.type == sf::Event::MouseButtonPressed || event.type == sf::Event::MouseButtonReleased)
         {
-            Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
-            switch (event.mouseButton.button)
-            {
-            case sf::Mouse::Left:
-            {
-                currentScene()->sDoAction(Action("LEFT_CLICK", "START", mpos));
-                break;
-            }
-            case sf::Mouse::Middle:
-            {
-                currentScene()->sDoAction(Action("MIDDLE_CLICK", "START", mpos));
-                break;
-            }
-            case sf::Mouse::Right:
-            {
-                currentScene()->sDoAction(Action("RIGHT_CLICK", "START", mpos));
-                break;
-            }
-            default:
-                break;
-            }
-        }
+            // Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
 
-        if (event.type == sf::Event::MouseButtonReleased)
-        {
-            Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
-            switch (event.mouseButton.button)
-            {
-            case sf::Mouse::Left:
-            {
-                currentScene()->sDoAction(Action("LEFT_CLICK", "END", mpos));
-                break;
-            }
-            case sf::Mouse::Middle:
-            {
-                currentScene()->sDoAction(Action("MIDDLE_CLICK", "END", mpos));
-                break;
-            }
-            case sf::Mouse::Right:
-            {
-                currentScene()->sDoAction(Action("RIGHT_CLICK", "END", mpos));
-                break;
-            }
-            default:
-                break;
-            }
-        }
+            currentScene()->sDoAction(Action(currentScene()->getActionMap().at(event.mouseButton.button + sf::Keyboard::KeyCount), (event.type == sf::Event::MouseButtonPressed ? "START" : "END"))); // add KeyCount since button codes and key codes overlap
+        } 
     }
 }
 

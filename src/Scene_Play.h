@@ -32,6 +32,10 @@ protected:
     const Vec2f m_gridSize = {40, 40}; // cell size
     sf::Text m_gridText;
 
+    // fps counter
+    sf::Clock m_fpsClock;
+    sf::Text m_fpsText;
+
     void init(const std::string &levelPath);
 
     void loadLevel(const std::string &filename);
@@ -40,7 +44,7 @@ protected:
     void onEnd() override;
     void spawnPlayer();
     void spawnBullet(std::shared_ptr<Entity> entity);
-    void spawnSword(std::shared_ptr<Entity> entity);
+    void spawnMelee(std::shared_ptr<Entity> entity);
     Vec2f gridToMidPixel(float x, float y, std::shared_ptr<Entity> entity);
     std::shared_ptr<Entity> player();
     Vec2f getPosition(int rx, int ry, int tx, int ty) const;
@@ -52,7 +56,6 @@ protected:
     void sAnimation();
     void sAI(); // NPC behavior
     void sCamera(); // room vs center of player vs anything I might want
-    void sGUI();
     void sRender() override;
 
     void drawLine(const Vec2f &p1, const Vec2f &p2);

@@ -70,13 +70,16 @@ public:
 class CInput : public Component
 {
 public:
-    bool up = false;
-    bool down = false;
+    // movement
     bool left = false;
     bool right = false;
+    bool up = false;
+    bool down = false;
+    bool canJump = false;
+
+    // shooting
     bool shoot = false;
     bool canShoot = true;
-    bool canJump = false;
 
     CInput() = default;
 };

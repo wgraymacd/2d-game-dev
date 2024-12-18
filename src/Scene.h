@@ -24,6 +24,8 @@ public:
 
     const std::map<int, std::string> &getActionMap() const;
 
-    void registerAction(int inputKey, const std::string &actionName);
+    // sf::Keyboard::A == sf::Mouse::Button::Left == 0 so need to distinguish between keyboard and mouse input
+    void registerAction(int inputKey, const std::string &actionName, bool isMouseButton = false);
+
     void setPaused(bool paused);
 };
