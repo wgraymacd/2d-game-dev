@@ -3,16 +3,17 @@ Big-Picture Goal:
 I am building a 2D video game from scratch using:
 - ECS architecture
 - C++ and only the SFML library (will attempt using lower-level libraries later on)
+
 Next, I will build a 3D game engine (or simulator, something like that), focusing mainly on the physics, math, and logic. I aim to practice 3D math and physics for use in games, simulators, AR/VR, etc.
 
 This Repo:
 ==========
-This repo sets the foundation for a 2D-Platformer, a small project I took on to learn some things before creating my own game.
+This repo will become my 2D game. It will go private eventually when it starts to grow more and I decide to start selling it.
 
 Project Info:
 -------------
 
-note: all entity positions denote the center of their rectangular sprite and bounding box (if they have one) set vie sprite.setOrigin() in the Animation class constructor
+note: all entity positions denote the center of their rectangular sprite and bounding box (if they have one) set via sprite.setOrigin() in the Animation class constructor
 
 assets:
 
@@ -21,10 +22,7 @@ loaded once at beginning and stored in Assets class, which is stored by the Game
 all Assets defined in assets.txt, with syntax defined below
 
 player:
-- your typical 2D platformer controls
-- can't move through tile entities
-- can move through decoration entities
-- respawn at start if fall below screen
+- wasd controls, click to shoot
 - affected by downward gravity
 - has max speed specified in level file 
 
@@ -70,8 +68,7 @@ asset config:
 - Font N P | name, file path | std::string (x2)
 
 level config:
-notes: grid coord systems (0, 0) is in the bottom left to make things more intuitive, all (GX, GY) positions are in grid coords, cells 64x64 pixels
-entity should be positioned such that bottom left corner is aligned with bottom left corner of grid coordinate (not all textures are the size 64x64 pixels)
+notes: grid coord systems (0, 0) is in the bottom left to make things more intuitive, all (GX, GY) positions are in grid coords, cells 40x40 pixels (may change this to top left to be consistent with SFML and require less calculation)
 - Tile N GX GY | animation name, grid x, grid y | std::string, float (x2)
 - Dec N GX GY | anim name, grid x, grid y | std::string, float (x2)
 - Player GX GY CW CH SX SY SM GRAVITY BA | grid pos, bounding box width/height, horizontal speed, jump speed, max speed, gravity, bullet animation | float, ..., float, std::string
