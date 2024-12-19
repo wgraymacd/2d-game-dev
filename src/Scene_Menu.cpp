@@ -7,12 +7,15 @@
 
 #include <SFML/Graphics.hpp>
 
+/// @brief constructs a new Scene_Menu object, calls Scene_Menu::init
+/// @param gameEngine the game's main engine; required by Scene to access the GameEngine object
 Scene_Menu::Scene_Menu(GameEngine &gameEngine)
     : Scene(gameEngine)
 {
     init();
 }
 
+/// @brief initialized the MENU scene: registers keybinds, sets text attributes, and defines level paths
 void Scene_Menu::init()
 {
     registerAction(sf::Keyboard::W, "UP");
@@ -33,17 +36,19 @@ void Scene_Menu::init()
     m_menuText.setCharacterSize(64);
 }
 
+/// @brief updates the scene's state
 void Scene_Menu::update()
 {
     // only one thing to update in Menu scene, rendering
     sRender();
 }
 
+/// @brief performs the given action
+/// @param action an Action to perform; action has a type and a name
 void Scene_Menu::sDoAction(const Action &action)
 {
     if (action.type() == "START")
-    { // this line is 6 lines before the else if below
-        // not sure what goes here
+    {
         if (action.name() == "UP")
         {
             m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : m_menuStrings.size() - 1;
@@ -63,6 +68,7 @@ void Scene_Menu::sDoAction(const Action &action)
     }
 }
 
+/// @brief renders the scene background and text
 void Scene_Menu::sRender()
 {
     // clear the window to a blue
@@ -95,6 +101,7 @@ void Scene_Menu::sRender()
     m_game.window().display();
 }
 
+/// @brief quits the game
 void Scene_Menu::onEnd()
 {
     m_game.quit();

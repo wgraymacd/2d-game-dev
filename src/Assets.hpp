@@ -78,6 +78,8 @@ class Assets
 public:
     Assets() = default;
 
+    /// @brief loads all assets from asset configuration file
+    /// @param path the file path to the asset configuration file
     void loadFromFile(const std::string &path)
     {
         std::ifstream file(path);

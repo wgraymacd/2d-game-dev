@@ -16,19 +16,21 @@ public:
         : x(xin), y(yin)
     { }
 
-    // constructor to convert from sf::Vector2
+    /// @brief constructor to convert from sf::Vector2
+    /// @param vec a reference to an sf::Vector2 object
     Vec2(const sf::Vector2<T>& vec)
         : x(vec.x), y(vec.y)
     { }
 
-    // allow automatic conversion to sf::Vector2
-    // this allows passing Vec2 to sfml functions
+    /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
     operator sf::Vector2<T>()
     {
         return sf::Vector2<T>(x, y);
     }
 
-    // to convert from Vec2<T> to Vec2<U> (int to float used)
+    /// @brief convert from Vec2<T> to Vec2<U>
+    /// @tparam U any type (int, float, etc.)
+    /// @return a Vec2<U> with the same values as the original Vec2<T> if a static cast is available from T to U
     template <typename U>
     Vec2<U> to() const
     {
@@ -36,6 +38,7 @@ public:
     }
 
     // use of const: const Vec2& rhs ensures that the original object rhs is not modified and const at the end guarantees that this func does not modify the object it is called on
+
     Vec2 operator + (const Vec2& rhs) const
     {
         return Vec2(x + rhs.x, y + rhs.y);
@@ -90,6 +93,9 @@ public:
         return (x != rhs.x) && (y != rhs.y);
     }
 
+    /// @brief calculates the length of the vector from vec to the object this function is called on
+    /// @param vec a Vec2 object you want to find the distance to
+    /// @return the length of the connecting vector
     float dist(const Vec2& vec) const
     {
         return sqrtf((x - vec.x) * (x - vec.x) + (y - vec.y) * (y - vec.y));

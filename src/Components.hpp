@@ -14,11 +14,10 @@ public:
 class CTransform : public Component
 {
 public:
-    Vec2f pos = {0.0, 0.0};
+    Vec2f pos = {0.0, 0.0}; // top-left corner of entity
     Vec2f prevPos = {0.0, 0.0}; // pos last frame
-    Vec2f scale = {1.0, 1.0};
+    Vec2f scale = {1.0, 1.0}; // can use to change direction entity is facing with a negative x
     Vec2f velocity = {0.0, 0.0};
-    Vec2f facing = {0.0, 1.0}; // this would be down
     float rotAngle = 0;
 
     CTransform() = default;
@@ -116,10 +115,11 @@ public:
     CGravity(float g) : gravity(g) {}
 };
 
+/// TODO: change this to be more efficient using numbers instead of strings, maybe enum, something else
 class CState : public Component
 {
 public:
-    std::string state = "none";
+    std::string state = "none"; // values: "stand", "run", "air"
     CState() = default;
     CState(const std::string &s) : state(s) {}
 };

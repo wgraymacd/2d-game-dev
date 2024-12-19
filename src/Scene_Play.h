@@ -46,8 +46,7 @@ protected:
     void spawnBullet(std::shared_ptr<Entity> entity);
     void spawnMelee(std::shared_ptr<Entity> entity);
     Vec2f gridToMidPixel(float x, float y, std::shared_ptr<Entity> entity);
-    std::shared_ptr<Entity> player();
-    Vec2f getPosition(int rx, int ry, int tx, int ty) const;
+    // Vec2f gridToPixel(float x, float y);
 
     void sMovement();
     void sStatus(); // lifespan and invincibility

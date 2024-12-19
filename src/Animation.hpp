@@ -4,7 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 
-// TODO: may want to consider a rework to separate textures and animations
+/// TODO: may want to consider a rework to separate textures and animations
 class Animation
 {
     std::string m_name = "none";
@@ -37,7 +37,7 @@ public:
         m_sprite.setTextureRect(sf::IntRect(position.x, position.y, size.x, size.y));
     }
 
-    // advance the animation by one frame
+    /// @brief advances an animation by one frame
     void update()
     {
         m_framesPassed++;
@@ -45,7 +45,6 @@ public:
         m_sprite.setTextureRect(sf::IntRect(m_currentFrame * m_size.x, 0, m_size.x, m_size.y));
     }
 
-    // determine if one loop of the animation has ended
     bool hasEnded() const
     {
         return (m_framesPassed > m_currentFrame);

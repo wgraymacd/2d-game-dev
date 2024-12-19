@@ -30,6 +30,7 @@ public:
 
     EntityManager() = default;
 
+    /// @brief adds entities to be added and removed entities to be destroyed
     void update()
     {
         // bool print = false;
@@ -71,28 +72,30 @@ public:
         // }
     }
 
-    // add entity
+    /// @brief marks new entity to be added on next call to EntityManager::update
+    /// @param tag the type of entity to add (e.g., "player")
+    /// @return a shared pointer to the entity to be added
     std::shared_ptr<Entity> addEntity(const std::string& tag)
     {
         std::shared_ptr<Entity> entity = std::shared_ptr<Entity>(new Entity(m_totalEntities++, tag));
-
         m_entitiesToAdd.push_back(entity);
-
         if (m_entityMap.find(tag) == m_entityMap.end())
         {
             m_entityMap[tag] = EntityVec();
         }
-
         return entity;
     }
 
-    // return all entities
+    /// @brief gets all entities in the active EntityManager
+    /// @return m_entities, the EntityVec (std::vector<std::shared_ptr<Entity>>) of all entities
     const EntityVec &getEntities()
     {
         return m_entities;
     }
 
-    // return entities with specific tag
+    /// @brief gets all entities with a specified tag
+    /// @param tag the type of entity to return (e.g., "player")
+    /// @return an EntityVec of entities with the specified tag
     const EntityVec &getEntities(const std::string &tag)
     {
         if (m_entityMap.find(tag) == m_entityMap.end())
@@ -102,7 +105,8 @@ public:
         return m_entityMap[tag];
     }
 
-    // return the map of entity string tags to entities
+    /// @brief gets the map of entity tags to entities
+    /// @return m_entityMap, the map of std::string tags to EntityVec entity vectors
     const std::map<std::string, EntityVec> &getEntityMap()
     {
         return m_entityMap;

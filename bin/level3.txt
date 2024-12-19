@@ -4,11 +4,9 @@ Tile GroundDirt 2 0
 Tile GroundDirt 3 0
 Tile GroundDirt 4 0
 Tile GroundDirt 5 0
-Tile GroundBlack 5 3
 Tile GroundDirt 6 0
 Tile GroundDirt 7 0
 Tile GroundDirt 8 0
-Tile GroundBlack 8 3
 Tile GroundDirt 9 0
 Tile GroundDirt 10 0
 Tile GroundDirt 11 0

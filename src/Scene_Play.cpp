@@ -15,12 +15,17 @@
 #include <fstream>
 #include <memory>
 
+/// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
+/// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
+/// @param levelPath the file path to the scene's configuration file
 Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
     : Scene(gameEngine), m_levelPath(levelPath)
 {
     init(levelPath);
 }
 
+/// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadLevel
+/// @param levelPath the file path to the scene's configuration file; passed to loadLevel
 void Scene_Play::init(const std::string &levelPath)
 {
     // misc keybind setup
@@ -44,15 +49,18 @@ void Scene_Play::init(const std::string &levelPath)
 
     // fps counter setup
     m_fpsText.setFont(m_game.assets().getFont("PixelCowboy"));
-    m_fpsText.setCharacterSize(16);
+    m_fpsText.setCharacterSize(12);
     m_fpsText.setFillColor(sf::Color::White);
     m_fpsText.setPosition(10.f, 10.f); // top-left corner
 
     loadLevel(levelPath);
 }
 
-// TODO: remove this function and replace with getPosition, think about optimizing or using grid from top to bottom like SFML
-// return Vec2f indicating where the center pos of the entity should be
+/// @brief calculates the midpoint of entity based on a given grid position
+/// @param gridX entity's grid x coordinate
+/// @param gridY entity's grid y coordinate
+/// @param entity an entity in the scene
+/// @return a Vec2f with the x and y pixel coordinates of the center of entity
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entity> entity)
 {
     float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2.0f;
@@ -61,17 +69,26 @@ Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entit
     return Vec2f(xPos, yPos);
 }
 
-void Scene_Play::loadLevel(const std::string &filename)
+// return Vec2f indicating where the pos (top-left corner) of the entity should be, (0, 0) is top-left corner of window
+// Vec2f Scene_Play::gridToPixel(float gridX, float gridY)
+// {
+//     float xPos = gridX * m_gridSize.x;
+//     float yPos = gridY * m_gridSize.y;
+// }
+
+/// @brief loads the scene using the configuration file levelPath
+/// @param levelPath the configuration file specifying various components of entities in the scene
+void Scene_Play::loadLevel(const std::string &levelPath)
 {
     // reset the entity manager every time we load a level
     m_entityManager = EntityManager();
 
     // read in the level file and add the appropriate entities
-    std::ifstream file(filename);
+    std::ifstream file(levelPath);
 
     if (!file.is_open())
     {
-        std::cerr << "Level file could not be opened: " << filename << std::endl;
+        std::cerr << "Level file could not be opened: " << levelPath << std::endl;
         exit(-1);
     }
 
@@ -79,11 +96,12 @@ void Scene_Play::loadLevel(const std::string &filename)
 
     while (file >> type)
     {
+        // TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
         if (type == "Tile")
         {
             std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
 
-            // always add CAnimation component first so that gridToMidPixel works
+            // add CAnimation component first so that gridToMidPixel works
             std::string animation;
             file >> animation;
             tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
@@ -94,10 +112,11 @@ void Scene_Play::loadLevel(const std::string &filename)
 
             tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
 
-            std::cout << "added Tile: " << tile->id() << " " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << " " << tile->get<CTransform>().pos.y << std::endl;
+            // std::cout << "added Tile: " << tile->id() << " " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << std::endl;
         }
         else if (type == "Dec")
         {
+
         }
         else if (type == "Player")
         {
@@ -114,26 +133,16 @@ void Scene_Play::loadLevel(const std::string &filename)
     spawnPlayer();
 }
 
-Vec2f Scene_Play::getPosition(int rx, int ry, int tx, int ty) const
-{
-    // TODO: return the game world position of the center of the entity
-
-    // code from grid to mid pixel func
-    // float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2.0f;
-    // float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2.0f;
-
-    // return Vec2f(xPos, yPos);
-
-    return Vec2f(0, 0);
-}
-
+/// @brief spawns the player entity
 void Scene_Play::spawnPlayer()
 {
+    // when respawning in same map, must delete previous player
     if (!m_entityManager.getEntities("player").empty())
     {
         m_entityManager.getEntities("player").front()->destroy();
     }
 
+    // set player components
     m_player = m_entityManager.addEntity("player");
     m_player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
     m_player->add<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, m_player));
@@ -143,43 +152,48 @@ void Scene_Play::spawnPlayer()
     m_player->add<CGravity>(m_playerConfig.GRAVITY);
 }
 
-// spawn a bullet at the location of entity in the direction the entity is facing
+/// @brief spawn a bullet at the location of entity traveling toward cursor
+/// @param entity an entity in the scene
 void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
     Vec2f &entityPos = entity->get<CTransform>().pos;
-    float bulletSpeed = 15.0f;
-    const Vec2i &target = sf::Mouse::getPosition(); // TODO: fix this, find way to hold down mouse and keep shooting with updated mouse position
+    float bulletSpeed = 30.0f;
+    const Vec2i &target = sf::Mouse::getPosition(m_game.window());
 
     std::shared_ptr<Entity> bullet = m_entityManager.addEntity("bullet");
     bullet->add<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
     bullet->add<CTransform>(entityPos, (target.to<float>() - entityPos) * bulletSpeed / target.to<float>().dist(entityPos), Vec2f(1.0f, 1.0f), 0.0f);
     bullet->add<CBoundingBox>(bullet->get<CAnimation>().animation.getSize());
-    bullet->add<CLifespan>(60, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
+    bullet->add<CLifespan>(30, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
 }
 
+/// @brief spawn a melee attack in front of entity
+/// @param entity an entity in the scene
 void Scene_Play::spawnMelee(std::shared_ptr<Entity> entity)
 {
     // TODO: spawn a sword or a knife for melee attacks
 }
 
+/// @brief update the scene; this function is called by the game engine at each frame if this scene is active
 void Scene_Play::update()
 {
     if (!m_paused)
     {
-        m_entityManager.update();
-
         // TODO: think about order here if it even matters
         sAI();
         sMovement();
         sStatus();
-        sCollision();
+        sCollision(); // after sMovement
         sAnimation();
         sCamera();
+
+        m_entityManager.update(); // adding and removing all entities based on sCollision, spawnBullet, etc.
     }
 
     sRender();
 }
 
+/// @brief handle player and bullet movement per frame
 void Scene_Play::sMovement()
 {
     /* player */
@@ -191,13 +205,26 @@ void Scene_Play::sMovement()
 
     velToAdd.y += m_playerConfig.GRAVITY;
 
+    // no left or right input - slow down in x-direction (less if in air, more if on ground) until stopped
     if (!input.left && !input.right)
     {
-        // float slowing = m_playerConfig.SX / 2;
-        float slowing = 1;
-        if (abs(trans.velocity.x) >= slowing)
+        // float friction = m_playerConfig.SX / 2.0f;
+        // set friction value based on state
+        float friction;
+        if (state == "air")
         {
-            velToAdd.x += (trans.velocity.x > 0 ? -slowing : slowing);
+            friction = 0.2f;
+        }
+        else // if (state == "run")
+        {
+            friction = 1.0f;
+        }
+
+        /// TODO: something strange happening with friction after landing (steady movement to the left on the ground for a brief time)
+        // slow down until stopped
+        if (abs(trans.velocity.x) >= friction)
+        {
+            velToAdd.x += (trans.velocity.x > 0 ? -friction : friction);
         }
         else
         {
@@ -215,8 +242,8 @@ void Scene_Play::sMovement()
         {
             velToAdd.x = m_playerConfig.SM - trans.velocity.x;
         }
-        state = "run";
-        trans.scale.x = abs(trans.scale.x);
+
+        trans.scale.x = abs(trans.scale.x); // TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
     if (input.left)
@@ -229,18 +256,18 @@ void Scene_Play::sMovement()
         {
             velToAdd.x = -m_playerConfig.SM - trans.velocity.x;
         }
-        state = "run";
-        trans.scale.x = -abs(trans.scale.x);
+
+        trans.scale.x = -abs(trans.scale.x); // TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
     if (input.up && input.canJump)
     {
         velToAdd.y -= m_playerConfig.SY;
-        state = "jump";
         input.canJump = false; // set to true in sCollision (must see if on the ground)
     }
 
     // on release of jump key
+    // TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
     if (!input.up && trans.velocity.y < 0)
     {
         trans.velocity.y = 0;
@@ -250,22 +277,25 @@ void Scene_Play::sMovement()
     trans.prevPos = trans.pos;
     trans.pos += trans.velocity;
 
-    if (trans.velocity.x == 0 && trans.velocity.y == 0)
-    {
-        if (input.down)
-        {
-            state = "crouch";
-        }
-        else
-        {
-            state = "stand";
-        }
-    }
+    // if (trans.velocity.x == 0 && trans.velocity.y == 0)
+    // {
+    //     if (input.down)
+    //     {
+    //         state = "crouch";
+    //         std::cout << "state set to: " << state << std::endl;
+    //     }
+    //     else
+    //     {
+    //         state = "stand";
+    //         std::cout << "state set to: " << state << std::endl;
+    //     }
+    // }
 
     /* bullets */
     for (auto &bullet : m_entityManager.getEntities("bullet"))
     {
-        bullet->get<CTransform>().pos += bullet->get<CTransform>().velocity;
+        CTransform &trans = bullet->get<CTransform>();
+        trans.pos += trans.velocity;
     }
     if (input.shoot && input.canShoot) 
     {
@@ -273,28 +303,33 @@ void Scene_Play::sMovement()
     }
 }
 
+/// @brief handle collisions and m_player CState updates
 void Scene_Play::sCollision()
 {
     CTransform &trans = m_player->get<CTransform>();
+    std::string &state = m_player->get<CState>().state;
 
+    bool collision = false;
+
+    /* player and tiles */
     for (auto &tile : m_entityManager.getEntities("tile"))
     {
-        // player and tiles
-
         Vec2f overlap = Physics::GetOverlap(m_player, tile);
         Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
 
-        // collision
+        // there is a collision
         if (overlap.y > 0 && overlap.x > 0)
         {
+            collision = true;
+
             // we are colliding in y-direction this frame since previous frame already had x-direction overlap
             if (prevOverlap.x > 0)
             {
                 // player moving down
                 if (trans.velocity.y > 0)
                 {
-                    trans.pos.y -= overlap.y;
-                    m_player->get<CState>().state = "stand";
+                    trans.pos.y -= overlap.y; // player can't fall below tile
+                    state = abs(trans.velocity.x) > 0 ? "run" : "stand";
                     m_player->get<CInput>().canJump = true; // set to false after jumping in sMovement()
                 }
                 // player moving up
@@ -321,6 +356,11 @@ void Scene_Play::sCollision()
 
             }
         }
+    }
+
+    if (!collision)
+    {
+        state = "air";
     }
 
     // TODO: put inner for loop inside the one above? keep like this to isolate scopes?
@@ -356,7 +396,8 @@ void Scene_Play::sCollision()
     }
 }
 
-// set CInput variables accordingly, no action logic here
+/// @brief sets CInput variables according to action, no action logic here
+/// @param action an action to perform; action has a type and a name which are both std::string objects
 void Scene_Play::sDoAction(const Action &action)
 {
     if (action.type() == "START")
@@ -432,22 +473,22 @@ void Scene_Play::sDoAction(const Action &action)
     }
 }
 
+/// @brief handles the behavior of NPCs
 void Scene_Play::sAI()
 {
     // TODO: implement NPC AI follow and patrol behavior
 }
 
+// TODO: finish this
+/// @brief updates all entities' lifespan and invincibility status
 void Scene_Play::sStatus()
 {
-    // TODO: lifespan implementation here, invincibility implementation here
-
-    // lifespan (not working in last project)
+    // lifespan
     for (auto &e : m_entityManager.getEntities())
     {
         if (e->has<CLifespan>())
         {
-            int lifespan = e->get<CLifespan>().lifespan;
-
+            int &lifespan = e->get<CLifespan>().lifespan;
             if (lifespan <= 0)
             {
                 e->destroy();
@@ -460,9 +501,9 @@ void Scene_Play::sStatus()
     }
 
     // invincibility
-    
 }
 
+/// @brief handles all entities' animation updates
 void Scene_Play::sAnimation()
 {
     // TODO: Complete the Animation class code first
@@ -479,6 +520,7 @@ void Scene_Play::sAnimation()
     }
 }
 
+/// @brief handles camera view logic
 void Scene_Play::sCamera()
 {
     // TODO: camera view logic
@@ -506,6 +548,7 @@ void Scene_Play::sCamera()
     m_game.window().setView(view);
 }
 
+/// @brief changes back to MENU scene when this scene ends
 void Scene_Play::onEnd()
 {
     m_game.changeScene("MENU");
@@ -513,6 +556,7 @@ void Scene_Play::onEnd()
     // TODO: stop music, play menu music
 }
 
+/// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter
 void Scene_Play::sRender()
 {
     // color the background darker so you know that the game is paused
@@ -706,6 +750,9 @@ void Scene_Play::sRender()
     m_game.window().display();
 }
 
+/// @brief helper function for grid drawing; draws line from p1 to p2 on the screen
+/// @param p1 first point in line
+/// @param p2 second point in line
 void Scene_Play::drawLine(const Vec2f &p1, const Vec2f &p2)
 {
     sf::Vertex line[] = 
