@@ -31,11 +31,11 @@ public:
     /// @brief convert from Vec2<T> to Vec2<U>
     /// @tparam U any type (int, float, etc.)
     /// @return a Vec2<U> with the same values as the original Vec2<T> if a static cast is available from T to U
-    template <typename U>
-    Vec2<U> to() const
-    {
-        return Vec2<U>(static_cast<U>(x), static_cast<U>(y));
-    }
+    // template <typename U>
+    // Vec2<U> to() const
+    // {
+    //     return Vec2<U>(static_cast<U>(x), static_cast<U>(y));
+    // }
 
     // use of const: const Vec2& rhs ensures that the original object rhs is not modified and const at the end guarantees that this func does not modify the object it is called on
 

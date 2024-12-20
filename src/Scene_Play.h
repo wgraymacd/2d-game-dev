@@ -24,7 +24,7 @@ protected:
     EntityManager m_entityManager;
     std::shared_ptr<Entity> m_player;
 
-    bool m_follow = false;
+    // bool m_follow = false; // camera type
     
     bool m_drawTextures = true;
     bool m_drawCollision = false;

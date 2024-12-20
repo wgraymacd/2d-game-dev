@@ -96,7 +96,7 @@ void Scene_Play::loadLevel(const std::string &levelPath)
 
     while (file >> type)
     {
-        // TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
+        /// TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
         if (type == "Tile")
         {
             std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
@@ -158,20 +158,26 @@ void Scene_Play::spawnBullet(std::shared_ptr<Entity> entity)
 {
     Vec2f &entityPos = entity->get<CTransform>().pos;
     float bulletSpeed = 30.0f;
-    const Vec2i &target = sf::Mouse::getPosition(m_game.window());
+
+    const Vec2f &worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
 
     std::shared_ptr<Entity> bullet = m_entityManager.addEntity("bullet");
     bullet->add<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
-    bullet->add<CTransform>(entityPos, (target.to<float>() - entityPos) * bulletSpeed / target.to<float>().dist(entityPos), Vec2f(1.0f, 1.0f), 0.0f);
+    bullet->add<CTransform>
+    (
+        entityPos, 
+        (worldTarget - entityPos) * bulletSpeed / worldTarget.dist(entityPos),
+        Vec2f(1.0f, 1.0f), 0.0f
+    );
     bullet->add<CBoundingBox>(bullet->get<CAnimation>().animation.getSize());
-    bullet->add<CLifespan>(30, m_currentFrame); // TODO: Lifespan component could use some cleanup, along with everything in general once finished with functionality (didn't end up using everything the way Dave set it up)
+    bullet->add<CLifespan>(30, m_currentFrame);
 }
 
 /// @brief spawn a melee attack in front of entity
 /// @param entity an entity in the scene
 void Scene_Play::spawnMelee(std::shared_ptr<Entity> entity)
 {
-    // TODO: spawn a sword or a knife for melee attacks
+    /// TODO: spawn a sword or a knife for melee attacks
 }
 
 /// @brief update the scene; this function is called by the game engine at each frame if this scene is active
@@ -179,7 +185,7 @@ void Scene_Play::update()
 {
     if (!m_paused)
     {
-        // TODO: think about order here if it even matters
+        /// TODO: think about order here if it even matters
         sAI();
         sMovement();
         sStatus();
@@ -243,7 +249,8 @@ void Scene_Play::sMovement()
             velToAdd.x = m_playerConfig.SM - trans.velocity.x;
         }
 
-        trans.scale.x = abs(trans.scale.x); // TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
+        trans.scale.x = abs(trans.scale.x); 
+        /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
     if (input.left)
@@ -257,7 +264,8 @@ void Scene_Play::sMovement()
             velToAdd.x = -m_playerConfig.SM - trans.velocity.x;
         }
 
-        trans.scale.x = -abs(trans.scale.x); // TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
+        trans.scale.x = -abs(trans.scale.x); 
+        /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
     if (input.up && input.canJump)
@@ -267,7 +275,7 @@ void Scene_Play::sMovement()
     }
 
     // on release of jump key
-    // TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
+    /// TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
     if (!input.up && trans.velocity.y < 0)
     {
         trans.velocity.y = 0;
@@ -363,7 +371,7 @@ void Scene_Play::sCollision()
         state = "air";
     }
 
-    // TODO: put inner for loop inside the one above? keep like this to isolate scopes?
+    /// TODO: put inner for loop inside the one above? keep like this to isolate scopes?
     // something wrong with bullet collision when using a scale that is not 1:1 (and maybe in general too)
     for (auto &tile : m_entityManager.getEntities("tile"))
     {
@@ -375,7 +383,7 @@ void Scene_Play::sCollision()
             if (overlap.x > 0 && overlap.y > 0)
             {
                 // std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
-                // TODO: do whatever else here I might want (animations, tile weakening, etc.)
+                /// TODO: do whatever else here I might want (animations, tile weakening, etc.)
                 bullet->destroy();
             }
         }
@@ -476,10 +484,10 @@ void Scene_Play::sDoAction(const Action &action)
 /// @brief handles the behavior of NPCs
 void Scene_Play::sAI()
 {
-    // TODO: implement NPC AI follow and patrol behavior
+    /// TODO: implement NPC AI follow and patrol behavior
 }
 
-// TODO: finish this
+/// TODO: finish this
 /// @brief updates all entities' lifespan and invincibility status
 void Scene_Play::sStatus()
 {
@@ -506,7 +514,7 @@ void Scene_Play::sStatus()
 /// @brief handles all entities' animation updates
 void Scene_Play::sAnimation()
 {
-    // TODO: Complete the Animation class code first
+    /// TODO: Complete the Animation class code first
     // for each entity with an animation, call entity->get<CAnimation>().animation.update()
     // if animation is not repeated, and it has ended, destroy the entity
 
@@ -523,26 +531,21 @@ void Scene_Play::sAnimation()
 /// @brief handles camera view logic
 void Scene_Play::sCamera()
 {
-    // TODO: camera view logic
-
     // get current view
     sf::View view = m_game.window().getView();
 
-    if (m_follow)
-    {
-        // calc view for player follow cam
-    }
-    else
-    {
-        // room-based cam
-    }
+    // get the player's position
+    Vec2f &pPos = m_player->get<CTransform>().pos;
 
-    // OLD CODE: set the viewport of the window to be centered on the player if player is not on left bound of world
-    // auto &pPos = m_player->get<CTransform>().pos;
-    // float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
-    // sf::View view = m_game.window().getView();
-    // view.setCenter(windowCenterX, m_game.window().getSize().y / 2.0f);
-    // m_game.window().setView(view);
+    // find where the center of the window should be, depends on world bounds
+    float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
+    float windowCenterY = std::max(m_game.window().getSize().y / 2.0f, pPos.y);
+
+    // set the viewport of the window to be centered on the player if player is not on left or top bound of world
+    view.setCenter(windowCenterX, windowCenterY);
+    m_game.window().setView(view);
+
+    /// TODO: add some smoothing of some sort, check lecture on this
 
     // set window view
     m_game.window().setView(view);
@@ -553,7 +556,7 @@ void Scene_Play::onEnd()
 {
     m_game.changeScene("MENU");
 
-    // TODO: stop music, play menu music
+    /// TODO: stop music, play menu music
 }
 
 /// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter
