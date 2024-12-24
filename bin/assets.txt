@@ -1,10 +1,20 @@
 Texture Tiles ../bin/images/tiles.png
-AnimationStatic WallBlack Tiles 152 12 24 16
-AnimationStatic GroundBlack Tiles 72 64 40 40
-AnimationStatic GroundDirt Tiles 8 8 40 40
-AnimationStatic GroundStone Tiles 72 8 40 40
-AnimationStatic GroundGrass Tiles 8 64 40 40
-AnimationStatic GroundSnow Tiles 8 120 40 40
-AnimationStatic GroundBrick Tiles 72 120 40 40
+Texture Blocks ../bin/images/blocks.png
+AnimationStatic BlockClay Blocks 0 0 20 20
+AnimationStatic BlockDirt Blocks 20 0 20 20
+AnimationStatic Grass Blocks 40 0 20 20
+AnimationStatic BlockWood Blocks 60 0 20 20
+AnimationStatic BlockStone1 Blocks 0 20 20 20
+AnimationStatic BlockStone2 Blocks 20 20 20 20
+AnimationStatic Grass2 Blocks 40 20 20 20
+AnimationStatic BlockWood2 Blocks 60 20 20 20
+AnimationStatic BlockStoneRound1 Blocks 0 40 20 20
+AnimationStatic BlockStoneRound2 Blocks 20 40 20 20
+AnimationStatic BlockGrassRound1 Blocks 40 40 20 20
+AnimationStatic BlockGrassRound2 Blocks 60 40 20 20
+AnimationStatic BlockStoneGrass Blocks 0 60 20 20
+AnimationStatic BlockWood3 Blocks 20 60 20 20
+AnimationStatic BlockGrass1 Blocks 40 60 20 20
+AnimationStatic BlockGrass2 Blocks 60 60 20 20
 AnimationStatic Bullet Tiles 62 126 4 4
 Font PixelCowboy ../bin/fonts/PixelCowboy.ttf

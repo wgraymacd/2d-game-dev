@@ -14,6 +14,7 @@
 #include <string>
 #include <fstream>
 #include <memory>
+#include <random> // world gen
 
 /// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
@@ -64,7 +65,7 @@ void Scene_Play::init(const std::string &levelPath)
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, std::shared_ptr<Entity> entity)
 {
     float xPos = gridX * m_gridSize.x + entity->get<CAnimation>().animation.getSize().x / 2.0f;
-    float yPos = m_game.window().getSize().y - gridY * m_gridSize.y - entity->get<CAnimation>().animation.getSize().y / 2.0f;
+    float yPos = gridY * m_gridSize.y + entity->get<CAnimation>().animation.getSize().y / 2.0f;
 
     return Vec2f(xPos, yPos);
 }
@@ -99,18 +100,18 @@ void Scene_Play::loadLevel(const std::string &levelPath)
         /// TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
         if (type == "Tile")
         {
-            std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
+            // std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
 
-            // add CAnimation component first so that gridToMidPixel works
-            std::string animation;
-            file >> animation;
-            tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
+            // // add CAnimation component first so that gridToMidPixel works
+            // std::string animation;
+            // file >> animation;
+            // tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
 
-            float gridX, gridY;
-            file >> gridX >> gridY;
-            tile->add<CTransform>(gridToMidPixel(gridX, gridY, tile));
+            // float gridX, gridY;
+            // file >> gridX >> gridY;
+            // tile->add<CTransform>(gridToMidPixel(gridX, gridY, tile));
 
-            tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
+            // tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
 
             // std::cout << "added Tile: " << tile->id() << " " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << std::endl;
         }
@@ -130,6 +131,68 @@ void Scene_Play::loadLevel(const std::string &levelPath)
     }
     file.close();
 
+    generateWorld();
+
+    spawnPlayer();
+}
+
+/// @brief randomly generate the playing world
+void Scene_Play::generateWorld()
+{
+    /// TODO: implement random type of tile with separate probs
+    /// TODO: mountains, caves, lakes, rivers, even terrain, biomes, etc.
+
+    // start by trying to recreate a Terraria world
+    // first, change grid to have (0, 0) in top left like SFML
+
+    // sea level - above is mostly air, below is mostly land and caves and water
+    int seaLevel = 50; // grid units
+
+    // random number generator
+    std::random_device rd; // seed
+    std::mt19937 gen(rd()); // Mersenne Twister engine
+    std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+
+    std::vector<std::pair<int, int>> tilePositions;
+
+    for (size_t y = 0; y < m_worldMax.y / m_gridSize.y; y++)
+    {
+        float spawnP;
+
+        if (y < seaLevel - 10)
+        {
+            spawnP = 0.0f;
+        }
+        else if (y > seaLevel + 10)
+        {
+            spawnP = 1.0f;
+        }
+        else 
+        {
+            spawnP = (static_cast<float>(y) - (static_cast<float>(seaLevel) - 10.0f)) / 20.0f;
+        }
+
+        for (size_t x = 0; x < m_worldMax.x / m_gridSize.x; x++)
+        {
+            if (dis(gen) < spawnP)
+            {
+                tilePositions.push_back({x, y});
+            }
+        }
+    }
+
+    /// TODO: filter out unwanted tiles
+
+    // spawn tiles
+    for (const auto &[x, y] : tilePositions)
+    {
+        std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
+        std::string animation = "BlockStone1";
+        tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
+        tile->add<CTransform>(gridToMidPixel(x, y, tile));
+        tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
+    }
+
     spawnPlayer();
 }
 
@@ -144,7 +207,7 @@ void Scene_Play::spawnPlayer()
 
     // set player components
     m_player = m_entityManager.addEntity("player");
-    m_player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
+    m_player->add<CAnimation>(m_game.assets().getAnimation("BlockGrass1"), true);
     m_player->add<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, m_player));
     m_player->add<CBoundingBox>(Vec2f(m_playerConfig.CW, m_playerConfig.CH));
     m_player->add<CState>("stand");
@@ -209,7 +272,17 @@ void Scene_Play::sMovement()
 
     Vec2f velToAdd(0, 0);
 
-    velToAdd.y += m_playerConfig.GRAVITY;
+    /// TODO: consider turing this into real physics
+    // gravity
+    float airResistance = 15.0f;
+    if (trans.velocity.y + m_playerConfig.GRAVITY >= airResistance)
+    {
+        velToAdd.y += airResistance - trans.velocity.y;
+    }
+    else 
+    {
+        velToAdd.y += m_playerConfig.GRAVITY;
+    }
 
     // no left or right input - slow down in x-direction (less if in air, more if on ground) until stopped
     if (!input.left && !input.right)
@@ -338,8 +411,14 @@ void Scene_Play::sCollision()
                 {
                     trans.pos.y -= overlap.y; // player can't fall below tile
                     state = abs(trans.velocity.x) > 0 ? "run" : "stand";
-                    m_player->get<CInput>().canJump = true; // set to false after jumping in sMovement()
+                    
+                    // jumping
+                    if (!m_player->get<CInput>().up) // wait for player to release w key before allowing jump
+                    {
+                        m_player->get<CInput>().canJump = true; // set to false after jumping in sMovement()
+                    }
                 }
+
                 // player moving up
                 else if (trans.velocity.y < 0)
                 {
@@ -347,6 +426,7 @@ void Scene_Play::sCollision()
                 }
                 trans.velocity.y = 0;
             }
+
             // colliding in x-direction this frame
             if (prevOverlap.y > 0)
             {
@@ -390,17 +470,33 @@ void Scene_Play::sCollision()
     }
 
     // player falls below map
-    if (trans.pos.y - m_player->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
-    {
-        spawnPlayer();
-    }
+    // if (trans.pos.y - m_player->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
+    // {
+    //     spawnPlayer();
+    // }
 
-    // side of map
-    Animation &anim = m_player->get<CAnimation>().animation;
-    if (trans.pos.x < anim.getSize().x / 2)
+    // restrict movement passed top, bottom, or side of map
+    const Vec2f &animSize = m_player->get<CAnimation>().animation.getSize();
+    if (trans.pos.x < animSize.x / 2)
     {
-        trans.pos.x = anim.getSize().x / 2;
+        trans.pos.x = animSize.x / 2;
         trans.velocity.x = 0;
+    }
+    else if (trans.pos.x > m_worldMax.x - animSize.x / 2)
+    {
+        trans.pos.x = m_worldMax.x - animSize.x / 2;
+        trans.velocity.x = 0;
+    }
+    else if (trans.pos.y < animSize.y / 2)
+    {
+        trans.pos.y = animSize.y / 2;
+        trans.velocity.y = 0;
+    }
+    else if (trans.pos.y > m_worldMax.y - animSize.y / 2)
+    {
+        trans.pos.y = m_worldMax.y - animSize.y / 2;
+        trans.velocity.y = 0;
+        m_player->get<CInput>().canJump = true;
     }
 }
 
@@ -462,17 +558,17 @@ void Scene_Play::sDoAction(const Action &action)
     }
     else if (action.type() == "END")
     {
-        if (action.name() == "JUMP")
-        {
-            m_player->get<CInput>().up = false;
-        }
-        else if (action.name() == "LEFT")
+        if (action.name() == "LEFT")
         {
             m_player->get<CInput>().left = false;
         }
         else if (action.name() == "RIGHT")
         {
             m_player->get<CInput>().right = false;
+        }
+        else if (action.name() == "JUMP")
+        {
+            m_player->get<CInput>().up = false;
         }
         else if (action.name() == "SHOOT")
         {
@@ -519,13 +615,6 @@ void Scene_Play::sAnimation()
     // if animation is not repeated, and it has ended, destroy the entity
 
     // set animation of player based on its CState component
-    // here's an example
-    if (m_player->get<CState>().state == "stand")
-    {
-        // change its animation to a repeating run animation
-        // note: adding a component that already exists simple overwrites it
-        m_player->add<CAnimation>(m_game.assets().getAnimation("GroundBlack"), true);
-    }
 }
 
 /// @brief handles camera view logic
@@ -538,11 +627,11 @@ void Scene_Play::sCamera()
     Vec2f &pPos = m_player->get<CTransform>().pos;
 
     // find where the center of the window should be, depends on world bounds
-    float windowCenterX = std::max(m_game.window().getSize().x / 2.0f, pPos.x);
-    float windowCenterY = std::max(m_game.window().getSize().y / 2.0f, pPos.y);
+    float viewCenterX = std::clamp(pPos.x, m_game.window().getSize().x / 2.0f, m_worldMax.x - m_game.window().getSize().x / 2.0f);
+    float viewCenterY = std::clamp(pPos.y, m_game.window().getSize().y / 2.0f, m_worldMax.y - m_game.window().getSize().y / 2.0f);
 
-    // set the viewport of the window to be centered on the player if player is not on left or top bound of world
-    view.setCenter(windowCenterX, windowCenterY);
+    // set the viewport of the window to be centered on the player if player is not on a bound of the world
+    view.setCenter(viewCenterX, viewCenterY);
     m_game.window().setView(view);
 
     /// TODO: add some smoothing of some sort, check lecture on this
@@ -636,16 +725,18 @@ void Scene_Play::sRender()
         {
             float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
             float rightX = leftX + m_game.window().getView().getSize().x; // + m_gridSize.x maybe
-            float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
-            float topY = bottomY - m_game.window().getView().getSize().y;
+            // logic if grid (0, 0) at bottom left
+            // float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
+            // float topY = bottomY - m_game.window().getView().getSize().y;
             // logic if grid (0, 0) at top left
-            // float topY = m_game.window().getView().getCenter().y - m_game.window().getView().getSize().y / 2;
-            // float bottomY = topY + m_game.window().getView().getSize().y; // + m_gridSize.y maybe
+            float topY = m_game.window().getView().getCenter().y - m_game.window().getView().getSize().y / 2;
+            float bottomY = topY + m_game.window().getView().getSize().y; // + m_gridSize.y maybe
 
             float nextGridX = leftX - fmodf(leftX, m_gridSize.x);
-            float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
+            // logic if grid (0, 0) at bottom left
+            // float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
             // logic if grid (0, 0) at top left
-            // float nextGridY = topY - fmodf(topY, m_gridSize.y);
+            float nextGridY = topY - fmodf(topY, m_gridSize.y);
 
             // vertical grid lines
             for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
@@ -654,9 +745,10 @@ void Scene_Play::sRender()
             }
 
             // horizontal grid lines
-            for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
+            // logic if grid (0, 0) at bottom left
+            // for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
             // logic if grid (0, 0) at top left
-            // for (float y = nextGridY; y <= bottomY; y += m_gridSize.y)
+            for (float y = nextGridY; y <= bottomY; y += m_gridSize.y)
             {
                 drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
 
@@ -664,13 +756,14 @@ void Scene_Play::sRender()
                 for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
                 {
                     std::string xCell = std::to_string(static_cast<int>(x / m_gridSize.x));
-                    std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_gridSize.y));
+                    // logic if grid (0, 0) at bottom left
+                    // std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_gridSize.y));
                     // logic if grid (0, 0) at top left
-                    // std::string yCell = std::to_string(static_cast<int>(y / m_gridSize.y));
+                    std::string yCell = std::to_string(static_cast<int>(y / m_gridSize.y));
 
                     m_gridText.setString("(" + xCell + "," + yCell + ")");
-                    m_gridText.setPosition(x + 3, y - m_gridSize.y + 2); // position label inside cell
-                    // top left: m_gridText.setPosition(x + 3, y + 2); // position label inside cell
+                    // m_gridText.setPosition(x + 3, y - m_gridSize.y + 2); // position label inside cell, bottom left (0, 0)
+                    m_gridText.setPosition(x + 3, y + 2); // position label inside cell, top left (0, 0)
                     m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
                     m_game.window().draw(m_gridText);
                 }
@@ -748,7 +841,12 @@ void Scene_Play::sRender()
     float elapsedTime = m_fpsClock.restart().asSeconds();
     float fps = 1.0f / elapsedTime;
     m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
+
+    // draw the fps text on the default view (w.r.t. window coordinates, not game world)
+    sf::View currentView = m_game.window().getView(); 
+    m_game.window().setView(m_game.window().getDefaultView());
     m_game.window().draw(m_fpsText);
+    m_game.window().setView(currentView);
 
     m_game.window().display();
 }

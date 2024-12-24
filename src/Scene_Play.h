@@ -24,13 +24,15 @@ protected:
     EntityManager m_entityManager;
     std::shared_ptr<Entity> m_player;
 
-    // bool m_follow = false; // camera type
-    
+    const Vec2i m_gridSize = {20, 20}; // cell size (pixels)
+    sf::Text m_gridText;
+
+    // Vec2f m_worldMin = {0.0f, 0.0f}; // top-left corner of world (this variables is not really necessary)
+    Vec2i m_worldMax = {m_gridSize.x * 200, m_gridSize.y * 100}; // bottom-right corner of world
+
     bool m_drawTextures = true;
     bool m_drawCollision = false;
     bool m_drawGrid = false;
-    const Vec2f m_gridSize = {40, 40}; // cell size
-    sf::Text m_gridText;
 
     // fps counter
     sf::Clock m_fpsClock;
@@ -39,6 +41,7 @@ protected:
     void init(const std::string &levelPath);
 
     void loadLevel(const std::string &filename);
+    void generateWorld();
 
     void update() override;
     void onEnd() override;

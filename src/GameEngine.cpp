@@ -18,9 +18,9 @@ GameEngine::GameEngine(const std::string &path)
 void GameEngine::init(const std::string &path)
 {
     m_assets.loadFromFile(path);
-    m_window.create(sf::VideoMode(40 * 32, 40 * 18), "2D Platformer"); // 40 pixel width and height for each block in game, so grid is 48 x 27 cells
+    m_window.create(sf::VideoMode(20 * 64, 20 * 36), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
     m_window.setFramerateLimit(60);
-    // go to menu screen
+
     addScene("MENU", std::make_shared<Scene_Menu>(*this));
 }
 
