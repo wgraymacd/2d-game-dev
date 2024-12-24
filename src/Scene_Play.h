@@ -28,7 +28,7 @@ protected:
     sf::Text m_gridText;
 
     // Vec2f m_worldMin = {0.0f, 0.0f}; // top-left corner of world (this variables is not really necessary)
-    Vec2i m_worldMax = {m_gridSize.x * 100, m_gridSize.y * 50}; // bottom-right corner of world
+    Vec2i m_worldMax = {m_gridSize.x * 50, m_gridSize.y * 40}; // bottom-right corner of world
 
     bool m_drawTextures = true;
     bool m_drawCollision = false;

@@ -69,7 +69,7 @@ class WorldGenerator
         }
     }
 
-    /// TODO: implement
+    /// TODO:
     /// @brief add other things like bedrock veins
     void addBedrock()
     {
@@ -97,6 +97,7 @@ class WorldGenerator
     void createSkyline()
     {
         /// 1D noise for skyline along x-axis
+
         std::vector<int> terrainHeights(m_worldWidth);
         int terrainDelta = 20; // controls max deviation from sea level
         int seaLevel = 25;
@@ -107,7 +108,18 @@ class WorldGenerator
             terrainHeights[x] = static_cast<int>(noiseVal * terrainDelta + seaLevel);  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
         }
 
-        /// TODO: create the skyline with the terrain heights
+
+        /// remove tiles above terrain heights
+
+        m_tilePositions.erase(
+            std::remove_if(
+                m_tilePositions.begin(),
+                m_tilePositions.end(),
+                [&terrainHeights](const TileInfo &info) // capture terrain heights by reference in the lambda func's capture list
+                {
+                    return info.y < terrainHeights[info.x];
+                }),
+            m_tilePositions.end());
     }
 
 public:

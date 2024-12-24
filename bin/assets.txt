@@ -1,10 +1,10 @@
 Texture Tiles ../bin/images/tiles.png
 Texture Blocks ../bin/images/blocks.png
 AnimationStatic BlockClay Blocks 0 0 20 20
-AnimationStatic BlockDirt Blocks 20 0 20 20
+AnimationStatic dirt Blocks 20 0 20 20
 AnimationStatic Grass Blocks 40 0 20 20
 AnimationStatic BlockWood Blocks 60 0 20 20
-AnimationStatic BlockStone1 Blocks 0 20 20 20
+AnimationStatic stone Blocks 0 20 20 20
 AnimationStatic BlockStone2 Blocks 20 20 20 20
 AnimationStatic Grass2 Blocks 40 20 20 20
 AnimationStatic BlockWood2 Blocks 60 20 20 20
