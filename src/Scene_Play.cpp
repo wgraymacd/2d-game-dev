@@ -8,13 +8,13 @@
 #include "Physics.hpp"
 #include "Animation.hpp"
 #include "Action.hpp"
+#include "WorldGenerator.hpp" // world gen
 
 #include <SFML/Graphics.hpp>
 
 #include <string>
 #include <fstream>
 #include <memory>
-#include <random> // world gen
 
 /// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
@@ -139,58 +139,38 @@ void Scene_Play::loadLevel(const std::string &levelPath)
 /// @brief randomly generate the playing world
 void Scene_Play::generateWorld()
 {
-    /// TODO: implement random type of tile with separate probs
     /// TODO: mountains, caves, lakes, rivers, even terrain, biomes, etc.
+    /// TODO: consider different noise types for speed
 
-    // start by trying to recreate a Terraria world
-    // first, change grid to have (0, 0) in top left like SFML
+    /*
+        - example:
+        - first pass: top 1/3 dirt, bottom 2/3 stone
+        - second pass: dirt vains in stone and stone blobs in dirt
+        - add in ores (function of depth)
+        - add in caves (prolly function of depth)
+        - add a single deep cave connnecting to surface and going deep at some random location
+        - cut out skyline using noise (Perlin prolly)
+        - add in other things like houses, dungeon, decorations, etc.
+        - grow grass on surface, use code to spread grass and grow vines and things
+        - grow trees
+        - reskin tiles process to make them all fit together nicely
+        - fill in liquids
+        - illumiate everything, pretty it up
+        - use optimization so things aren't insanely slow
+    */
 
-    // sea level - above is mostly air, below is mostly land and caves and water
-    int seaLevel = 50; // grid units
+    /// generate world and get tile positions
+    WorldGenerator gen(m_worldMax.x, m_worldMax.y);
+    gen.generateWorld();
+    const std::vector<TileInfo> &tilePositions = gen.getTilePositions();
 
-    // random number generator
-    std::random_device rd; // seed
-    std::mt19937 gen(rd()); // Mersenne Twister engine
-    std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-
-    std::vector<std::pair<int, int>> tilePositions;
-
-    for (size_t y = 0; y < m_worldMax.y / m_gridSize.y; y++)
-    {
-        float spawnP;
-
-        if (y < seaLevel - 10)
-        {
-            spawnP = 0.0f;
-        }
-        else if (y > seaLevel + 10)
-        {
-            spawnP = 1.0f;
-        }
-        else 
-        {
-            spawnP = (static_cast<float>(y) - (static_cast<float>(seaLevel) - 10.0f)) / 20.0f;
-        }
-
-        for (size_t x = 0; x < m_worldMax.x / m_gridSize.x; x++)
-        {
-            if (dis(gen) < spawnP)
-            {
-                tilePositions.push_back({x, y});
-            }
-        }
-    }
-
-    /// TODO: filter out unwanted tiles
-
-    // spawn tiles
-    for (const auto &[x, y] : tilePositions)
+    /// spawn tiles according to their positions in the grid
+    for (const TileInfo &info : tilePositions)
     {
         std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
-        std::string animation = "BlockStone1";
-        tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
-        tile->add<CTransform>(gridToMidPixel(x, y, tile));
-        tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
+        tile->add<CAnimation>(m_game.assets().getAnimation(info.type), true);
+        tile->add<CTransform>(gridToMidPixel(info.x, info.y, tile));
+        tile->add<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
     }
 
     spawnPlayer();
