@@ -13,6 +13,9 @@ struct TileInfo
     std::string type;
 };
 
+/// TODO: add biomes with specific rules for generation, could even define temp, humidity, etc. and calc tree density or water or weather or anything from them
+/// TODO: enum for tile types
+/// TODO: could add world evolution if I want people to be on same map for long time
 class WorldGenerator
 {
     int m_worldWidth;
@@ -20,13 +23,13 @@ class WorldGenerator
     int m_seaLevel = 25;
     FastNoiseLite m_noise;
 
-    /// chunk-based storage for rendering and everything, but will use vector of pairs instead for now
+    /// TODO: chunk-based storage for rendering and everything, but will use vector of pairs instead for now
     // std::unordered_map<std::pair<int, int>, std::vector<std::vector<std::string>>> chunks;
     // accessed like chunks[{chunkX, chunkY}][localX][localY] = ...;
     std::vector<TileInfo> m_tilePositions;
 
     /// @brief lay out dirt and stone layer, filling m_tilePositions
-    void firstLayer()
+    void generateBaseLayer()
     {
         std::string tileType = "none";
         for (int y = 0; y < m_worldHeight; y++)
@@ -47,7 +50,7 @@ class WorldGenerator
     }
 
     /// @brief add some dirt in stone and some stone in dirt
-    void blockPatches()
+    void createBlockPatches()
     {
         float patchScale = 0.05f;    // controls dirt/stone patch frequency
         float dirtThreshold = 0.4f;  // threshold for creating dirt vein
@@ -76,6 +79,7 @@ class WorldGenerator
 
     }
 
+    /// TODO: Adding more sophisticated cave generation techniques, like cellular automata or Voronoi diagrams, could make your cave systems more organic and interesting
     /// @brief add caves
     void addCaves()
     {
@@ -94,6 +98,7 @@ class WorldGenerator
         }
     }
 
+    /// TODO: could improve it by incorporating some horizontal variation and adding more diversity in terms of terrain features above the sea level
     void createSkyline()
     {
         /// 1D noise for skyline along x-axis
@@ -134,8 +139,8 @@ public:
 
     void generateWorld()
     {
-        firstLayer();
-        blockPatches();
+        generateBaseLayer();
+        createBlockPatches();
         addBedrock();
         addCaves();
         createSkyline();

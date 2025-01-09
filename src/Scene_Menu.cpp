@@ -1,8 +1,8 @@
-#include "Scene_Menu.h"
-#include "Scene_Play.h"
-#include "Scene.h"
+#include "Scene_Menu.hpp"
+#include "Scene_Play.hpp"
+#include "Scene.hpp"
 #include "Assets.hpp"
-#include "GameEngine.h"
+#include "GameEngine.hpp"
 #include "Action.hpp"
 
 #include <SFML/Graphics.hpp>
@@ -18,10 +18,10 @@ Scene_Menu::Scene_Menu(GameEngine &gameEngine)
 /// @brief initialized the MENU scene: registers keybinds, sets text attributes, and defines level paths
 void Scene_Menu::init()
 {
-    registerAction(sf::Keyboard::W, "UP");
-    registerAction(sf::Keyboard::S, "DOWN");
-    registerAction(sf::Keyboard::D, "PLAY");
-    registerAction(sf::Keyboard::Escape, "QUIT");
+    registerAction(static_cast<int>(sf::Keyboard::Key::W), "UP");
+    registerAction(static_cast<int>(sf::Keyboard::Key::S), "DOWN");
+    registerAction(static_cast<int>(sf::Keyboard::Key::Enter), "PLAY");
+    registerAction(static_cast<int>(sf::Keyboard::Key::Escape), "QUIT");
 
     m_title = "2D Platformer";
     m_menuStrings.push_back("Level 1");
@@ -32,7 +32,6 @@ void Scene_Menu::init()
     m_levelPaths.push_back("../bin/level2.txt");
     m_levelPaths.push_back("../bin/level3.txt");
 
-    m_menuText.setFont(m_game.assets().getFont("PixelCowboy"));
     m_menuText.setCharacterSize(64);
 }
 
@@ -93,9 +92,9 @@ void Scene_Menu::sRender()
 
     // draw the controls in the bottom left
     m_menuText.setCharacterSize(20);
-    m_menuText.setString("up: w    down: s    play: d    back: esc");
+    m_menuText.setString("up: w    down: s    play: enter    back: esc");
     m_menuText.setFillColor(sf::Color::Black);
-    m_menuText.setPosition(sf::Vector2f(10, m_game.window().getSize().y - m_menuText.getLocalBounds().height - 10));
+    m_menuText.setPosition(sf::Vector2f(10, m_game.window().getSize().y - m_menuText.getLocalBounds().size.y - 10));
     m_game.window().draw(m_menuText);
 
     m_game.window().display();

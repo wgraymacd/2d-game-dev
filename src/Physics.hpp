@@ -18,13 +18,19 @@ namespace Physics
     /// @param a an entity in the current scene
     /// @param b an entity in the current scene
     /// @return a Vec2f of (x overlap, y overlap)
-    Vec2f GetOverlap(std::shared_ptr<Entity> a, std::shared_ptr<Entity> b)
+    Vec2f GetOverlap(Entity a, Entity b)
     {
-        float xDiff = abs(a->get<CTransform>().pos.x - b->get<CTransform>().pos.x);
-        float yDiff = abs(a->get<CTransform>().pos.y - b->get<CTransform>().pos.y);
+        /// TODO: Ensure the entities' positions and animations are updated correctly before these functions are called to reflect the right collision state
         
-        float xOverlap = a->get<CAnimation>().animation.getSize().x / 2 + b->get<CAnimation>().animation.getSize().x / 2 - xDiff;
-        float yOverlap = a->get<CAnimation>().animation.getSize().y / 2 + b->get<CAnimation>().animation.getSize().y / 2 - yDiff;
+        const Vec2f &aPos = a.getComponent<CTransform>().pos;
+        const Vec2f &bPos = b.getComponent<CTransform>().pos;
+        float xDiff = abs(aPos.x - bPos.x);
+        float yDiff = abs(aPos.y - bPos.y);
+
+        const Vec2i &aAnimSize = a.getComponent<CAnimation>().animation.getSize();
+        const Vec2i &bAnimSize = b.getComponent<CAnimation>().animation.getSize();
+        float xOverlap = aAnimSize.x / 2 + bAnimSize.x / 2 - xDiff;
+        float yOverlap = aAnimSize.y / 2 + bAnimSize.y / 2 - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }
@@ -33,13 +39,17 @@ namespace Physics
     /// @param a an entity in the current scene
     /// @param b an entity in the current scene
     /// @return a Vec2f of (previous x overlap, previous y overlap)
-    Vec2f GetPreviousOverlap(std::shared_ptr<Entity> a, std::shared_ptr<Entity> b)
+    Vec2f GetPreviousOverlap(Entity a, Entity b)
     {
-        float xDiff = abs(a->get<CTransform>().prevPos.x - b->get<CTransform>().pos.x);
-        float yDiff = abs(a->get<CTransform>().prevPos.y - b->get<CTransform>().pos.y);
+        const Vec2f &aPrevPos = a.getComponent<CTransform>().prevPos;
+        const Vec2f &bPrevPos = b.getComponent<CTransform>().prevPos;
+        float xDiff = abs(aPrevPos.x - bPrevPos.x);
+        float yDiff = abs(aPrevPos.y - bPrevPos.y);
 
-        float xOverlap = a->get<CAnimation>().animation.getSize().x / 2 + b->get<CAnimation>().animation.getSize().x / 2 - xDiff;
-        float yOverlap = a->get<CAnimation>().animation.getSize().y / 2 + b->get<CAnimation>().animation.getSize().y / 2 - yDiff;
+        const Vec2i &aAnimSize = a.getComponent<CAnimation>().animation.getSize();
+        const Vec2i &bAnimSize = b.getComponent<CAnimation>().animation.getSize();
+        float xOverlap = aAnimSize.x / 2 + bAnimSize.x / 2 - xDiff;
+        float yOverlap = aAnimSize.y / 2 + bAnimSize.y / 2 - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }

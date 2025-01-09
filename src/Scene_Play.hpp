@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Scene.h"
+#include "Scene.hpp"
 #include "EntityManager.hpp"
 #include "Vec2.hpp"
-#include "GameEngine.h"
+#include "GameEngine.hpp"
 
 #include <SFML/Graphics.hpp>
 
@@ -22,10 +22,10 @@ protected:
     std::string m_levelPath;
     PlayerConfig m_playerConfig;
     EntityManager m_entityManager;
-    std::shared_ptr<Entity> m_player;
+    Entity m_player = Entity(0); // the first entity has entity ID of 0
 
     const Vec2i m_gridSize = {20, 20}; // cell size (pixels)
-    sf::Text m_gridText;
+    sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
     // Vec2f m_worldMin = {0.0f, 0.0f}; // top-left corner of world (this variables is not really necessary)
     Vec2i m_worldMax = {m_gridSize.x * 50, m_gridSize.y * 40}; // bottom-right corner of world
@@ -36,7 +36,7 @@ protected:
 
     // fps counter
     sf::Clock m_fpsClock;
-    sf::Text m_fpsText;
+    sf::Text m_fpsText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
     void init(const std::string &levelPath);
 
@@ -46,9 +46,9 @@ protected:
     void update() override;
     void onEnd() override;
     void spawnPlayer();
-    void spawnBullet(std::shared_ptr<Entity> entity);
-    void spawnMelee(std::shared_ptr<Entity> entity);
-    Vec2f gridToMidPixel(float x, float y, std::shared_ptr<Entity> entity);
+    void spawnBullet(Entity entity);
+    void spawnMelee(Entity entity);
+    Vec2f gridToMidPixel(float x, float y, Entity entity);
     // Vec2f gridToPixel(float x, float y);
 
     void sMovement();

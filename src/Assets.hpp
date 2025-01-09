@@ -7,6 +7,8 @@
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <map>
+#include <optional>
 
 class Assets
 {
@@ -14,7 +16,8 @@ class Assets
     std::map<std::string, Animation> m_animationMap;
     std::map<std::string, sf::Font> m_fontMap;
     std::map<std::string, sf::SoundBuffer> m_soundBufferMap;
-    std::map<std::string, sf::Sound> m_soundMap;
+    std::map<std::string, std::optional<sf::Sound>> m_soundMap; // made this optional because of the lack of a default constructor
+    /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance
 
     // can be for single sprites or for atlas
     void addTexture(const std::string &textureName, const std::string &path, bool smooth)
@@ -34,21 +37,21 @@ class Assets
     }
 
     // animations with their own texture file
-    void addAnimation(const std::string &animationName, const std::string &textureName, const size_t frameCount, const size_t frameDuration)
+    void addAnimation(const std::string &animationName, const std::string &textureName, const unsigned int frameCount, const unsigned int frameDuration)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
 
     // static animations (images) found in texture atlases
-    void addAnimation(const std::string &animationName, const std::string &textureName, const Vec2f &position, const Vec2f &location)
+    void addAnimation(const std::string &animationName, const std::string &textureName, const Vec2i &position, const Vec2i &size)
     {
-        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, location);
+        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, size);
     }
 
     void addFont(const std::string &fontName, const std::string &path)
     {
         m_fontMap[fontName] = sf::Font();
-        if (!m_fontMap[fontName].loadFromFile(path))
+        if (!m_fontMap[fontName].openFromFile(path))
         {
             std::cerr << "Could not load font file: " << path << std::endl;
             m_fontMap.erase(fontName);
@@ -71,7 +74,7 @@ class Assets
         {
             std::cout << "Loaded sound: " << path << std::endl;
             m_soundMap[soundName] = sf::Sound(m_soundBufferMap[soundName]);
-            m_soundMap[soundName].setVolume(25);
+            m_soundMap[soundName].value().setVolume(25);
         }
     }
 
@@ -97,14 +100,14 @@ public:
             else if (str == "AnimationStatic")
             {
                 std::string name, texture;
-                Vec2f pos, size;
+                Vec2i pos, size;
                 file >> name >> texture >> pos.x >> pos.y >> size.x >> size.y;
                 addAnimation(name, texture, pos, size);
             }
             else if (str == "Animation")
             {
                 std::string name, texture;
-                size_t frameCount, frameDuration;
+                unsigned int frameCount, frameDuration;
                 file >> name >> texture >> frameCount >> frameDuration;
                 addAnimation(name, texture, frameCount, frameDuration);
             }
@@ -153,6 +156,6 @@ public:
     sf::Sound &getSound(const std::string &soundName)
     {
         assert(m_soundMap.find(soundName) != m_soundMap.end());
-        return m_soundMap.at(soundName);
+        return m_soundMap.at(soundName).value(); /// TODO: do I have to check to see if the sound at soundName has a value? test this
     }
 };

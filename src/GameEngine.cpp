@@ -1,10 +1,18 @@
-#include "GameEngine.h"
-#include "Scene_Menu.h"
+#include "GameEngine.hpp"
+#include "Scene_Menu.hpp"
 #include "Assets.hpp"
 
 #include <string>
 #include <memory>
 #include <SFML/Graphics.hpp>
+
+/// TODO: consider multithreading, offload tasks like physics updates and asset loading to keep main game loop responsive
+/// TODO: decouple frame rate from updates in main game loop
+/// TODO: could introduce a more formal state management system for each scene to handle different modes (e.g., main menu, in-game, paused, game over) and manage transitions between them more gracefully
+/// TODO: consider refactoring how the ActionMap is structured. A more efficient lookup mechanism (e.g., a hash map of actions to key/button codes) could improve performance and maintainability
+/// TODO: Consider adding a stack of scenes, where you can "push" and "pop" scenes. This would allow for more advanced scenarios like pausing the game (by pushing a pause scene) or implementing menus, without directly replacing scenes
+/// TODO: could implement an unordered map (std::unordered_map) for faster lookups. Since scene names are strings, and assuming they are frequently accessed, an unordered map would provide better performance for scene lookups
+/// TODO: You might consider implementing a sf::Clock (or similar) to track delta time and simulation speed (m_simulationSpeed). This can ensure consistent updates regardless of the frame rate, allowing for frame-independent movement or animations
 
 /// @brief constructs a new GameEngine by calling GameEngine::init
 /// @param path the path to the asset configuration file
@@ -13,12 +21,13 @@ GameEngine::GameEngine(const std::string &path)
     init(path);
 }
 
+/// TODO: make window size dynamic, not hardcoded
 /// @brief loads assets, creates window, and opens MENU scene
 /// @param path the path to the asset configuration file
 void GameEngine::init(const std::string &path)
 {
     m_assets.loadFromFile(path);
-    m_window.create(sf::VideoMode(20 * 64, 20 * 36), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
+    m_window.create(sf::VideoMode({20 * 64, 20 * 36}), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
     m_window.setFramerateLimit(60);
 
     addScene("MENU", std::make_shared<Scene_Menu>(*this));
@@ -31,40 +40,69 @@ void GameEngine::update()
     currentScene()->update();
 }
 
+/// TODO: consider separate functions for keyboard, mouse, controller, touch, etc. to reduce size of this function
 /// @brief handles all user input in the game
 void GameEngine::sUserInput()
 {
-    sf::Event event;
-    while (m_window.pollEvent(event))
+    while (const std::optional<sf::Event> event = m_window.pollEvent())
     {
-        if (event.type == sf::Event::Closed)
+        if (event->is<sf::Event::Closed>())
         {
             quit();
         }
 
-        // keyboard clicking
-        if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
+        /// keyboard
+
+        if (const sf::Event::KeyPressed* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            // if current scene does not have an action associated with key code, skip it
-            if (currentScene()->getActionMap().find(event.key.code) == currentScene()->getActionMap().end())
+            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyPressed->code)); 
+                action != currentScene()->getActionMap().end())
             {
-                continue;
+                currentScene()->sDoAction(Action(action->second, "START"));
             }
-
-            // determine start or end action by whether key was pressed or released
-            const std::string actionType = (event.type == sf::Event::KeyPressed) ? "START" : "END";
-
-            // look up the action and send the action to the current scene
-            currentScene()->sDoAction(Action(currentScene()->getActionMap().at(event.key.code), actionType));
+        }
+        else if (const sf::Event::KeyReleased* keyReleased = event->getIf<sf::Event::KeyReleased>())
+        {
+            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyReleased->code)); 
+                action != currentScene()->getActionMap().end())
+            {
+                currentScene()->sDoAction(Action(action->second, "END"));
+            }
         }
 
-        // mouse clicking
-        if (event.type == sf::Event::MouseButtonPressed || event.type == sf::Event::MouseButtonReleased)
-        {
-            // Vec2i mpos(event.mouseButton.x, event.mouseButton.y);
+        /// mouse
 
-            currentScene()->sDoAction(Action(currentScene()->getActionMap().at(event.mouseButton.button + sf::Keyboard::KeyCount), (event.type == sf::Event::MouseButtonPressed ? "START" : "END"))); // add KeyCount since button codes and key codes overlap
-        } 
+        else if (const sf::Event::MouseButtonPressed* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
+        {
+            currentScene()->sDoAction(Action(
+                currentScene()->getActionMap().at(static_cast<int>(mousePressed->button) + sf::Keyboard::KeyCount), 
+                "START"
+            ));
+        }
+        else if (const sf::Event::MouseButtonReleased* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
+        {
+            currentScene()->sDoAction(Action(
+                currentScene()->getActionMap().at(static_cast<int>(mouseReleased->button) + sf::Keyboard::KeyCount), 
+                "END"
+            ));
+        }
+       
+        /// TODO: there is now an isKeyPressed event that will tell me if it's being held down, loop through all bound inputs and see if they are being pressed
+        // sf::Keyboard::Key key = sf::Keyboard::Key::Space;
+        // sf::Mouse::Button button = sf::Mouse::Button::Left;
+        // if (sf::Keyboard::isKeyPressed(key))
+        // {
+        //     if (currentScene()->getActionMap().find(static_cast<int>(key)) == currentScene()->getActionMap().end())
+        //     {
+        //         continue;
+        //     }
+        //     else
+        //     {
+        //         currentScene()->sDoAction(Action(currentScene()->getActionMap().at(static_cast<int>(key)), actionType));
+        //     }
+        // }
+
+        // handleContinuousInput();
     }
 }
 
@@ -122,6 +160,7 @@ void GameEngine::addScene(const std::string &sceneName, std::shared_ptr<Scene> s
     m_currentScene = sceneName;
 }
 
+/// TODO: implement current scene ending
 /// @brief change to another active scene
 /// @param sceneName name of the scene to change to (e.g., "PLAY")
 /// @param endThisScene a boolean to control whether the current scene ends or not upon moving to the new scene
