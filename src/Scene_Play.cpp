@@ -18,7 +18,7 @@
 /// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 /// @param levelPath the file path to the scene's configuration file
-Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
+Scene_Play::Scene_Play(GameEngine& gameEngine, const std::string& levelPath)
     : Scene(gameEngine), m_levelPath(levelPath)
 {
     init(levelPath);
@@ -26,7 +26,7 @@ Scene_Play::Scene_Play(GameEngine &gameEngine, const std::string &levelPath)
 
 /// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadLevel
 /// @param levelPath the file path to the scene's configuration file; passed to loadLevel
-void Scene_Play::init(const std::string &levelPath)
+void Scene_Play::init(const std::string& levelPath)
 {
     // misc keybind setup
     registerAction(static_cast<int>(sf::Keyboard::Key::P), "PAUSE");
@@ -49,7 +49,7 @@ void Scene_Play::init(const std::string &levelPath)
     // fps counter setup
     m_fpsText.setCharacterSize(12);
     m_fpsText.setFillColor(sf::Color::White);
-    m_fpsText.setPosition({10.f, 10.f}); // top-left corner
+    m_fpsText.setPosition({ 10.f, 10.f }); // top-left corner
 
     loadLevel(levelPath);
 }
@@ -61,7 +61,7 @@ void Scene_Play::init(const std::string &levelPath)
 /// @return a Vec2f with the x and y pixel coordinates of the center of entity
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
 {
-    const Vec2i &entityAnimSize = entity.getComponent<CAnimation>().animation.getSize();
+    const Vec2i& entityAnimSize = entity.getComponent<CAnimation>().animation.getSize();
 
     float xPos = gridX * m_gridSize.x + entityAnimSize.x / 2.0f;
     float yPos = gridY * m_gridSize.y + entityAnimSize.y / 2.0f;
@@ -79,7 +79,7 @@ Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
 /// TODO: consider keeping this for later in case people want to save level, then can load with this function
 /// @brief loads the scene using the configuration file levelPath
 /// @param levelPath the configuration file specifying various components of entities in the scene
-void Scene_Play::loadLevel(const std::string &levelPath)
+void Scene_Play::loadLevel(const std::string& levelPath)
 {
     // reset the entity manager every time we load a level
     m_entityManager = EntityManager();
@@ -160,20 +160,18 @@ void Scene_Play::generateWorld()
     */
 
     /// generate world and get tile positions
-    WorldGenerator gen(m_worldMax.x, m_worldMax.y);
+    WorldGenerator gen(m_worldMax.x / m_gridSize.x, m_worldMax.y / m_gridSize.y);
     gen.generateWorld();
-    const std::vector<TileInfo> &tilePositions = gen.getTilePositions();
+    const std::vector<TileInfo>& tilePositions = gen.getTilePositions();
 
     /// spawn tiles according to their positions in the grid
-    for (const TileInfo &info : tilePositions)
+    for (const TileInfo& info : tilePositions)
     {
-        Entity tile = m_entityManager.addEntity("tile");
+        Entity tile = m_entityManager.addEntity("tile"); // seg fault here
         tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true);
         tile.addComponent<CTransform>(gridToMidPixel(info.x, info.y, tile));
         tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
     }
-
-    spawnPlayer();
 }
 
 /// @brief spawns the player entity
@@ -199,19 +197,19 @@ void Scene_Play::spawnPlayer()
 /// @param entity an entity in the scene
 void Scene_Play::spawnBullet(Entity entity)
 {
-    Vec2f &entityPos = entity.getComponent<CTransform>().pos;
+    Vec2f& entityPos = entity.getComponent<CTransform>().pos;
     float bulletSpeed = 30.0f;
 
-    const Vec2f &worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+    const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
 
     Entity bullet = m_entityManager.addEntity("bullet");
     bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
     bullet.addComponent<CTransform>
-    (
-        entityPos, 
-        (worldTarget - entityPos) * bulletSpeed / worldTarget.dist(entityPos),
-        Vec2f(1.0f, 1.0f), 0.0f
-    );
+        (
+            entityPos,
+            (worldTarget - entityPos) * bulletSpeed / worldTarget.dist(entityPos),
+            Vec2f(1.0f, 1.0f), 0.0f
+        );
     bullet.addComponent<CBoundingBox>(bullet.getComponent<CAnimation>().animation.getSize());
     bullet.addComponent<CLifespan>(30, m_currentFrame);
 }
@@ -246,9 +244,9 @@ void Scene_Play::update()
 void Scene_Play::sMovement()
 {
     /* player */
-    std::string &state = m_player.getComponent<CState>().state;
-    CInput &input = m_player.getComponent<CInput>();
-    CTransform &trans = m_player.getComponent<CTransform>();
+    std::string& state = m_player.getComponent<CState>().state;
+    CInput& input = m_player.getComponent<CInput>();
+    CTransform& trans = m_player.getComponent<CTransform>();
 
     Vec2f velToAdd(0, 0);
 
@@ -259,7 +257,7 @@ void Scene_Play::sMovement()
     {
         velToAdd.y += airResistance - trans.velocity.y;
     }
-    else 
+    else
     {
         velToAdd.y += m_playerConfig.GRAVITY;
     }
@@ -302,7 +300,7 @@ void Scene_Play::sMovement()
             velToAdd.x = m_playerConfig.SM - trans.velocity.x;
         }
 
-        trans.scale.x = abs(trans.scale.x); 
+        trans.scale.x = abs(trans.scale.x);
         /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
@@ -317,7 +315,7 @@ void Scene_Play::sMovement()
             velToAdd.x = -m_playerConfig.SM - trans.velocity.x;
         }
 
-        trans.scale.x = -abs(trans.scale.x); 
+        trans.scale.x = -abs(trans.scale.x);
         /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
     }
 
@@ -353,12 +351,12 @@ void Scene_Play::sMovement()
     // }
 
     /* bullets */
-    for (auto &bullet : m_entityManager.getEntities("bullet"))
+    for (auto& bullet : m_entityManager.getEntities("bullet"))
     {
-        CTransform &trans = bullet.getComponent<CTransform>();
+        CTransform& trans = bullet.getComponent<CTransform>();
         trans.pos += trans.velocity;
     }
-    if (input.shoot && input.canShoot) 
+    if (input.shoot && input.canShoot)
     {
         spawnBullet(m_player);
     }
@@ -368,13 +366,13 @@ void Scene_Play::sMovement()
 /// @brief handle collisions and m_player CState updates
 void Scene_Play::sCollision()
 {
-    CTransform &trans = m_player.getComponent<CTransform>();
-    std::string &state = m_player.getComponent<CState>().state;
+    CTransform& trans = m_player.getComponent<CTransform>();
+    std::string& state = m_player.getComponent<CState>().state;
 
     bool collision = false;
 
     /* player and tiles */
-    for (auto &tile : m_entityManager.getEntities("tile"))
+    for (auto& tile : m_entityManager.getEntities("tile"))
     {
         Vec2f overlap = Physics::GetOverlap(m_player, tile);
         Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
@@ -392,7 +390,7 @@ void Scene_Play::sCollision()
                 {
                     trans.pos.y -= overlap.y; // player can't fall below tile
                     state = abs(trans.velocity.x) > 0 ? "run" : "stand";
-                    
+
                     // jumping
                     if (!m_player.getComponent<CInput>().up) // wait for player to release w key before allowing jump
                     {
@@ -434,9 +432,9 @@ void Scene_Play::sCollision()
 
     /// TODO: put inner for loop inside the one above? keep like this to isolate scopes?
     // something wrong with bullet collision when using a scale that is not 1:1 (and maybe in general too)
-    for (auto &tile : m_entityManager.getEntities("tile"))
+    for (auto& tile : m_entityManager.getEntities("tile"))
     {
-        for (auto &bullet : m_entityManager.getEntities("bullet"))
+        for (auto& bullet : m_entityManager.getEntities("bullet"))
         {
             // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
             Vec2f overlap = Physics::GetOverlap(tile, bullet);
@@ -457,7 +455,7 @@ void Scene_Play::sCollision()
     // }
 
     // restrict movement passed top, bottom, or side of map
-    const Vec2i &animSize = m_player.getComponent<CAnimation>().animation.getSize();
+    const Vec2i& animSize = m_player.getComponent<CAnimation>().animation.getSize();
     if (trans.pos.x < animSize.x / 2)
     {
         trans.pos.x = animSize.x / 2;
@@ -484,7 +482,7 @@ void Scene_Play::sCollision()
 /// TODO: grouping similar actions (e.g., input actions like "JUMP", "LEFT", "RIGHT", etc.) into an enum or constants to avoid potential typos and improve maintainability. This way, your if-else chains would be more scalable if new actions are added
 /// @brief sets CInput variables according to action, no action logic here
 /// @param action an action to perform; action has a type and a name which are both std::string objects
-void Scene_Play::sDoAction(const Action &action)
+void Scene_Play::sDoAction(const Action& action)
 {
     if (action.type() == "START")
     {
@@ -570,11 +568,11 @@ void Scene_Play::sAI()
 void Scene_Play::sStatus()
 {
     // lifespan
-    for (auto &e : m_entityManager.getEntities())
+    for (auto& e : m_entityManager.getEntities())
     {
         if (e.hasComponent<CLifespan>())
         {
-            int &lifespan = e.getComponent<CLifespan>().lifespan;
+            int& lifespan = e.getComponent<CLifespan>().lifespan;
             if (lifespan <= 0)
             {
                 e.destroy();
@@ -606,14 +604,14 @@ void Scene_Play::sCamera()
     sf::View view = m_game.window().getView();
 
     // get the player's position
-    Vec2f &pPos = m_player.getComponent<CTransform>().pos;
+    Vec2f& pPos = m_player.getComponent<CTransform>().pos;
 
     // find where the center of the window should be, depends on world bounds
     float viewCenterX = std::clamp(pPos.x, m_game.window().getSize().x / 2.0f, m_worldMax.x - m_game.window().getSize().x / 2.0f);
     float viewCenterY = std::clamp(pPos.y, m_game.window().getSize().y / 2.0f, m_worldMax.y - m_game.window().getSize().y / 2.0f);
 
     // set the viewport of the window to be centered on the player if player is not on a bound of the world
-    view.setCenter({viewCenterX, viewCenterY});
+    view.setCenter({ viewCenterX, viewCenterY });
     m_game.window().setView(view);
 
     /// TODO: add some smoothing of some sort, check lecture on this
@@ -643,7 +641,7 @@ void Scene_Play::sRender()
         m_game.window().clear(sf::Color(10, 10, 10));
     }
 
-    sf::RectangleShape tick({1.0f, 6.0f});
+    sf::RectangleShape tick({ 1.0f, 6.0f });
     tick.setFillColor(sf::Color::Black);
 
     /* draw all entity textures / animations */
@@ -651,7 +649,7 @@ void Scene_Play::sRender()
     {
         for (auto e : m_entityManager.getEntities()) // getEntities() returns reference
         {
-            auto &transform = e.getComponent<CTransform>();
+            CTransform& transform = e.getComponent<CTransform>();
 
             sf::Color c = sf::Color::White;
             if (e.hasComponent<CInvincibility>())
@@ -661,7 +659,7 @@ void Scene_Play::sRender()
 
             if (e.hasComponent<CAnimation>())
             {
-                auto &animation = e.getComponent<CAnimation>().animation;
+                Animation& animation = e.getComponent<CAnimation>().animation;
                 animation.getSprite().setRotation(sf::radians(transform.rotAngle));
                 animation.getSprite().setPosition(transform.pos);
                 animation.getSprite().setScale(transform.scale);
@@ -673,13 +671,13 @@ void Scene_Play::sRender()
 
         for (auto e : m_entityManager.getEntities())
         {
-            auto &transform = e.getComponent<CTransform>();
+            auto& transform = e.getComponent<CTransform>();
             if (e.hasComponent<CHealth>())
             {
-                auto &h = e.getComponent<CHealth>();
+                auto& h = e.getComponent<CHealth>();
                 Vec2f size(64, 6);
                 sf::RectangleShape rect(size);
-                rect.setPosition({transform.pos.x - 32, transform.pos.y - 48});
+                rect.setPosition({ transform.pos.x - 32, transform.pos.y - 48 });
                 rect.setFillColor(sf::Color(96, 96, 96));
                 rect.setOutlineColor(sf::Color::Black);
                 rect.setOutlineThickness(2);
@@ -688,15 +686,15 @@ void Scene_Play::sRender()
 
                 float ratio = static_cast<float>(h.current) / static_cast<float>(h.max);
                 size.x *= ratio;
-                rect.setSize({size});
+                rect.setSize({ size });
                 rect.setFillColor(sf::Color(255, 0, 0));
                 rect.setOutlineThickness(0);
-                
+
                 m_game.window().draw(rect);
 
                 for (int i = 0; i < h.max; i++)
                 {
-                    tick.setPosition({rect.getPosition().x + i * 64.0f / h.max, rect.getPosition().y});
+                    tick.setPosition({ rect.getPosition().x + i * 64.0f / h.max, rect.getPosition().y });
                     m_game.window().draw(tick);
                 }
             }
@@ -745,14 +743,14 @@ void Scene_Play::sRender()
 
                     m_gridText.setString("(" + xCell + "," + yCell + ")");
                     // m_gridText.setPosition(x + 3, y - m_gridSize.y + 2); // position label inside cell, bottom left (0, 0)
-                    m_gridText.setPosition({x + 3, y + 2}); // position label inside cell, top left (0, 0)
+                    m_gridText.setPosition({ x + 3, y + 2 }); // position label inside cell, top left (0, 0)
                     m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
                     m_game.window().draw(m_gridText);
                 }
             }
         }
     }
-    
+
     /* draw all entity collision bounding boxes with a rectangle */
     if (m_drawCollision)
     {
@@ -762,8 +760,8 @@ void Scene_Play::sRender()
         {
             if (e.hasComponent<CBoundingBox>())
             {
-                auto &box = e.getComponent<CBoundingBox>();
-                auto &transform = e.getComponent<CTransform>();
+                auto& box = e.getComponent<CBoundingBox>();
+                auto& transform = e.getComponent<CTransform>();
                 sf::RectangleShape rect;
                 rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
                 rect.setOrigin(box.halfSize);
@@ -795,7 +793,7 @@ void Scene_Play::sRender()
 
             if (e.hasComponent<CPatrol>())
             {
-                auto &patrol = e.getComponent<CPatrol>().positions;
+                auto& patrol = e.getComponent<CPatrol>().positions;
                 for (size_t p = 0; p < patrol.size(); p++)
                 {
                     dot.setPosition(patrol[p]);
@@ -825,7 +823,7 @@ void Scene_Play::sRender()
     m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
 
     // draw the fps text on the default view (w.r.t. window coordinates, not game world)
-    sf::View currentView = m_game.window().getView(); 
+    sf::View currentView = m_game.window().getView();
     m_game.window().setView(m_game.window().getDefaultView());
     m_game.window().draw(m_fpsText);
     m_game.window().setView(currentView);
@@ -836,10 +834,10 @@ void Scene_Play::sRender()
 /// @brief helper function for grid drawing; draws line from p1 to p2 on the screen
 /// @param p1 first point in line
 /// @param p2 second point in line
-void Scene_Play::drawLine(const Vec2f &p1, const Vec2f &p2)
+void Scene_Play::drawLine(const Vec2f& p1, const Vec2f& p2)
 {
-    sf::Vertex line[] = 
-    { 
+    sf::Vertex line[] =
+    {
         {p1, sf::Color(255, 255, 255, 50)},
         {p2, sf::Color(255, 255, 255, 50)}
     };

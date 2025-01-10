@@ -5,70 +5,60 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 class EntityManager
 {
     /// TODO: still needed? think about this in relation to the new memory pool
-    std::vector<Entity> m_entities;
+    std::vector<Entity> m_liveEntities;
     std::vector<Entity> m_entitiesToAdd;
+
+    // old way
     // std::map<std::string, std::vector<Entity>> m_entityMap;
+
     unsigned long m_totalEntities = 0;
 
     /// TODO: implement
-    void removeDeadEntities(std::vector<Entity> &vec)
+    /// @brief remove dead entities from param entities
+    void removeDeadEntities(std::vector<Entity>& entities)
     {
-        
+        // use std::remove_if to move dead entities to the end of the vector
+        auto it = std::remove_if(entities.begin(), entities.end(),
+            [](const Entity& entity) { return !entity.isActive(); });
+
+        // erase the "removed" entities from the vector
+        entities.erase(it, entities.end());
     }
 
 public:
     EntityManager() = default;
 
     /// TODO: implement new version of this if needed
-    /// @brief adds entities to be added and removed entities to be destroyed
+    /// @brief adds entities to be added and removes entities to be destroyed
     void update()
     {
-        // bool print = false;
-        // if (m_entitiesToAdd.size() > 0)
-        // {
-        //     print = true;
-        // }
-
-        for (auto& e : m_entitiesToAdd)
+        for (Entity& e : m_entitiesToAdd)
         {
-            m_entities.push_back(e);
+            m_liveEntities.push_back(e);
+
+            // old way
             // m_entityMap[e.tag()].push_back(e);
         }
         m_entitiesToAdd.clear();
 
-        removeDeadEntities(m_entities);
+        removeDeadEntities(m_liveEntities);
 
+        // old way
         // for (auto &[tag, entityVec] : m_entityMap)
         // {
         //     removeDeadEntities(entityVec);
-        // }
-
-        // if (print)
-        // {
-        //     std::cout << "\nin update call, num of entites: " << m_entities.size() << "\n";
-        //     for (int i = 0; i < m_entities.size(); i++)
-        //     {
-        //         std::cout << "entity manager updated: " << m_entities[i]->tag() << "\n";
-        //     }
-        //     std::cout << "\nentity map:\n";
-        //     for (auto &[tag, entityVec] : m_entityMap)
-        //     {
-        //         std::cout << tag << "\n";
-        //         for (auto &e : entityVec)
-        //         {
-        //             std::cout << "    " << e->id() << "\n";
-        //         }
-        //     }
         // }
     }
 
     /// @brief marks new entity to be added on next call to EntityManager::update
     /// @param tag the type of entity to add (e.g., "player")
     /// @return the entity to be added
-    Entity addEntity(const std::string &tag)
+    Entity addEntity(const std::string& tag)
     {
         Entity e = EntityMemoryPool::Instance().addEntity(tag);
         m_entitiesToAdd.push_back(e);
@@ -77,17 +67,17 @@ public:
 
     /// TODO: implement the new version of this if needed
     /// @brief gets all entities in the active EntityManager
-    /// @return m_entities, the std::vector<Entity> (std::vector<std::shared_ptr<Entity>>) of all entities
-    std::vector<Entity> &getEntities()
+    /// @return m_liveEntities, the std::vector<Entity> (std::vector<std::shared_ptr<Entity>>) of all entities
+    std::vector<Entity>& getEntities()
     {
-        return m_entities;
+        return m_liveEntities;
     }
 
     /// TODO: implement the new version of this if needed, also could change this to return only entity IDs to not have to create a bunch of new entities (but consider how that affects usage in scene_play and so on), make this return a reference with data stored in memory if needed
     /// @brief gets all entities with a specified tag
     /// @param tag the type of entity to return (e.g., "player")
     /// @return an std::vector<Entity> of entities with the specified tag
-    std::vector<Entity> getEntities(const std::string &tag)
+    std::vector<Entity> getEntities(const std::string& tag)
     {
         return EntityMemoryPool::Instance().getEntities(tag);
 

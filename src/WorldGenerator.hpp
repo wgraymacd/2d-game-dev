@@ -113,7 +113,6 @@ class WorldGenerator
             terrainHeights[x] = static_cast<int>(noiseVal * terrainDelta + seaLevel);  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
         }
 
-
         /// remove tiles above terrain heights
 
         m_tilePositions.erase(

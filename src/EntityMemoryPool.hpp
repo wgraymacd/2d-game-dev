@@ -24,6 +24,8 @@ class EntityMemoryPool
     std::queue<unsigned long> m_freeList;           // stores indices of inactive entities to accelerate searching
 
     unsigned long m_numEntities = 0;
+
+    /// TODO: is this the way? something else? use more memory pools? idk
     std::tuple<
         std::vector<CTransform>,
         std::vector<CLifespan>,
@@ -37,18 +39,31 @@ class EntityMemoryPool
         std::vector<CState>,
         std::vector<CFollowPlayer>, // NPC behavior
         std::vector<CPatrol>        // NPC behavior
-        >
-        m_pool;
-    std::vector<std::string> m_tags;
-    std::vector<bool> m_active;
+    >
+        m_pool{
+            std::vector<CTransform>(MAX_ENTITIES),
+            std::vector<CLifespan>(MAX_ENTITIES),
+            std::vector<CDamage>(MAX_ENTITIES),
+            std::vector<CInvincibility>(MAX_ENTITIES),
+            std::vector<CHealth>(MAX_ENTITIES),
+            std::vector<CInput>(MAX_ENTITIES),
+            std::vector<CBoundingBox>(MAX_ENTITIES),
+            std::vector<CAnimation>(MAX_ENTITIES),
+            std::vector<CGravity>(MAX_ENTITIES),
+            std::vector<CState>(MAX_ENTITIES),
+            std::vector<CFollowPlayer>(MAX_ENTITIES),
+            std::vector<CPatrol>(MAX_ENTITIES) };
+    std::vector<std::string> m_tags = std::vector<std::string>(MAX_ENTITIES);
+    std::vector<bool> m_active = std::vector<bool>(MAX_ENTITIES);
 
     // initialize free list with all indices
     EntityMemoryPool(unsigned long maxEntities);
 
     unsigned long getInactiveEntityIndex();
+    void resetEntityAtIndex(unsigned long index);
 
 public:
-    static EntityMemoryPool &Instance();
+    static EntityMemoryPool& Instance();
 
     /// TODO: worth implementing here or is this more inneficient than having a separate vector in EntityManager
     // /// @brief get a complete vector of all active entities
@@ -59,7 +74,7 @@ public:
 
     /// @brief returns a component of type T from an entity with ID entityID
     template <typename T>
-    T &getComponent(unsigned long entityID)
+    T& getComponent(unsigned long entityID)
     {
         return std::get<std::vector<T>>(m_pool)[entityID];
     }
@@ -69,31 +84,40 @@ public:
     template <typename T>
     bool hasComponent(unsigned long entityID)
     {
-        return false;
+        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        const T& component = componentVector[entityID];
+        return component.exists;
     }
 
     /// @brief add a component of type T with arguments mArgs of types TArgs to entity entityID
     /// @return the added component
     template <typename T, typename... TArgs>
-    T &addComponent(unsigned long entityID, TArgs &&...mArgs)
+    T& addComponent(unsigned long entityID, TArgs &&...mArgs)
     {
-        T &comp = std::get<std::vector<T>>(m_pool)[entityID];
+        // set the values in the memory pool
+        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        T& comp = componentVector[entityID];
         comp = T(std::forward<TArgs>(mArgs)...);
+        comp.exists = true;
 
+        // return the component
         return comp;
     }
 
-    /// @brief get the tag of entity entityID
-    const std::string &getTag(unsigned long entityID) const;
-
     /// @brief add an entity with tag tag
     /// @return the added entity
-    Entity addEntity(const std::string &tag);
+    Entity addEntity(const std::string& tag);
 
     /// @brief remove an entity from the memory pool
     void removeEntity(unsigned long entityID);
 
     /// TODO: return a reference? if I can get entity vectors to be stored in memory longer than duration of this scope
     /// @brief get all entity IDs with the tag tag
-    std::vector<Entity> getEntities(const std::string &tag);
+    std::vector<Entity> getEntities(const std::string& tag);
+
+    /// @brief return a bool representing the entity's living status
+    bool isActive(unsigned long entityID);
+
+    /// @brief get the tag of entity entityID
+    const std::string& getTag(unsigned long entityID) const;
 };

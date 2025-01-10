@@ -10,15 +10,15 @@ class Entity
     unsigned long m_id;
 
 public:
-    Entity(unsigned long id) : m_id(id) { }
+    Entity(unsigned long id) : m_id(id) {}
 
     /// @brief get a component of type T from this entity
     template <typename T>
-    T &getComponent() const
+    T& getComponent() const
     {
         return EntityMemoryPool::Instance().getComponent<T>(m_id);
     }
-    
+
     /// @brief check to see if this entity has a component of type T
     template <typename T>
     const bool hasComponent() const
@@ -28,11 +28,12 @@ public:
 
     /// @brief add a component of type T with argument mArgs of types TArgs to this entity
     template <typename T, typename... TArgs>
-    T &addComponent(TArgs &&...mArgs)
+    T& addComponent(TArgs &&...mArgs)
     {
         return EntityMemoryPool::Instance().addComponent<T>(m_id, std::forward<TArgs>(mArgs)...);
     }
 
+    /// @brief get this entity's tag
     const std::string tag()
     {
         return EntityMemoryPool::Instance().getTag(m_id);
@@ -41,6 +42,12 @@ public:
     /// @brief destroy this entity
     void destroy()
     {
-        return EntityMemoryPool::Instance().removeEntity(m_id);
+        EntityMemoryPool::Instance().removeEntity(m_id);
+    }
+
+    /// @brief get a bool representing this entities living status
+    const bool isActive() const
+    {
+        return EntityMemoryPool::Instance().isActive(m_id);
     }
 };
