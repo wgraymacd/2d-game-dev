@@ -1,3 +1,16 @@
+#define PROFILING 1
+#ifdef PROFILING
+#define PROFILE_SCOPE(name) \
+        ProfileTimer timer##__LINE__(name)
+#define PROFILE_FUNCTION() \
+        PROFILE_SCOPE(__FUNCTION__)
+#else
+#define PROFILE_SCOPE(name)
+#define PROFILE_FUNCTION ()
+#endif
+
+#include "Timer.hpp"
+
 #include "Scene_Play.hpp"
 #include "Scene.hpp"
 #include "GameEngine.hpp"
@@ -139,6 +152,8 @@ void Scene_Play::loadLevel(const std::string& levelPath)
 /// @brief randomly generate the playing world
 void Scene_Play::generateWorld()
 {
+    PROFILE_FUNCTION();
+
     /// TODO: mountains, caves, lakes, rivers, even terrain, biomes, etc.
     /// TODO: consider different noise types for speed
 
@@ -167,8 +182,8 @@ void Scene_Play::generateWorld()
     /// spawn tiles according to their positions in the grid
     for (const TileInfo& info : tilePositions)
     {
-        Entity tile = m_entityManager.addEntity("tile"); // seg fault here
-        tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true);
+        Entity tile = m_entityManager.addEntity("tile");
+        tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true); /// TODO: these animations may not be loaded properly (all white squares are rendered for all entities)
         tile.addComponent<CTransform>(gridToMidPixel(info.x, info.y, tile));
         tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
     }
@@ -177,6 +192,8 @@ void Scene_Play::generateWorld()
 /// @brief spawns the player entity
 void Scene_Play::spawnPlayer()
 {
+    PROFILE_FUNCTION();
+
     // when respawning in same map, must delete previous player
     if (!m_entityManager.getEntities("player").empty())
     {
@@ -188,7 +205,7 @@ void Scene_Play::spawnPlayer()
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("BlockGrass1"), true);
     m_player.addComponent<CTransform>(gridToMidPixel(m_playerConfig.GX, m_playerConfig.GY, m_player));
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH));
-    m_player.addComponent<CState>("stand");
+    m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
 }
@@ -197,6 +214,8 @@ void Scene_Play::spawnPlayer()
 /// @param entity an entity in the scene
 void Scene_Play::spawnBullet(Entity entity)
 {
+    PROFILE_FUNCTION();
+
     Vec2f& entityPos = entity.getComponent<CTransform>().pos;
     float bulletSpeed = 30.0f;
 
@@ -218,12 +237,16 @@ void Scene_Play::spawnBullet(Entity entity)
 /// @param entity an entity in the scene
 void Scene_Play::spawnMelee(Entity entity)
 {
+    PROFILE_FUNCTION();
+
     /// TODO: spawn a sword or a knife for melee attacks
 }
 
 /// @brief update the scene; this function is called by the game engine at each frame if this scene is active
 void Scene_Play::update()
 {
+    PROFILE_FUNCTION();
+
     if (!m_paused)
     {
         /// TODO: think about order here if it even matters
@@ -243,6 +266,8 @@ void Scene_Play::update()
 /// @brief handle player and bullet movement per frame
 void Scene_Play::sMovement()
 {
+    PROFILE_FUNCTION();
+
     /* player */
     std::string& state = m_player.getComponent<CState>().state;
     CInput& input = m_player.getComponent<CInput>();
@@ -366,21 +391,23 @@ void Scene_Play::sMovement()
 /// @brief handle collisions and m_player CState updates
 void Scene_Play::sCollision()
 {
+    PROFILE_FUNCTION();
+
     CTransform& trans = m_player.getComponent<CTransform>();
     std::string& state = m_player.getComponent<CState>().state;
 
     bool collision = false;
 
     /* player and tiles */
-    for (auto& tile : m_entityManager.getEntities("tile"))
+    for (Entity& tile : m_entityManager.getEntities("tile"))
     {
         Vec2f overlap = Physics::GetOverlap(m_player, tile);
-        Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
 
         // there is a collision
         if (overlap.y > 0 && overlap.x > 0)
         {
             collision = true;
+            Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
 
             // we are colliding in y-direction this frame since previous frame already had x-direction overlap
             if (prevOverlap.x > 0)
@@ -420,7 +447,6 @@ void Scene_Play::sCollision()
                     trans.pos.x += overlap.x;
                 }
                 trans.velocity.x = 0;
-
             }
         }
     }
@@ -432,9 +458,9 @@ void Scene_Play::sCollision()
 
     /// TODO: put inner for loop inside the one above? keep like this to isolate scopes?
     // something wrong with bullet collision when using a scale that is not 1:1 (and maybe in general too)
-    for (auto& tile : m_entityManager.getEntities("tile"))
+    for (Entity& tile : m_entityManager.getEntities("tile"))
     {
-        for (auto& bullet : m_entityManager.getEntities("bullet"))
+        for (Entity& bullet : m_entityManager.getEntities("bullet"))
         {
             // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
             Vec2f overlap = Physics::GetOverlap(tile, bullet);
@@ -484,6 +510,8 @@ void Scene_Play::sCollision()
 /// @param action an action to perform; action has a type and a name which are both std::string objects
 void Scene_Play::sDoAction(const Action& action)
 {
+    PROFILE_FUNCTION();
+
     if (action.type() == "START")
     {
         if (action.name() == "TOGGLE_TEXTURE")
@@ -560,6 +588,8 @@ void Scene_Play::sDoAction(const Action& action)
 /// @brief handles the behavior of NPCs
 void Scene_Play::sAI()
 {
+    PROFILE_FUNCTION();
+
     /// TODO: implement NPC AI follow and patrol behavior
 }
 
@@ -567,6 +597,8 @@ void Scene_Play::sAI()
 /// @brief updates all entities' lifespan and invincibility status
 void Scene_Play::sStatus()
 {
+    PROFILE_FUNCTION();
+
     // lifespan
     for (auto& e : m_entityManager.getEntities())
     {
@@ -590,6 +622,8 @@ void Scene_Play::sStatus()
 /// @brief handles all entities' animation updates
 void Scene_Play::sAnimation()
 {
+    PROFILE_FUNCTION();
+
     /// TODO: Complete the Animation class code first
     // for each entity with an animation, call entity->get<CAnimation>().animation.update()
     // if animation is not repeated, and it has ended, destroy the entity
@@ -600,6 +634,8 @@ void Scene_Play::sAnimation()
 /// @brief handles camera view logic
 void Scene_Play::sCamera()
 {
+    PROFILE_FUNCTION();
+
     // get current view
     sf::View view = m_game.window().getView();
 
@@ -623,6 +659,8 @@ void Scene_Play::sCamera()
 /// @brief changes back to MENU scene when this scene ends
 void Scene_Play::onEnd()
 {
+    PROFILE_FUNCTION();
+
     m_game.changeScene("MENU");
 
     /// TODO: stop music, play menu music
@@ -631,6 +669,8 @@ void Scene_Play::onEnd()
 /// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter
 void Scene_Play::sRender()
 {
+    PROFILE_FUNCTION();
+
     // color the background darker so you know that the game is paused
     if (!m_paused)
     {

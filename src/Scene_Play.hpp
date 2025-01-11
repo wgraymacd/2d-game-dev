@@ -24,11 +24,11 @@ protected:
     EntityManager m_entityManager;
     Entity m_player = Entity(0); // the first entity has entity ID of 0
 
-    const Vec2i m_gridSize = {20, 20}; // cell size (pixels)
+    const Vec2i m_gridSize = { 20, 20 }; // cell size (pixels)
     sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
     // Vec2f m_worldMin = {0.0f, 0.0f}; // top-left corner of world (this variables is not really necessary)
-    Vec2i m_worldMax = {m_gridSize.x * 50, m_gridSize.y * 40}; // bottom-right corner of world
+    Vec2i m_worldMax = { m_gridSize.x * 100, m_gridSize.y * 40 }; // bottom-right corner of world
 
     bool m_drawTextures = true;
     bool m_drawCollision = false;
@@ -38,9 +38,9 @@ protected:
     sf::Clock m_fpsClock;
     sf::Text m_fpsText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
-    void init(const std::string &levelPath);
+    void init(const std::string& levelPath);
 
-    void loadLevel(const std::string &filename);
+    void loadLevel(const std::string& filename);
     void generateWorld();
 
     void update() override;
@@ -54,14 +54,14 @@ protected:
     void sMovement();
     void sStatus(); // lifespan and invincibility
     void sCollision();
-    void sDoAction(const Action &action) override;
+    void sDoAction(const Action& action) override;
     void sAnimation();
     void sAI(); // NPC behavior
     void sCamera(); // room vs center of player vs anything I might want
     void sRender() override;
 
-    void drawLine(const Vec2f &p1, const Vec2f &p2);
+    void drawLine(const Vec2f& p1, const Vec2f& p2);
 
 public:
-    Scene_Play(GameEngine &game, const std::string &levelPath);
+    Scene_Play(GameEngine& game, const std::string& levelPath);
 };

@@ -23,7 +23,7 @@ public:
 
     CTransform() = default;
     CTransform(const Vec2f& p)
-        : pos(p) {
+        : pos(p), prevPos(p) {
     }
     CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a)
         : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {

@@ -20,7 +20,7 @@ class Assets
     /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance
 
     // can be for single sprites or for atlas
-    void addTexture(const std::string &textureName, const std::string &path, bool smooth)
+    void addTexture(const std::string& textureName, const std::string& path, bool smooth)
     {
         m_textureMap[textureName] = sf::Texture();
 
@@ -37,18 +37,18 @@ class Assets
     }
 
     // animations with their own texture file
-    void addAnimation(const std::string &animationName, const std::string &textureName, const unsigned int frameCount, const unsigned int frameDuration)
+    void addAnimation(const std::string& animationName, const std::string& textureName, const unsigned int frameCount, const unsigned int frameDuration)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
 
     // static animations (images) found in texture atlases
-    void addAnimation(const std::string &animationName, const std::string &textureName, const Vec2i &position, const Vec2i &size)
+    void addAnimation(const std::string& animationName, const std::string& textureName, const Vec2i& position, const Vec2i& size)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, size);
     }
 
-    void addFont(const std::string &fontName, const std::string &path)
+    void addFont(const std::string& fontName, const std::string& path)
     {
         m_fontMap[fontName] = sf::Font();
         if (!m_fontMap[fontName].openFromFile(path))
@@ -62,7 +62,7 @@ class Assets
         }
     }
 
-    void addSound(const std::string &soundName, const std::string &path)
+    void addSound(const std::string& soundName, const std::string& path)
     {
         m_soundBufferMap[soundName] = sf::SoundBuffer();
         if (!m_soundBufferMap[soundName].loadFromFile(path))
@@ -83,7 +83,7 @@ public:
 
     /// @brief loads all assets from asset configuration file
     /// @param path the file path to the asset configuration file
-    void loadFromFile(const std::string &path)
+    void loadFromFile(const std::string& path)
     {
         std::ifstream file(path);
         std::string str;
@@ -125,35 +125,35 @@ public:
         file.close();
     }
 
-    const sf::Texture &getTexture(const std::string &textureName) const
+    const sf::Texture& getTexture(const std::string& textureName) const
     {
         assert(m_textureMap.find(textureName) != m_textureMap.end());
         return m_textureMap.at(textureName);
     }
 
-    const Animation &getAnimation(const std::string &animationName) const
+    const Animation& getAnimation(const std::string& animationName) const
     {
         assert(m_animationMap.find(animationName) != m_animationMap.end());
         return m_animationMap.at(animationName);
     }
 
-    const sf::Font &getFont(const std::string &fontName) const
+    const sf::Font& getFont(const std::string& fontName) const
     {
         assert(m_fontMap.find(fontName) != m_fontMap.end());
         return m_fontMap.at(fontName);
     }
 
-    const std::map<std::string, sf::Texture> &getTextures() const
+    const std::map<std::string, sf::Texture>& getTextures() const
     {
         return m_textureMap;
     }
 
-    const std::map<std::string, Animation> &getAnimations() const
+    const std::map<std::string, Animation>& getAnimations() const
     {
         return m_animationMap;
     }
 
-    sf::Sound &getSound(const std::string &soundName)
+    sf::Sound& getSound(const std::string& soundName)
     {
         assert(m_soundMap.find(soundName) != m_soundMap.end());
         return m_soundMap.at(soundName).value(); /// TODO: do I have to check to see if the sound at soundName has a value? test this
