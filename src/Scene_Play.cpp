@@ -1,14 +1,3 @@
-#define PROFILING 1
-#ifdef PROFILING
-#define PROFILE_SCOPE(name) \
-        ProfileTimer timer##__LINE__(name)
-#define PROFILE_FUNCTION() \
-        PROFILE_SCOPE(__FUNCTION__)
-#else
-#define PROFILE_SCOPE(name)
-#define PROFILE_FUNCTION ()
-#endif
-
 #include "Timer.hpp"
 
 #include "Scene_Play.hpp"
@@ -21,10 +10,9 @@
 #include "Physics.hpp"
 #include "Animation.hpp"
 #include "Action.hpp"
-#include "WorldGenerator.hpp" // world gen
+#include "WorldGenerator.hpp"
 
 #include <SFML/Graphics.hpp>
-
 #include <string>
 #include <fstream>
 
@@ -34,6 +22,8 @@
 Scene_Play::Scene_Play(GameEngine& gameEngine, const std::string& levelPath)
     : Scene(gameEngine), m_levelPath(levelPath)
 {
+    PROFILE_FUNCTION();
+
     init(levelPath);
 }
 
@@ -41,6 +31,8 @@ Scene_Play::Scene_Play(GameEngine& gameEngine, const std::string& levelPath)
 /// @param levelPath the file path to the scene's configuration file; passed to loadLevel
 void Scene_Play::init(const std::string& levelPath)
 {
+    PROFILE_FUNCTION();
+
     // misc keybind setup
     registerAction(static_cast<int>(sf::Keyboard::Key::P), "PAUSE");
     registerAction(static_cast<int>(sf::Keyboard::Key::Escape), "QUIT");
@@ -74,6 +66,8 @@ void Scene_Play::init(const std::string& levelPath)
 /// @return a Vec2f with the x and y pixel coordinates of the center of entity
 Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
 {
+    PROFILE_FUNCTION();
+
     const Vec2i& entityAnimSize = entity.getComponent<CAnimation>().animation.getSize();
 
     float xPos = gridX * m_gridSize.x + entityAnimSize.x / 2.0f;
@@ -94,6 +88,8 @@ Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
 /// @param levelPath the configuration file specifying various components of entities in the scene
 void Scene_Play::loadLevel(const std::string& levelPath)
 {
+    PROFILE_FUNCTION();
+
     // reset the entity manager every time we load a level
     m_entityManager = EntityManager();
 
@@ -388,6 +384,7 @@ void Scene_Play::sMovement()
 }
 
 /// TODO: modularize some of this if needed to reduce repition and make it easier to read
+/// TODO: increase efficiency with chunking or something like that, maybe a distance check or an in-frame/in-window check if possible
 /// @brief handle collisions and m_player CState updates
 void Scene_Play::sCollision()
 {
@@ -398,9 +395,28 @@ void Scene_Play::sCollision()
 
     bool collision = false;
 
-    /* player and tiles */
-    for (Entity& tile : m_entityManager.getEntities("tile"))
+    // cache these once per frame
+    const std::vector<Entity>& tiles = m_entityManager.getEntities("tile");
+    const std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
+
+    for (const Entity& tile : tiles)
     {
+        PROFILE_SCOPE("player/bullet-tile");
+
+        // not working
+        // const Vec2f& tilePos = tile.getComponent<CTransform>().pos;
+        // const Vec2i& tileSize = tile.getComponent<CBoundingBox>().size;
+        // const Vec2f& playerPos = m_player.getComponent<CTransform>().pos;
+        // const Vec2i& playerSize = m_player.getComponent<CBoundingBox>().size;
+        // int threshold = m_playerConfig.SM;
+        // if (tilePos.x + tileSize.x > playerPos.x - playerSize.x - threshold ||
+        //     tilePos.x - tileSize.x < playerPos.x + playerSize.x + threshold ||
+        //     tilePos.y - tileSize.y > playerPos.y + playerSize.y - threshold ||
+        //     tilePos.y + tileSize.y < playerPos.y - playerSize.y + threshold)
+        // {
+        //     continue;
+        // }
+
         Vec2f overlap = Physics::GetOverlap(m_player, tile);
 
         // there is a collision
@@ -449,19 +465,25 @@ void Scene_Play::sCollision()
                 trans.velocity.x = 0;
             }
         }
-    }
 
-    if (!collision)
-    {
-        state = "air";
-    }
-
-    /// TODO: put inner for loop inside the one above? keep like this to isolate scopes?
-    // something wrong with bullet collision when using a scale that is not 1:1 (and maybe in general too)
-    for (Entity& tile : m_entityManager.getEntities("tile"))
-    {
-        for (Entity& bullet : m_entityManager.getEntities("bullet"))
+        for (const Entity& bullet : bullets)
         {
+            PROFILE_SCOPE("bullet-tile");
+
+            // this helps a little
+            // const Vec2f& tilePos = tile.getComponent<CTransform>().pos;
+            // const sf::View& windowView = m_game.window().getView();
+            // const Vec2f& windowCenter = windowView.getCenter();
+            // const Vec2f& windowSize = windowView.getSize();
+            // const float top = windowCenter.y - windowSize.y;
+            // const float bottom = windowCenter.y + windowSize.y;
+            // const float left = windowCenter.x - windowSize.x;
+            // const float right = windowCenter.x + windowSize.x;
+            // if (tilePos.x > right || tilePos.x < left || tilePos.y < top || tilePos.y > bottom)
+            // {
+            //     continue;
+            // }
+
             // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
             Vec2f overlap = Physics::GetOverlap(tile, bullet);
 
@@ -472,6 +494,11 @@ void Scene_Play::sCollision()
                 bullet.destroy();
             }
         }
+    }
+
+    if (!collision)
+    {
+        state = "air";
     }
 
     // player falls below map

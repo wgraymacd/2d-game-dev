@@ -111,10 +111,6 @@ public:
     /// @brief remove an entity from the memory pool
     void removeEntity(unsigned long entityID);
 
-    /// TODO: return a reference? if I can get entity vectors to be stored in memory longer than duration of this scope
-    /// @brief get all entity IDs with the tag tag
-    std::vector<Entity> getEntities(const std::string& tag);
-
     /// @brief return a bool representing the entity's living status
     bool isActive(unsigned long entityID);
 

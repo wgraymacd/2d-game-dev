@@ -75,20 +75,6 @@ void EntityMemoryPool::removeEntity(unsigned long entityID)
     m_freeList.push(entityID);
 }
 
-/// TODO: is this the most efficient way? Or use m_entityMap in EntityManager
-std::vector<Entity> EntityMemoryPool::getEntities(const std::string& tag)
-{
-    std::vector<Entity> vec;
-    for (int i = 0; i < m_tags.size(); ++i)
-    {
-        if (m_tags[i] == tag)
-        {
-            vec.push_back(Entity(i));
-        }
-    }
-    return vec;
-}
-
 bool EntityMemoryPool::isActive(unsigned long entityID)
 {
     return m_active[entityID];

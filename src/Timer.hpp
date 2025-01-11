@@ -2,6 +2,17 @@
 // singleton class insures that only one instance of the class can be created  
 // typical use case is for global functionality, like this case
 
+#define PROFILING 1
+#ifdef PROFILING
+#define PROFILE_SCOPE(name) \
+        ProfileTimer timer##__LINE__(name)
+#define PROFILE_FUNCTION() \
+        PROFILE_SCOPE(__FUNCTION__)
+#else
+#define PROFILE_SCOPE(name)
+#define PROFILE_FUNCTION ()
+#endif
+
 #pragma once
 
 #include <string>

@@ -4,6 +4,8 @@
 #include "Entity.hpp"
 #include "Components.hpp"
 
+#include "Timer.hpp"
+
 #include <memory>
 
 struct Intersect
@@ -20,6 +22,8 @@ namespace Physics
     /// @return a Vec2f of (x overlap, y overlap)
     Vec2f GetOverlap(Entity a, Entity b)
     {
+        PROFILE_FUNCTION();
+
         /// TODO: Ensure the entities' positions and animations are updated correctly before these functions are called to reflect the right collision state
 
 
@@ -42,6 +46,8 @@ namespace Physics
     /// @return a Vec2f of (previous x overlap, previous y overlap)
     Vec2f GetPreviousOverlap(Entity a, Entity b)
     {
+        PROFILE_FUNCTION();
+
         const Vec2f& aPrevPos = a.getComponent<CTransform>().prevPos;
         const Vec2f& bPrevPos = b.getComponent<CTransform>().prevPos;
         float xDiff = abs(aPrevPos.x - bPrevPos.x);

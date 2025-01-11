@@ -40,7 +40,7 @@ public:
     }
 
     /// @brief destroy this entity
-    void destroy()
+    void destroy() const
     {
         EntityMemoryPool::Instance().removeEntity(m_id);
     }

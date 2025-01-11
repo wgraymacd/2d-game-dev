@@ -14,13 +14,15 @@ public:
 
     Vec2(T xin, T yin)
         : x(xin), y(yin)
-    { }
+    {
+    }
 
     /// @brief constructor to convert from sf::Vector2
     /// @param vec a reference to an sf::Vector2 object
     Vec2(const sf::Vector2<T>& vec)
         : x(vec.x), y(vec.y)
-    { }
+    {
+    }
 
     /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
     operator sf::Vector2<T>() const
@@ -100,6 +102,13 @@ public:
     float dist(const Vec2& vec) const
     {
         return sqrtf((x - vec.x) * (x - vec.x) + (y - vec.y) * (y - vec.y));
+    }
+
+    /// @brief get the manhattan distance of this entity from the point vec
+    /// @return a Vec2 of the x-distance and the y-distance
+    Vec2 distManhattan(const Vec2& vec) const
+    {
+        return Vec2(abs(x - vec.x), abs(y - vec.y));
     }
 
     /// TODO: add a norm method so I don't have to do it in other code, maybe dot and cross prod as well

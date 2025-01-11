@@ -2,10 +2,11 @@
 
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
+
+#include "Timer.hpp"
+
 #include <string>
 #include <vector>
-
-#include <iostream>
 
 class EntityManager
 {
@@ -13,21 +14,27 @@ class EntityManager
     std::vector<Entity> m_liveEntities;
     std::vector<Entity> m_entitiesToAdd;
 
-    // old way
-    // std::map<std::string, std::vector<Entity>> m_entityMap;
+    // implementation with entity map
+    std::map<std::string, std::vector<Entity>> m_entityMap;
 
     unsigned long m_totalEntities = 0;
 
     /// TODO: implement
     /// @brief remove dead entities from param entities
-    void removeDeadEntities(std::vector<Entity>& entities)
+    void removeDeadEntities()
     {
-        // use std::remove_if to move dead entities to the end of the vector
-        auto it = std::remove_if(entities.begin(), entities.end(),
+        // remove from m_liveEntities
+        auto it = std::remove_if(m_liveEntities.begin(), m_liveEntities.end(),
             [](const Entity& entity) { return !entity.isActive(); });
+        m_liveEntities.erase(it, m_liveEntities.end());
 
-        // erase the "removed" entities from the vector
-        entities.erase(it, entities.end());
+        // remove from m_entityMap
+        for (auto& [key, entityVector] : m_entityMap)
+        {
+            auto itMap = std::remove_if(entityVector.begin(), entityVector.end(),
+                [](const Entity& entity) { return !entity.isActive(); });
+            entityVector.erase(itMap, entityVector.end());
+        }
     }
 
 public:
@@ -40,19 +47,11 @@ public:
         for (Entity& e : m_entitiesToAdd)
         {
             m_liveEntities.push_back(e);
-
-            // old way
-            // m_entityMap[e.tag()].push_back(e);
+            m_entityMap[e.tag()].push_back(e);
         }
         m_entitiesToAdd.clear();
 
-        removeDeadEntities(m_liveEntities);
-
-        // old way
-        // for (auto &[tag, entityVec] : m_entityMap)
-        // {
-        //     removeDeadEntities(entityVec);
-        // }
+        removeDeadEntities();
     }
 
     /// @brief marks new entity to be added on next call to EntityManager::update
@@ -79,21 +78,21 @@ public:
     /// @return an std::vector<Entity> of entities with the specified tag
     std::vector<Entity> getEntities(const std::string& tag)
     {
-        return EntityMemoryPool::Instance().getEntities(tag);
+        PROFILE_FUNCTION();
 
-        // old implementation with entity map
-        // if (m_entityMap.find(tag) == m_entityMap.end())
-        // {
-        //     m_entityMap[tag] = std::vector<Entity>();
-        // }
-        // return m_entityMap[tag];
+        // implementation with entity map
+        if (m_entityMap.find(tag) == m_entityMap.end())
+        {
+            m_entityMap[tag] = std::vector<Entity>();
+        }
+        return m_entityMap[tag];
     }
 
     /// TODO: implement the new version of this if needed
     /// @brief gets the map of entity tags to entities
     /// @return m_entityMap, the map of std::string tags to std::vector<Entity> entity vectors
-    // const std::map<std::string, std::vector<Entity>> &getEntityMap()
-    // {
-    //     return m_entityMap;
-    // }
+    const std::map<std::string, std::vector<Entity>>& getEntityMap()
+    {
+        return m_entityMap;
+    }
 };
