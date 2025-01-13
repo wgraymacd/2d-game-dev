@@ -70,7 +70,20 @@ namespace Physics
     /// TODO: implement this function
     Intersect LineIntersect(const Vec2f& a, const Vec2f& b, const Vec2f& c, const Vec2f& d)
     {
-        return {};
+        Vec2f r = b - a;
+        Vec2f s = d - c;
+        float rxs = r.cross(s);
+        Vec2 cma = c - a;
+        float t = (cma.cross(s)) / r.cross(s);
+        float u = (cma.cross(r)) / r.cross(s);
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+        {
+            return { true, Vec2f(a.x + t * r.x, a.y + t * r.y) };
+        }
+        else
+        {
+            return { false, Vec2f(0, 0) };
+        }
     }
 
     /// TODO: implement this function

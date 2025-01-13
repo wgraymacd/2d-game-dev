@@ -44,7 +44,7 @@ class WorldGenerator
                 {
                     tileType = "stone";
                 }
-                m_tilePositions.push_back({x, y, tileType});
+                m_tilePositions.push_back({ x, y, tileType });
             }
         }
     }
@@ -52,7 +52,7 @@ class WorldGenerator
     /// @brief add some dirt in stone and some stone in dirt
     void createBlockPatches()
     {
-        float patchScale = 0.05f;    // controls dirt/stone patch frequency
+        float patchScale = 0.5f;    // controls dirt/stone patch frequency
         float dirtThreshold = 0.4f;  // threshold for creating dirt vein
         float stoneThreshold = 0.2f; // threshold for creating stone patch
         for (int y = 0; y < m_worldHeight; y++)
@@ -83,8 +83,8 @@ class WorldGenerator
     /// @brief add caves
     void addCaves()
     {
-        float caveScale = 0.05f;    // controls cave frequency
-        float caveThreshold = 0.4f; // threshold for creating caves
+        float caveScale = 0.5f;    // controls cave frequency
+        float caveThreshold = 0.3f; // threshold for creating caves
         for (int y = 0; y < m_worldHeight; y++)
         {
             for (int x = 0; x < m_worldWidth; x++)
@@ -119,7 +119,7 @@ class WorldGenerator
             std::remove_if(
                 m_tilePositions.begin(),
                 m_tilePositions.end(),
-                [&terrainHeights](const TileInfo &info) // capture terrain heights by reference in the lambda func's capture list
+                [&terrainHeights](const TileInfo& info) // capture terrain heights by reference in the lambda func's capture list
                 {
                     return info.y < terrainHeights[info.x];
                 }),
@@ -145,7 +145,7 @@ public:
         createSkyline();
     }
 
-    const std::vector<TileInfo> &getTilePositions() const
+    const std::vector<TileInfo>& getTilePositions() const
     {
         return m_tilePositions;
     }

@@ -19,9 +19,8 @@ class Entity; // forward declaration
 /// TODO: consider creating a separate pool for tiles since they will never have many of the components available to all entities
 class EntityMemoryPool
 {
-    /// TODO: what happens when I reach 10000 entities?
-    const static unsigned long MAX_ENTITIES = 9999; // number of columns in the memory pool
-    std::queue<unsigned long> m_freeList;           // stores indices of inactive entities to accelerate searching
+    const static unsigned long MAX_ENTITIES = 99999; // number of columns in the memory pool
+    std::queue<unsigned long> m_freeList;            // stores indices of inactive entities to accelerate searching
 
     unsigned long m_numEntities = 0;
 

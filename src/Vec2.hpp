@@ -111,10 +111,17 @@ public:
         return Vec2(abs(x - vec.x), abs(y - vec.y));
     }
 
-    /// TODO: add a norm method so I don't have to do it in other code, maybe dot and cross prod as well
+    /// @brief take the cross product of this cross vec
+    /// @return the new Vec2 cross product
+    float cross(const Vec2& vec) const
+    {
+        return x * vec.y - vec.x * y;
+    }
 };
+
 
 /// shotcuts
 
 using Vec2f = Vec2<float>;
 using Vec2i = Vec2<int>;
+using Vec2ui = Vec2<unsigned int>;

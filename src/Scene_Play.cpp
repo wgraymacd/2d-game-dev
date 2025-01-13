@@ -179,7 +179,7 @@ void Scene_Play::generateWorld()
     for (const TileInfo& info : tilePositions)
     {
         Entity tile = m_entityManager.addEntity("tile");
-        tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true); /// TODO: these animations may not be loaded properly (all white squares are rendered for all entities)
+        tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true);
         tile.addComponent<CTransform>(gridToMidPixel(info.x, info.y, tile));
         tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
     }
@@ -663,21 +663,22 @@ void Scene_Play::sCamera()
 {
     PROFILE_FUNCTION();
 
-    // get current view
     sf::View view = m_game.window().getView();
-
-    // get the player's position
     Vec2f& pPos = m_player.getComponent<CTransform>().pos;
 
-    // find where the center of the window should be, depends on world bounds
-    float viewCenterX = std::clamp(pPos.x, m_game.window().getSize().x / 2.0f, m_worldMax.x - m_game.window().getSize().x / 2.0f);
-    float viewCenterY = std::clamp(pPos.y, m_game.window().getSize().y / 2.0f, m_worldMax.y - m_game.window().getSize().y / 2.0f);
-
-    // set the viewport of the window to be centered on the player if player is not on a bound of the world
+    // center the view on the player
+    /// TODO: deal with the edge of world view, prolly make it so that view center is always at player center for competitive fairness and less disorientation, will need a way to keep players inside world bound tho (force or invisible wall with background or darkness or just more tiles that extend out of sight, could also throw in some easter eggs / secrets there
+    const Vec2ui& viewSize = m_game.window().getSize();
+    float viewCenterX = std::clamp(pPos.x, viewSize.x / 2.0f, m_worldMax.x - viewSize.x / 2.0f);
+    float viewCenterY = std::clamp(pPos.y, viewSize.y / 2.0f, m_worldMax.y - viewSize.y / 2.0f);
     view.setCenter({ viewCenterX, viewCenterY });
-    m_game.window().setView(view);
 
-    /// TODO: add some smoothing of some sort, check lecture on this
+    // move the camera slightly toward the players mouse position (capped at a max displacement)
+    const Vec2i& mousePosOnWindow = sf::Mouse::getPosition(m_game.window());
+    float dx = std::clamp((viewSize.x / 2.0f - mousePosOnWindow.x) * 0.25f, -25.0f, 25.0f);
+    float dy = std::clamp((viewSize.y / 2.0f - mousePosOnWindow.y) * 0.25f, -25.0f, 25.0f);
+
+    view.move({ dx, dy });
 
     // set window view
     m_game.window().setView(view);
@@ -711,18 +712,15 @@ void Scene_Play::sRender()
     sf::RectangleShape tick({ 1.0f, 6.0f });
     tick.setFillColor(sf::Color::Black);
 
-    /* draw all entity textures / animations */
+    std::vector<Entity>& entities = m_entityManager.getEntities();
+
+    /// draw all entity textures / animations
+
     if (m_drawTextures)
     {
-        for (auto e : m_entityManager.getEntities()) // getEntities() returns reference
+        for (auto e : entities)
         {
             CTransform& transform = e.getComponent<CTransform>();
-
-            sf::Color c = sf::Color::White;
-            if (e.hasComponent<CInvincibility>())
-            {
-                c = sf::Color(255, 255, 255, 128);
-            }
 
             if (e.hasComponent<CAnimation>())
             {
@@ -730,15 +728,15 @@ void Scene_Play::sRender()
                 animation.getSprite().setRotation(sf::radians(transform.rotAngle));
                 animation.getSprite().setPosition(transform.pos);
                 animation.getSprite().setScale(transform.scale);
-                animation.getSprite().setColor(c);
+
+                if (e.hasComponent<CInvincibility>())
+                {
+                    animation.getSprite().setColor(sf::Color(255, 255, 255, 128));
+                }
 
                 m_game.window().draw(animation.getSprite());
             }
-        }
 
-        for (auto e : m_entityManager.getEntities())
-        {
-            auto& transform = e.getComponent<CTransform>();
             if (e.hasComponent<CHealth>())
             {
                 auto& h = e.getComponent<CHealth>();
@@ -767,7 +765,8 @@ void Scene_Play::sRender()
             }
         }
 
-        /* grid */
+        /// grid
+
         if (m_drawGrid)
         {
             float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
@@ -818,7 +817,8 @@ void Scene_Play::sRender()
         }
     }
 
-    /* draw all entity collision bounding boxes with a rectangle */
+    /// draw all entity collision bounding boxes with a rectangle
+
     if (m_drawCollision)
     {
         sf::CircleShape dot(4);
@@ -884,7 +884,8 @@ void Scene_Play::sRender()
         }
     }
 
-    /* fps counter */
+    /// fps counter
+
     float elapsedTime = m_fpsClock.restart().asSeconds();
     float fps = 1.0f / elapsedTime;
     m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
@@ -894,6 +895,10 @@ void Scene_Play::sRender()
     m_game.window().setView(m_game.window().getDefaultView());
     m_game.window().draw(m_fpsText);
     m_game.window().setView(currentView);
+
+    /// light cone
+
+
 
     m_game.window().display();
 }

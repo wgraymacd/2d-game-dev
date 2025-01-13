@@ -66,9 +66,3 @@ asset config:
 - Animation N T F S | name, texture/sprite name, frame count, speed | std::string (x2), int (x2)
 - AnimationStatic N T X Y W H | name texture name, pixelX, pixelY, width, height | std::string (x2), int (x4)
 - Font N P | name, file path | std::string (x2)
-
-level config:
-notes: grid coord systems (0, 0) is in the bottom left to make things more intuitive, all (GX, GY) positions are in grid coords, cells 40x40 pixels (may change this to top left to be consistent with SFML and require less calculation)
-- Tile N GX GY | animation name, grid x, grid y | std::string, float (x2)
-- Dec N GX GY | anim name, grid x, grid y | std::string, float (x2)
-- Player GX GY CW CH SX SY SM GRAVITY BA | grid pos, bounding box width/height, horizontal speed, jump speed, max speed, gravity, bullet animation | float, ..., float, std::string

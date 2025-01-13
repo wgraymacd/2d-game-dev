@@ -19,9 +19,17 @@ EntityMemoryPool::EntityMemoryPool(unsigned long maxEntities)
 
 unsigned long EntityMemoryPool::getInactiveEntityIndex()
 {
-    unsigned long index = m_freeList.front();
-    m_freeList.pop();
-    return index;
+    if (!m_freeList.empty())
+    {
+        unsigned long index = m_freeList.front();
+        m_freeList.pop();
+        return index;
+    }
+    else
+    {
+        std::cerr << "memory pool full" << std::endl;
+        exit(-1);
+    }
 }
 
 void EntityMemoryPool::resetEntityAtIndex(unsigned long index)
