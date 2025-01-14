@@ -76,7 +76,7 @@ public:
     /// @brief gets all entities with a specified tag
     /// @param tag the type of entity to return (e.g., "player")
     /// @return an std::vector<Entity> of entities with the specified tag
-    std::vector<Entity> getEntities(const std::string& tag)
+    std::vector<Entity>& getEntities(const std::string& tag)
     {
         PROFILE_FUNCTION();
 

@@ -9,8 +9,11 @@ class Entity
 {
     unsigned long m_id;
 
-public:
     Entity(unsigned long id) : m_id(id) {}
+
+    friend class EntityMemoryPool;
+
+public:
 
     /// @brief get a component of type T from this entity
     template <typename T>

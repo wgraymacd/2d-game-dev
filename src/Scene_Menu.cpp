@@ -9,7 +9,7 @@
 
 /// @brief constructs a new Scene_Menu object, calls Scene_Menu::init
 /// @param gameEngine the game's main engine; required by Scene to access the GameEngine object
-Scene_Menu::Scene_Menu(GameEngine &gameEngine)
+Scene_Menu::Scene_Menu(GameEngine& gameEngine)
     : Scene(gameEngine)
 {
     init();
@@ -28,10 +28,6 @@ void Scene_Menu::init()
     m_menuStrings.push_back("Level 2");
     m_menuStrings.push_back("Level 3");
 
-    m_levelPaths.push_back("../bin/level1.txt");
-    m_levelPaths.push_back("../bin/level2.txt");
-    m_levelPaths.push_back("../bin/level3.txt");
-
     m_menuText.setCharacterSize(64);
 }
 
@@ -44,7 +40,7 @@ void Scene_Menu::update()
 
 /// @brief performs the given action
 /// @param action an Action to perform; action has a type and a name
-void Scene_Menu::sDoAction(const Action &action)
+void Scene_Menu::sDoAction(const Action& action)
 {
     if (action.type() == "START")
     {
@@ -58,7 +54,7 @@ void Scene_Menu::sDoAction(const Action &action)
         }
         else if (action.name() == "PLAY")
         {
-            m_game.addScene("PLAY", std::make_shared<Scene_Play>(m_game, m_levelPaths[m_selectedMenuIndex]));
+            m_game.addScene("PLAY", std::make_shared<Scene_Play>(m_game));
         }
         else if (action.name() == "QUIT")
         {

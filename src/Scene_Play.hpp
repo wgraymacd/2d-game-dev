@@ -19,10 +19,9 @@ class Scene_Play : public Scene
     };
 
 protected:
-    std::string m_levelPath;
     PlayerConfig m_playerConfig;
     EntityManager m_entityManager;
-    Entity m_player = Entity(0); // the first entity has entity ID of 0
+    Entity m_player = m_entityManager.addEntity("player");
 
     const Vec2i m_gridSize = { 20, 20 }; // cell size (pixels)
     sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
@@ -38,9 +37,9 @@ protected:
     sf::Clock m_fpsClock;
     sf::Text m_fpsText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
-    void init(const std::string& levelPath);
+    void init(); /// TODO: may add param here to differentiate between game types or something
 
-    void loadLevel(const std::string& filename);
+    void loadGame(); /// TODO: may add param here to differentiate between game types or something
     void generateWorld();
 
     void update() override;
@@ -63,5 +62,5 @@ protected:
     void drawLine(const Vec2f& p1, const Vec2f& p2);
 
 public:
-    Scene_Play(GameEngine& game, const std::string& levelPath);
+    Scene_Play(GameEngine& game); /// TODO: may add param here to differentiate between game types or something
 };

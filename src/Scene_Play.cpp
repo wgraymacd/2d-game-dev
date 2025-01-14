@@ -19,17 +19,16 @@
 /// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 /// @param levelPath the file path to the scene's configuration file
-Scene_Play::Scene_Play(GameEngine& gameEngine, const std::string& levelPath)
-    : Scene(gameEngine), m_levelPath(levelPath)
+Scene_Play::Scene_Play(GameEngine& gameEngine)
+    : Scene(gameEngine)
 {
     PROFILE_FUNCTION();
 
-    init(levelPath);
+    init();
 }
 
-/// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadLevel
-/// @param levelPath the file path to the scene's configuration file; passed to loadLevel
-void Scene_Play::init(const std::string& levelPath)
+/// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadGame
+void Scene_Play::init()
 {
     PROFILE_FUNCTION();
 
@@ -56,7 +55,7 @@ void Scene_Play::init(const std::string& levelPath)
     m_fpsText.setFillColor(sf::Color::White);
     m_fpsText.setPosition({ 10.f, 10.f }); // top-left corner
 
-    loadLevel(levelPath);
+    loadGame();
 }
 
 /// @brief calculates the midpoint of entity based on a given grid position
@@ -86,7 +85,7 @@ Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
 /// TODO: consider keeping this for later in case people want to save level, then can load with this function
 /// @brief loads the scene using the configuration file levelPath
 /// @param levelPath the configuration file specifying various components of entities in the scene
-void Scene_Play::loadLevel(const std::string& levelPath)
+void Scene_Play::loadGame()
 {
     PROFILE_FUNCTION();
 
@@ -94,11 +93,11 @@ void Scene_Play::loadLevel(const std::string& levelPath)
     m_entityManager = EntityManager();
 
     // read in the level file and add the appropriate entities
-    std::ifstream file(levelPath);
+    std::ifstream file("../bin/playerConfig.txt");
 
     if (!file.is_open())
     {
-        std::cerr << "Level file could not be opened: " << levelPath << std::endl;
+        std::cerr << "Level file could not be opened: " << "../bin/playerConfig.txt" << std::endl;
         exit(-1);
     }
 
@@ -182,6 +181,7 @@ void Scene_Play::generateWorld()
         tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true);
         tile.addComponent<CTransform>(gridToMidPixel(info.x, info.y, tile));
         tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
+        tile.addComponent<CHealth>(info.type == "dirt" ? 5 : 10, info.type == "dirt" ? 5 : 10);
     }
 }
 
@@ -191,9 +191,10 @@ void Scene_Play::spawnPlayer()
     PROFILE_FUNCTION();
 
     // when respawning in same map, must delete previous player
-    if (!m_entityManager.getEntities("player").empty())
+    std::vector<Entity>& entities = m_entityManager.getEntities("player");
+    if (!entities.empty())
     {
-        m_entityManager.getEntities("player").front().destroy(); /// TODO: is this method of receiving copy of the vector of entities bad?
+        entities.front().destroy();
     }
 
     // set player components
@@ -207,7 +208,6 @@ void Scene_Play::spawnPlayer()
 }
 
 /// @brief spawn a bullet at the location of entity traveling toward cursor
-/// @param entity an entity in the scene
 void Scene_Play::spawnBullet(Entity entity)
 {
     PROFILE_FUNCTION();
@@ -227,15 +227,7 @@ void Scene_Play::spawnBullet(Entity entity)
         );
     bullet.addComponent<CBoundingBox>(bullet.getComponent<CAnimation>().animation.getSize());
     bullet.addComponent<CLifespan>(30, m_currentFrame);
-}
-
-/// @brief spawn a melee attack in front of entity
-/// @param entity an entity in the scene
-void Scene_Play::spawnMelee(Entity entity)
-{
-    PROFILE_FUNCTION();
-
-    /// TODO: spawn a sword or a knife for melee attacks
+    bullet.addComponent<CDamage>(2);
 }
 
 /// @brief update the scene; this function is called by the game engine at each frame if this scene is active
@@ -264,12 +256,13 @@ void Scene_Play::sMovement()
 {
     PROFILE_FUNCTION();
 
-    /* player */
+    /// player
+
     std::string& state = m_player.getComponent<CState>().state;
     CInput& input = m_player.getComponent<CInput>();
     CTransform& trans = m_player.getComponent<CTransform>();
 
-    Vec2f velToAdd(0, 0);
+    Vec2f velToAdd(0.0f, 0.0f);
 
     /// TODO: consider turing this into real physics
     // gravity
@@ -298,7 +291,6 @@ void Scene_Play::sMovement()
             friction = 1.0f;
         }
 
-        /// TODO: something strange happening with friction after landing (steady movement to the left on the ground for a brief time)
         // slow down until stopped
         if (abs(trans.velocity.x) >= friction)
         {
@@ -306,7 +298,7 @@ void Scene_Play::sMovement()
         }
         else
         {
-            velToAdd.x = (trans.velocity.x > 0 ? -trans.velocity.x : trans.velocity.x);
+            velToAdd.x -= trans.velocity.x;
         }
     }
 
@@ -357,6 +349,7 @@ void Scene_Play::sMovement()
     trans.prevPos = trans.pos;
     trans.pos += trans.velocity;
 
+    /// TODO: have crouching? does this then go in sUserInput?
     // if (trans.velocity.x == 0 && trans.velocity.y == 0)
     // {
     //     if (input.down)
@@ -371,7 +364,8 @@ void Scene_Play::sMovement()
     //     }
     // }
 
-    /* bullets */
+    /// bullets
+
     for (auto& bullet : m_entityManager.getEntities("bullet"))
     {
         CTransform& trans = bullet.getComponent<CTransform>();
@@ -402,20 +396,6 @@ void Scene_Play::sCollision()
     for (const Entity& tile : tiles)
     {
         PROFILE_SCOPE("player/bullet-tile");
-
-        // not working
-        // const Vec2f& tilePos = tile.getComponent<CTransform>().pos;
-        // const Vec2i& tileSize = tile.getComponent<CBoundingBox>().size;
-        // const Vec2f& playerPos = m_player.getComponent<CTransform>().pos;
-        // const Vec2i& playerSize = m_player.getComponent<CBoundingBox>().size;
-        // int threshold = m_playerConfig.SM;
-        // if (tilePos.x + tileSize.x > playerPos.x - playerSize.x - threshold ||
-        //     tilePos.x - tileSize.x < playerPos.x + playerSize.x + threshold ||
-        //     tilePos.y - tileSize.y > playerPos.y + playerSize.y - threshold ||
-        //     tilePos.y + tileSize.y < playerPos.y - playerSize.y + threshold)
-        // {
-        //     continue;
-        // }
 
         Vec2f overlap = Physics::GetOverlap(m_player, tile);
 
@@ -470,20 +450,6 @@ void Scene_Play::sCollision()
         {
             PROFILE_SCOPE("bullet-tile");
 
-            // this helps a little
-            // const Vec2f& tilePos = tile.getComponent<CTransform>().pos;
-            // const sf::View& windowView = m_game.window().getView();
-            // const Vec2f& windowCenter = windowView.getCenter();
-            // const Vec2f& windowSize = windowView.getSize();
-            // const float top = windowCenter.y - windowSize.y;
-            // const float bottom = windowCenter.y + windowSize.y;
-            // const float left = windowCenter.x - windowSize.x;
-            // const float right = windowCenter.x + windowSize.x;
-            // if (tilePos.x > right || tilePos.x < left || tilePos.y < top || tilePos.y > bottom)
-            // {
-            //     continue;
-            // }
-
             // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
             Vec2f overlap = Physics::GetOverlap(tile, bullet);
 
@@ -492,6 +458,7 @@ void Scene_Play::sCollision()
                 // std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
                 /// TODO: do whatever else here I might want (animations, tile weakening, etc.)
                 bullet.destroy();
+                tile.getComponent<CHealth>().current -= bullet.getComponent<CDamage>().damage;
             }
         }
     }
@@ -577,19 +544,6 @@ void Scene_Play::sDoAction(const Action& action)
         {
             m_player.getComponent<CInput>().shoot = true;
         }
-        // else if (action.name() == "LEFT_CLICK")
-        // {
-        //     m_selectedEntity = {};
-        //     sf::Vector2f worldPos = m_game.window().mapPixelToCoords(action.pos());
-        //     for (auto e : m_entityManager.getEntities())
-        //     {
-        //         if (Physics::IsInside(worldPos, e))
-        //         {
-        //             m_selectedEntity = e;
-        //             break;
-        //         }
-        //     }
-        // }
     }
     else if (action.type() == "END")
     {
@@ -613,22 +567,21 @@ void Scene_Play::sDoAction(const Action& action)
 }
 
 /// @brief handles the behavior of NPCs
+/// TODO: implement NPC AI follow and patrol behavior
 void Scene_Play::sAI()
 {
     PROFILE_FUNCTION();
-
-    /// TODO: implement NPC AI follow and patrol behavior
 }
 
 /// TODO: finish this
-/// @brief updates all entities' lifespan and invincibility status
+/// @brief updates all entities' lifespan and whatever else status
 void Scene_Play::sStatus()
 {
     PROFILE_FUNCTION();
 
-    // lifespan
     for (auto& e : m_entityManager.getEntities())
     {
+        // lifespan
         if (e.hasComponent<CLifespan>())
         {
             int& lifespan = e.getComponent<CLifespan>().lifespan;
@@ -641,9 +594,17 @@ void Scene_Play::sStatus()
                 lifespan--;
             }
         }
-    }
 
-    // invincibility
+        // health
+        if (e.hasComponent<CHealth>())
+        {
+            int& health = e.getComponent<CHealth>().current;
+            if (health <= 0)
+            {
+                e.destroy();
+            }
+        }
+    }
 }
 
 /// @brief handles all entities' animation updates
@@ -675,9 +636,8 @@ void Scene_Play::sCamera()
 
     // move the camera slightly toward the players mouse position (capped at a max displacement)
     const Vec2i& mousePosOnWindow = sf::Mouse::getPosition(m_game.window());
-    float dx = std::clamp((viewSize.x / 2.0f - mousePosOnWindow.x) * 0.25f, -25.0f, 25.0f);
-    float dy = std::clamp((viewSize.y / 2.0f - mousePosOnWindow.y) * 0.25f, -25.0f, 25.0f);
-
+    float dx = std::clamp((mousePosOnWindow.x - viewSize.x / 2.0f) * 0.15f, -25.0f, 25.0f);
+    float dy = std::clamp((mousePosOnWindow.y - viewSize.y / 2.0f) * 0.15f, -25.0f, 25.0f);
     view.move({ dx, dy });
 
     // set window view
@@ -709,9 +669,6 @@ void Scene_Play::sRender()
         m_game.window().clear(sf::Color(10, 10, 10));
     }
 
-    sf::RectangleShape tick({ 1.0f, 6.0f });
-    tick.setFillColor(sf::Color::Black);
-
     std::vector<Entity>& entities = m_entityManager.getEntities();
 
     /// draw all entity textures / animations
@@ -724,44 +681,12 @@ void Scene_Play::sRender()
 
             if (e.hasComponent<CAnimation>())
             {
-                Animation& animation = e.getComponent<CAnimation>().animation;
-                animation.getSprite().setRotation(sf::radians(transform.rotAngle));
-                animation.getSprite().setPosition(transform.pos);
-                animation.getSprite().setScale(transform.scale);
+                sf::Sprite& sprite = e.getComponent<CAnimation>().animation.getSprite();
+                sprite.setRotation(sf::radians(transform.rotAngle));
+                sprite.setPosition(transform.pos);
+                sprite.setScale(transform.scale);
 
-                if (e.hasComponent<CInvincibility>())
-                {
-                    animation.getSprite().setColor(sf::Color(255, 255, 255, 128));
-                }
-
-                m_game.window().draw(animation.getSprite());
-            }
-
-            if (e.hasComponent<CHealth>())
-            {
-                auto& h = e.getComponent<CHealth>();
-                Vec2f size(64, 6);
-                sf::RectangleShape rect(size);
-                rect.setPosition({ transform.pos.x - 32, transform.pos.y - 48 });
-                rect.setFillColor(sf::Color(96, 96, 96));
-                rect.setOutlineColor(sf::Color::Black);
-                rect.setOutlineThickness(2);
-
-                m_game.window().draw(rect);
-
-                float ratio = static_cast<float>(h.current) / static_cast<float>(h.max);
-                size.x *= ratio;
-                rect.setSize({ size });
-                rect.setFillColor(sf::Color(255, 0, 0));
-                rect.setOutlineThickness(0);
-
-                m_game.window().draw(rect);
-
-                for (int i = 0; i < h.max; i++)
-                {
-                    tick.setPosition({ rect.getPosition().x + i * 64.0f / h.max, rect.getPosition().y });
-                    m_game.window().draw(tick);
-                }
+                m_game.window().draw(sprite);
             }
         }
 
@@ -897,8 +822,7 @@ void Scene_Play::sRender()
     m_game.window().setView(currentView);
 
     /// light cone
-
-
+    /// TODO:
 
     m_game.window().display();
 }
