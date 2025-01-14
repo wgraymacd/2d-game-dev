@@ -32,8 +32,9 @@ void Scene_Menu::init()
 }
 
 /// @brief updates the scene's state
-void Scene_Menu::update()
+void Scene_Menu::update(std::chrono::duration<long long, std::nano>& lag)
 {
+    /// TODO: implement lag catching up
     // only one thing to update in Menu scene, rendering
     sRender();
 }

@@ -8,7 +8,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <string>
-#include <memory>
+#include <chrono>
 
 class Scene_Play : public Scene
 {
@@ -42,21 +42,20 @@ protected:
     void loadGame(); /// TODO: may add param here to differentiate between game types or something
     void generateWorld();
 
-    void update() override;
+    void update(std::chrono::duration<long long, std::nano>& lag) override;
     void onEnd() override;
     void spawnPlayer();
     void spawnBullet(Entity entity);
-    void spawnMelee(Entity entity);
     Vec2f gridToMidPixel(float x, float y, Entity entity);
     // Vec2f gridToPixel(float x, float y);
 
     void sMovement();
-    void sStatus(); // lifespan and invincibility
+    void sStatus(); // lifespan, health, etc.
     void sCollision();
     void sDoAction(const Action& action) override;
     void sAnimation();
     void sAI(); // NPC behavior
-    void sCamera(); // room vs center of player vs anything I might want
+    void sCamera();
     void sRender() override;
 
     void drawLine(const Vec2f& p1, const Vec2f& p2);

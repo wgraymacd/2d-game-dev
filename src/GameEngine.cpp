@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 #include <SFML/Graphics.hpp>
+#include <chrono>
 
 /// TODO: consider multithreading, offload tasks like physics updates and asset loading to keep main game loop responsive
 /// TODO: decouple frame rate from updates in main game loop
@@ -16,7 +17,7 @@
 
 /// @brief constructs a new GameEngine by calling GameEngine::init
 /// @param path the path to the asset configuration file
-GameEngine::GameEngine(const std::string &path)
+GameEngine::GameEngine(const std::string& path)
 {
     init(path);
 }
@@ -24,20 +25,20 @@ GameEngine::GameEngine(const std::string &path)
 /// TODO: make window size dynamic, not hardcoded
 /// @brief loads assets, creates window, and opens MENU scene
 /// @param path the path to the asset configuration file
-void GameEngine::init(const std::string &path)
+void GameEngine::init(const std::string& path)
 {
     m_assets.loadFromFile(path);
-    m_window.create(sf::VideoMode({20 * 64, 20 * 36}), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
-    m_window.setFramerateLimit(60);
+    m_window.create(sf::VideoMode({ 20 * 64, 20 * 36 }), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
+    m_window.setFramerateLimit(10);
 
     addScene("MENU", std::make_shared<Scene_Menu>(*this));
 }
 
 /// @brief updates the game state with GameEngine::sUserInput and the active scene's update function
-void GameEngine::update()
+void GameEngine::update(std::chrono::duration<long long, std::nano>& lag)
 {
     sUserInput();
-    currentScene()->update();
+    currentScene()->update(lag);
 }
 
 /// TODO: consider separate functions for keyboard, mouse, controller, touch, etc. to reduce size of this function
@@ -55,7 +56,7 @@ void GameEngine::sUserInput()
 
         if (const sf::Event::KeyPressed* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyPressed->code)); 
+            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyPressed->code));
                 action != currentScene()->getActionMap().end())
             {
                 currentScene()->sDoAction(Action(action->second, "START"));
@@ -63,7 +64,7 @@ void GameEngine::sUserInput()
         }
         else if (const sf::Event::KeyReleased* keyReleased = event->getIf<sf::Event::KeyReleased>())
         {
-            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyReleased->code)); 
+            if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyReleased->code));
                 action != currentScene()->getActionMap().end())
             {
                 currentScene()->sDoAction(Action(action->second, "END"));
@@ -75,18 +76,18 @@ void GameEngine::sUserInput()
         else if (const sf::Event::MouseButtonPressed* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
         {
             currentScene()->sDoAction(Action(
-                currentScene()->getActionMap().at(static_cast<int>(mousePressed->button) + sf::Keyboard::KeyCount), 
+                currentScene()->getActionMap().at(static_cast<int>(mousePressed->button) + sf::Keyboard::KeyCount),
                 "START"
             ));
         }
         else if (const sf::Event::MouseButtonReleased* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
         {
             currentScene()->sDoAction(Action(
-                currentScene()->getActionMap().at(static_cast<int>(mouseReleased->button) + sf::Keyboard::KeyCount), 
+                currentScene()->getActionMap().at(static_cast<int>(mouseReleased->button) + sf::Keyboard::KeyCount),
                 "END"
             ));
         }
-       
+
         /// TODO: there is now an isKeyPressed event that will tell me if it's being held down, loop through all bound inputs and see if they are being pressed
         // sf::Keyboard::Key key = sf::Keyboard::Key::Space;
         // sf::Mouse::Button button = sf::Mouse::Button::Left;
@@ -109,9 +110,17 @@ void GameEngine::sUserInput()
 /// @brief continuously calls GameEngine::update while the game is still running
 void GameEngine::run()
 {
+    std::chrono::steady_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<long long, std::nano> lag(0); /// TODO: make sure this start at 0
+
     while (isRunning())
     {
-        update();
+        std::chrono::steady_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<long long, std::nano> elapsedTime = currentTime - lastTime;
+        lastTime = currentTime;
+        lag += elapsedTime;
+
+        update(lag);
     }
 }
 
@@ -137,14 +146,14 @@ std::shared_ptr<Scene> GameEngine::currentScene()
 
 /// @brief get the game's window object
 /// @return a reference to the sf::RenderWindow object
-sf::RenderWindow &GameEngine::window()
+sf::RenderWindow& GameEngine::window()
 {
     return m_window;
 }
 
 /// @brief gets all assets stored in the GameEngine object
 /// @return Assets object that holds all information related to the game's assets
-const Assets &GameEngine::assets() const
+const Assets& GameEngine::assets() const
 {
     return m_assets;
 }
@@ -154,7 +163,7 @@ const Assets &GameEngine::assets() const
 /// @param sceneName the name of the scene to be added (e.g., "MENU")
 /// @param scene a new Scene object
 /// @param endThisScene a boolean to control whether the current scene ends or not upon moving to the new scene
-void GameEngine::addScene(const std::string &sceneName, std::shared_ptr<Scene> scene, bool endThisScene)
+void GameEngine::addScene(const std::string& sceneName, std::shared_ptr<Scene> scene, bool endThisScene)
 {
     m_sceneMap[sceneName] = scene;
     m_currentScene = sceneName;
@@ -164,7 +173,7 @@ void GameEngine::addScene(const std::string &sceneName, std::shared_ptr<Scene> s
 /// @brief change to another active scene
 /// @param sceneName name of the scene to change to (e.g., "PLAY")
 /// @param endThisScene a boolean to control whether the current scene ends or not upon moving to the new scene
-void GameEngine::changeScene(const std::string &sceneName, bool endThisScene)
+void GameEngine::changeScene(const std::string& sceneName, bool endThisScene)
 {
     m_currentScene = sceneName;
 }

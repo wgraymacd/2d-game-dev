@@ -231,21 +231,27 @@ void Scene_Play::spawnBullet(Entity entity)
 }
 
 /// @brief update the scene; this function is called by the game engine at each frame if this scene is active
-void Scene_Play::update()
+void Scene_Play::update(std::chrono::duration<long long, std::nano>& lag)
 {
     PROFILE_FUNCTION();
 
     if (!m_paused)
     {
-        /// TODO: think about order here if it even matters
-        sAI();
-        sMovement();
-        sStatus();
-        sCollision(); // after sMovement
-        sAnimation();
-        sCamera();
+        while (lag >= std::chrono::duration<long long, std::nano>(1000000000 / 10)) /// TODO: consider using doubles or something to be more precise with timing, or just longs to be smaller in memory
+        {
+            // this can be infinite loop if it takes longer to do all this than the time per frame
+            /// TODO: think about order here if it even matters
+            sAI();
+            sMovement();
+            sStatus();
+            sCollision(); // after sMovement
+            sAnimation();
+            sCamera();
 
-        m_entityManager.update(); // adding and removing all entities based on sCollision, spawnBullet, etc.
+            m_entityManager.update(); // adding and removing all entities staged in updates above
+
+            lag -= std::chrono::duration<long long, std::nano>(1000000000 / 10); /// TODO: will rounding be an issue here?
+        }
     }
 
     sRender();

@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <chrono>
 
 class Scene; // forward declaration to resolve circular dependency, no need to include Scene.h here since GameEngine.h doesn't need to know the details
 
@@ -22,20 +23,20 @@ protected:
     // size_t m_simulationSpeed = 1;
     // sf::Clock m_deltaClock;
 
-    void init(const std::string &path);
-    void update();
+    void init(const std::string& path);
+    void update(std::chrono::duration<long long, std::nano>& lag);
     void sUserInput();
     std::shared_ptr<Scene> currentScene();
 
 public:
-    GameEngine(const std::string &path);
+    GameEngine(const std::string& path);
 
-    void addScene(const std::string &sceneName, std::shared_ptr<Scene> scene, bool endThisScene = false);
-    void changeScene(const std::string &sceneName, bool endThisScene = false);
+    void addScene(const std::string& sceneName, std::shared_ptr<Scene> scene, bool endThisScene = false);
+    void changeScene(const std::string& sceneName, bool endThisScene = false);
     void quit();
     void run();
 
-    sf::RenderWindow &window();
-    const Assets &assets() const;
+    sf::RenderWindow& window();
+    const Assets& assets() const;
     bool isRunning() const;
 };

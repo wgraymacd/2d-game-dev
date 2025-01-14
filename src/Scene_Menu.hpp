@@ -6,6 +6,7 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 
 class Scene_Menu : public Scene
 {
@@ -17,7 +18,7 @@ class Scene_Menu : public Scene
     void init();
 
     void onEnd() override;
-    void update() override;
+    void update(std::chrono::duration<long long, std::nano>& lag) override;
     void sRender() override;
     void sDoAction(const Action& action) override;
 

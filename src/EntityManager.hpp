@@ -19,7 +19,6 @@ class EntityManager
 
     unsigned long m_totalEntities = 0;
 
-    /// TODO: implement
     /// @brief remove dead entities from param entities
     void removeDeadEntities()
     {
@@ -44,6 +43,8 @@ public:
     /// @brief adds entities to be added and removes entities to be destroyed
     void update()
     {
+        PROFILE_FUNCTION();
+
         for (Entity& e : m_entitiesToAdd)
         {
             m_liveEntities.push_back(e);
