@@ -4,7 +4,7 @@ I am building a 2D video game from scratch using:
 - ECS architecture
 - C++ and only the SFML library (will attempt using lower-level libraries later on)
 
-Next, I will build a 3D game engine (or simulator, something like that), focusing mainly on the physics, math, and logic. I aim to practice 3D math and physics for use in games, simulators, AR/VR, etc.
+I will build a 3D game engine (or simulator, something like that) using this game as a template, focusing mainly on the physics, math, and logic. I aim to practice 3D math and physics for use in games, simulators, AR/VR, etc.
 
 This Repo:
 ==========
@@ -24,7 +24,7 @@ all Assets defined in assets.txt, with syntax defined below
 player:
 - wasd controls, click to shoot
 - affected by downward gravity
-- has max speed specified in level file 
+- has max speed specified in playerConfig file 
 
 animations:
 - implemented by storing multiple frames inside a texture
