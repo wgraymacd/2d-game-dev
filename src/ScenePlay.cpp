@@ -1,6 +1,6 @@
 #include "Timer.hpp"
 
-#include "Scene_Play.hpp"
+#include "ScenePlay.hpp"
 #include "Scene.hpp"
 #include "GameEngine.hpp"
 #include "EntityManager.hpp"
@@ -16,10 +16,10 @@
 #include <string>
 #include <fstream>
 
-/// @brief vonstructs a new Scene_Play object, calls Scene_Play::init
+/// @brief vonstructs a new ScenePlay object, calls ScenePlay::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 /// @param levelPath the file path to the scene's configuration file
-Scene_Play::Scene_Play(GameEngine& gameEngine)
+ScenePlay::ScenePlay(GameEngine& gameEngine)
     : Scene(gameEngine)
 {
     PROFILE_FUNCTION();
@@ -28,7 +28,7 @@ Scene_Play::Scene_Play(GameEngine& gameEngine)
 }
 
 /// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadGame
-void Scene_Play::init()
+void ScenePlay::init()
 {
     PROFILE_FUNCTION();
 
@@ -63,34 +63,31 @@ void Scene_Play::init()
 /// @param gridY entity's grid y coordinate
 /// @param entity an entity in the scene
 /// @return a Vec2f with the x and y pixel coordinates of the center of entity
-Vec2f Scene_Play::gridToMidPixel(float gridX, float gridY, Entity entity)
+Vec2f ScenePlay::gridToMidPixel(float gridX, float gridY, Entity entity)
 {
     PROFILE_FUNCTION();
 
     const Vec2i& entityAnimSize = entity.getComponent<CAnimation>().animation.getSize();
 
-    float xPos = gridX * m_gridSize.x + entityAnimSize.x / 2.0f;
-    float yPos = gridY * m_gridSize.y + entityAnimSize.y / 2.0f;
+    float xPos = gridX * m_cellSizePixels.x + entityAnimSize.x / 2.0f;
+    float yPos = gridY * m_cellSizePixels.y + entityAnimSize.y / 2.0f;
 
     return Vec2f(xPos, yPos);
 }
 
 // return Vec2f indicating where the pos (top-left corner) of the entity should be, (0, 0) is top-left corner of window
-// Vec2f Scene_Play::gridToPixel(float gridX, float gridY)
+// Vec2f ScenePlay::gridToPixel(float gridX, float gridY)
 // {
-//     float xPos = gridX * m_gridSize.x;
-//     float yPos = gridY * m_gridSize.y;
+//     float xPos = gridX * m_cellSizePixels.x;
+//     float yPos = gridY * m_cellSizePixels.y;
 // }
 
 /// TODO: consider keeping this for later in case people want to save level, then can load with this function
 /// @brief loads the scene using the configuration file levelPath
 /// @param levelPath the configuration file specifying various components of entities in the scene
-void Scene_Play::loadGame()
+void ScenePlay::loadGame()
 {
     PROFILE_FUNCTION();
-
-    // reset the entity manager every time we load a level
-    m_entityManager = EntityManager();
 
     // read in the level file and add the appropriate entities
     std::ifstream file("../bin/playerConfig.txt");
@@ -145,7 +142,7 @@ void Scene_Play::loadGame()
 }
 
 /// @brief randomly generate the playing world
-void Scene_Play::generateWorld()
+void ScenePlay::generateWorld()
 {
     PROFILE_FUNCTION();
 
@@ -169,24 +166,56 @@ void Scene_Play::generateWorld()
         - use optimization so things aren't insanely slow
     */
 
-    /// generate world and get tile positions
-    WorldGenerator gen(m_worldMax.x / m_gridSize.x, m_worldMax.y / m_gridSize.y);
+    // generate world and get tile positions
+    WorldGenerator gen(m_worldMaxCells.x, m_worldMaxCells.y);
     gen.generateWorld();
-    const std::vector<TileInfo>& tilePositions = gen.getTilePositions();
+    const std::vector<std::vector<std::string>>& tileMatrix = gen.getTileMatrix();
 
-    /// spawn tiles according to their positions in the grid
-    for (const TileInfo& info : tilePositions)
+    // spawn tiles according to their positions in the grid
+    for (int x = 0; x < m_worldMaxCells.x; ++x)
     {
-        Entity tile = m_entityManager.addEntity("tile");
-        tile.addComponent<CAnimation>(m_game.assets().getAnimation(info.type), true);
-        tile.addComponent<CTransform>(gridToMidPixel(info.x, info.y, tile));
-        tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(info.type).getSize());
-        tile.addComponent<CHealth>(info.type == "dirt" ? 5 : 10, info.type == "dirt" ? 5 : 10);
+        for (int y = 0; y < m_worldMaxCells.y; ++y)
+        {
+            if (tileMatrix[x][y] == "") continue;
+
+            Entity tile = m_entityManager.addEntity("tile");
+            tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true);
+            tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
+            tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(tileMatrix[x][y]).getSize());
+            tile.addComponent<CHealth>(tileMatrix[x][y] == "dirt" ? 50 : 80);
+
+            m_entityManager.addTileToMatrix(tile);
+        }
     }
+
+    // calculate collidable and non-collidable tiles, must happen after all CTransform components added to tiles
+    /// TODO: make sure this works and makes sense with bullet-tile since bullets should go through multiple tiles
+    // std::vector<std::vector<Entity>>& entityTileMatrix = m_entityManager.getTileMatrix();
+    // std::vector<Entity>& collidableTiles = m_entityManager.getCollidableTiles();
+    // for (int x = 0; x < m_worldMaxCells.x; ++x)
+    // {
+    //     for (int y = 0; y < m_worldMaxCells.y; ++y)
+    //     {
+    //         // check for no tile
+    //         if (tileMatrix[x][y].empty())
+    //         {
+    //             continue;
+    //         }
+    //         // check for surrounded tile
+    //         else if (!tileMatrix[x - 1][y].empty() && !tileMatrix[x + 1][y].empty() && !tileMatrix[x][y - 1].empty() && !tileMatrix[x][y + 1].empty())
+    //         {
+    //             continue;
+    //         }
+    //         else
+    //         {
+    //             collidableTiles.push_back(entityTileMatrix[x][y]);
+    //         }
+    //     }
+    // }
 }
 
 /// @brief spawns the player entity
-void Scene_Play::spawnPlayer()
+void ScenePlay::spawnPlayer()
 {
     PROFILE_FUNCTION();
 
@@ -208,7 +237,7 @@ void Scene_Play::spawnPlayer()
 }
 
 /// @brief spawn a bullet at the location of entity traveling toward cursor
-void Scene_Play::spawnBullet(Entity entity)
+void ScenePlay::spawnBullet(Entity entity)
 {
     PROFILE_FUNCTION();
 
@@ -227,17 +256,17 @@ void Scene_Play::spawnBullet(Entity entity)
         );
     bullet.addComponent<CBoundingBox>(bullet.getComponent<CAnimation>().animation.getSize());
     bullet.addComponent<CLifespan>(30, m_currentFrame);
-    bullet.addComponent<CDamage>(2);
+    bullet.addComponent<CDamage>(10);
 }
 
 /// @brief update the scene; this function is called by the game engine at each frame if this scene is active
-void Scene_Play::update(std::chrono::duration<long long, std::nano>& lag)
+void ScenePlay::update(std::chrono::duration<long long, std::nano>& lag)
 {
     PROFILE_FUNCTION();
 
     if (!m_paused)
     {
-        while (lag >= std::chrono::duration<long long, std::nano>(1000000000 / 10)) /// TODO: consider using doubles or something to be more precise with timing, or just longs to be smaller in memory
+        // while (lag >= std::chrono::duration<long long, std::nano>(1000000000 / 10)) /// TODO: consider using doubles or something to be more precise with timing, or just longs to be smaller in memory
         {
             // this can be infinite loop if it takes longer to do all this than the time per frame
             /// TODO: think about order here if it even matters
@@ -250,7 +279,7 @@ void Scene_Play::update(std::chrono::duration<long long, std::nano>& lag)
 
             m_entityManager.update(); // adding and removing all entities staged in updates above
 
-            lag -= std::chrono::duration<long long, std::nano>(1000000000 / 10); /// TODO: will rounding be an issue here?
+            // lag -= std::chrono::duration<long long, std::nano>(1000000000 / 10); /// TODO: will rounding be an issue here?
         }
     }
 
@@ -258,7 +287,7 @@ void Scene_Play::update(std::chrono::duration<long long, std::nano>& lag)
 }
 
 /// @brief handle player and bullet movement per frame
-void Scene_Play::sMovement()
+void ScenePlay::sMovement()
 {
     PROFILE_FUNCTION();
 
@@ -386,129 +415,22 @@ void Scene_Play::sMovement()
 /// TODO: modularize some of this if needed to reduce repition and make it easier to read
 /// TODO: increase efficiency with chunking or something like that, maybe a distance check or an in-frame/in-window check if possible
 /// @brief handle collisions and m_player CState updates
-void Scene_Play::sCollision()
+void ScenePlay::sCollision()
 {
     PROFILE_FUNCTION();
 
-    CTransform& trans = m_player.getComponent<CTransform>();
-    std::string& state = m_player.getComponent<CState>().state;
-
-    bool collision = false;
-
     // cache these once per frame
-    const std::vector<Entity>& tiles = m_entityManager.getEntities("tile");
+    const std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
     const std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
 
-    for (const Entity& tile : tiles)
-    {
-        PROFILE_SCOPE("player/bullet-tile");
-
-        Vec2f overlap = Physics::GetOverlap(m_player, tile);
-
-        // there is a collision
-        if (overlap.y > 0 && overlap.x > 0)
-        {
-            collision = true;
-            Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tile);
-
-            // we are colliding in y-direction this frame since previous frame already had x-direction overlap
-            if (prevOverlap.x > 0)
-            {
-                // player moving down
-                if (trans.velocity.y > 0)
-                {
-                    trans.pos.y -= overlap.y; // player can't fall below tile
-                    state = abs(trans.velocity.x) > 0 ? "run" : "stand";
-
-                    // jumping
-                    if (!m_player.getComponent<CInput>().up) // wait for player to release w key before allowing jump
-                    {
-                        m_player.getComponent<CInput>().canJump = true; // set to false after jumping in sMovement()
-                    }
-                }
-
-                // player moving up
-                else if (trans.velocity.y < 0)
-                {
-                    trans.pos.y += overlap.y;
-                }
-                trans.velocity.y = 0;
-            }
-
-            // colliding in x-direction this frame
-            if (prevOverlap.y > 0)
-            {
-                // player moving right
-                if (trans.velocity.x > 0)
-                {
-                    trans.pos.x -= overlap.x;
-                }
-                // player moving left
-                else if (trans.velocity.x < 0)
-                {
-                    trans.pos.x += overlap.x;
-                }
-                trans.velocity.x = 0;
-            }
-        }
-
-        for (const Entity& bullet : bullets)
-        {
-            PROFILE_SCOPE("bullet-tile");
-
-            // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
-            Vec2f overlap = Physics::GetOverlap(tile, bullet);
-
-            if (overlap.x > 0 && overlap.y > 0)
-            {
-                // std::cout << "tile " << tile->id() << "(" << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << ")" << " and bullet " << bullet->id() << "(" << bullet->get<CTransform>().pos.x << ", " << bullet->get<CTransform>().pos.y << ")" << " collided" << std::endl;
-                /// TODO: do whatever else here I might want (animations, tile weakening, etc.)
-                bullet.destroy();
-                tile.getComponent<CHealth>().current -= bullet.getComponent<CDamage>().damage;
-            }
-        }
-    }
-
-    if (!collision)
-    {
-        state = "air";
-    }
-
-    // player falls below map
-    // if (trans.pos.y - m_player->get<CAnimation>().animation.getSize().y / 2 > m_game.window().getSize().y)
-    // {
-    //     spawnPlayer();
-    // }
-
-    // restrict movement passed top, bottom, or side of map
-    const Vec2i& animSize = m_player.getComponent<CAnimation>().animation.getSize();
-    if (trans.pos.x < animSize.x / 2)
-    {
-        trans.pos.x = animSize.x / 2;
-        trans.velocity.x = 0;
-    }
-    else if (trans.pos.x > m_worldMax.x - animSize.x / 2)
-    {
-        trans.pos.x = m_worldMax.x - animSize.x / 2;
-        trans.velocity.x = 0;
-    }
-    else if (trans.pos.y < animSize.y / 2)
-    {
-        trans.pos.y = animSize.y / 2;
-        trans.velocity.y = 0;
-    }
-    else if (trans.pos.y > m_worldMax.y - animSize.y / 2)
-    {
-        trans.pos.y = m_worldMax.y - animSize.y / 2;
-        trans.velocity.y = 0;
-        m_player.getComponent<CInput>().canJump = true;
-    }
+    playerTileCollisions(tileMatrix);
+    bulletTileCollisions(tileMatrix, bullets);
 }
 
 /// TODO: grouping similar actions (e.g., input actions like "JUMP", "LEFT", "RIGHT", etc.) into an enum or constants to avoid potential typos and improve maintainability. This way, your if-else chains would be more scalable if new actions are added
 /// @brief sets CInput variables according to action, no action logic here
 /// @param action an action to perform; action has a type and a name which are both std::string objects
-void Scene_Play::sDoAction(const Action& action)
+void ScenePlay::sDoAction(const Action& action)
 {
     PROFILE_FUNCTION();
 
@@ -574,14 +496,14 @@ void Scene_Play::sDoAction(const Action& action)
 
 /// @brief handles the behavior of NPCs
 /// TODO: implement NPC AI follow and patrol behavior
-void Scene_Play::sAI()
+void ScenePlay::sAI()
 {
     PROFILE_FUNCTION();
 }
 
 /// TODO: finish this
 /// @brief updates all entities' lifespan and whatever else status
-void Scene_Play::sStatus()
+void ScenePlay::sStatus()
 {
     PROFILE_FUNCTION();
 
@@ -614,7 +536,7 @@ void Scene_Play::sStatus()
 }
 
 /// @brief handles all entities' animation updates
-void Scene_Play::sAnimation()
+void ScenePlay::sAnimation()
 {
     PROFILE_FUNCTION();
 
@@ -626,7 +548,7 @@ void Scene_Play::sAnimation()
 }
 
 /// @brief handles camera view logic
-void Scene_Play::sCamera()
+void ScenePlay::sCamera()
 {
     PROFILE_FUNCTION();
 
@@ -636,22 +558,22 @@ void Scene_Play::sCamera()
     // center the view on the player
     /// TODO: deal with the edge of world view, prolly make it so that view center is always at player center for competitive fairness and less disorientation, will need a way to keep players inside world bound tho (force or invisible wall with background or darkness or just more tiles that extend out of sight, could also throw in some easter eggs / secrets there
     const Vec2ui& viewSize = m_game.window().getSize();
-    float viewCenterX = std::clamp(pPos.x, viewSize.x / 2.0f, m_worldMax.x - viewSize.x / 2.0f);
-    float viewCenterY = std::clamp(pPos.y, viewSize.y / 2.0f, m_worldMax.y - viewSize.y / 2.0f);
+    float viewCenterX = std::clamp(pPos.x, viewSize.x / 2.0f, m_worldMaxPixels.x - viewSize.x / 2.0f);
+    float viewCenterY = std::clamp(pPos.y, viewSize.y / 2.0f, m_worldMaxPixels.y - viewSize.y / 2.0f);
     view.setCenter({ viewCenterX, viewCenterY });
 
     // move the camera slightly toward the players mouse position (capped at a max displacement)
-    const Vec2i& mousePosOnWindow = sf::Mouse::getPosition(m_game.window());
-    float dx = std::clamp((mousePosOnWindow.x - viewSize.x / 2.0f) * 0.15f, -25.0f, 25.0f);
-    float dy = std::clamp((mousePosOnWindow.y - viewSize.y / 2.0f) * 0.15f, -25.0f, 25.0f);
-    view.move({ dx, dy });
+    // const Vec2i& mousePosOnWindow = sf::Mouse::getPosition(m_game.window());
+    // float dx = std::clamp((mousePosOnWindow.x - viewSize.x / 2.0f) * 0.15f, -25.0f, 25.0f);
+    // float dy = std::clamp((mousePosOnWindow.y - viewSize.y / 2.0f) * 0.15f, -25.0f, 25.0f);
+    // view.move({ dx, dy });
 
     // set window view
     m_game.window().setView(view);
 }
 
 /// @brief changes back to MENU scene when this scene ends
-void Scene_Play::onEnd()
+void ScenePlay::onEnd()
 {
     PROFILE_FUNCTION();
 
@@ -661,7 +583,7 @@ void Scene_Play::onEnd()
 }
 
 /// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter
-void Scene_Play::sRender()
+void ScenePlay::sRender()
 {
     PROFILE_FUNCTION();
 
@@ -701,45 +623,45 @@ void Scene_Play::sRender()
         if (m_drawGrid)
         {
             float leftX = m_game.window().getView().getCenter().x - (m_game.window().getView().getSize().x / 2);
-            float rightX = leftX + m_game.window().getView().getSize().x; // + m_gridSize.x maybe
+            float rightX = leftX + m_game.window().getView().getSize().x; // + m_cellSizePixels.x maybe
             // logic if grid (0, 0) at bottom left
             // float bottomY = m_game.window().getView().getCenter().y + (m_game.window().getView().getSize().y / 2);
             // float topY = bottomY - m_game.window().getView().getSize().y;
             // logic if grid (0, 0) at top left
             float topY = m_game.window().getView().getCenter().y - m_game.window().getView().getSize().y / 2;
-            float bottomY = topY + m_game.window().getView().getSize().y; // + m_gridSize.y maybe
+            float bottomY = topY + m_game.window().getView().getSize().y; // + m_cellSizePixels.y maybe
 
-            float nextGridX = leftX - fmodf(leftX, m_gridSize.x);
+            float nextGridX = leftX - fmodf(leftX, m_cellSizePixels.x);
             // logic if grid (0, 0) at bottom left
-            // float nextGridY = bottomY - fmodf(bottomY, m_gridSize.y);
+            // float nextGridY = bottomY - fmodf(bottomY, m_cellSizePixels.y);
             // logic if grid (0, 0) at top left
-            float nextGridY = topY - fmodf(topY, m_gridSize.y);
+            float nextGridY = topY - fmodf(topY, m_cellSizePixels.y);
 
             // vertical grid lines
-            for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+            for (float x = nextGridX; x <= rightX; x += m_cellSizePixels.x)
             {
                 drawLine(Vec2f(x, topY), Vec2f(x, bottomY));
             }
 
             // horizontal grid lines
             // logic if grid (0, 0) at bottom left
-            // for (float y = nextGridY; y >= topY; y -= m_gridSize.y)
+            // for (float y = nextGridY; y >= topY; y -= m_cellSizePixels.y)
             // logic if grid (0, 0) at top left
-            for (float y = nextGridY; y <= bottomY; y += m_gridSize.y)
+            for (float y = nextGridY; y <= bottomY; y += m_cellSizePixels.y)
             {
                 drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
 
                 // grid cell labels
-                for (float x = nextGridX; x <= rightX; x += m_gridSize.x)
+                for (float x = nextGridX; x <= rightX; x += m_cellSizePixels.x)
                 {
-                    std::string xCell = std::to_string(static_cast<int>(x / m_gridSize.x));
+                    std::string xCell = std::to_string(static_cast<int>(x / m_cellSizePixels.x));
                     // logic if grid (0, 0) at bottom left
-                    // std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_gridSize.y));
+                    // std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_cellSizePixels.y));
                     // logic if grid (0, 0) at top left
-                    std::string yCell = std::to_string(static_cast<int>(y / m_gridSize.y));
+                    std::string yCell = std::to_string(static_cast<int>(y / m_cellSizePixels.y));
 
                     m_gridText.setString("(" + xCell + "," + yCell + ")");
-                    // m_gridText.setPosition(x + 3, y - m_gridSize.y + 2); // position label inside cell, bottom left (0, 0)
+                    // m_gridText.setPosition(x + 3, y - m_cellSizePixels.y + 2); // position label inside cell, bottom left (0, 0)
                     m_gridText.setPosition({ x + 3, y + 2 }); // position label inside cell, top left (0, 0)
                     m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
                     m_game.window().draw(m_gridText);
@@ -836,7 +758,7 @@ void Scene_Play::sRender()
 /// @brief helper function for grid drawing; draws line from p1 to p2 on the screen
 /// @param p1 first point in line
 /// @param p2 second point in line
-void Scene_Play::drawLine(const Vec2f& p1, const Vec2f& p2)
+void ScenePlay::drawLine(const Vec2f& p1, const Vec2f& p2)
 {
     sf::Vertex line[] =
     {
@@ -845,4 +767,174 @@ void Scene_Play::drawLine(const Vec2f& p1, const Vec2f& p2)
     };
 
     m_game.window().draw(line, 2, sf::PrimitiveType::Lines);
+}
+
+/// @brief handle player-tile collisions and player state updates
+void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix)
+{
+    PROFILE_FUNCTION();
+
+    CTransform& playerTrans = m_player.getComponent<CTransform>();
+    std::string& playerState = m_player.getComponent<CState>().state;
+    CInput& playerInput = m_player.getComponent<CInput>();
+
+    bool collision = false;
+
+    // check player-tile collisions within a box of size 4 x 4 grid cells around player
+    /// TODO: make this box as small as possible for less calculations
+    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x;
+    int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
+    for (int x = playerGridPosX - 2; x < playerGridPosX + 2; ++x)
+    {
+        /// TODO: this may be faster using std::clamp in the loop arguments
+        if (x < 0 || x >= m_worldMaxCells.x)
+        {
+            continue;
+        }
+
+        for (int y = playerGridPosY - 2; y < playerGridPosY + 2; ++y)
+        {
+            /// TODO: this may be faster using std::clamp in the loop arguments
+            if (y < 0 || y >= m_worldMaxCells.y)
+            {
+                continue;
+            }
+
+            if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
+            {
+                Vec2f overlap = Physics::GetOverlap(m_player, tileMatrix[x][y]);
+
+                // there is a collision
+                if (overlap.y > 0 && overlap.x > 0)
+                {
+                    collision = true;
+                    Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tileMatrix[x][y]);
+
+                    // we are colliding in y-direction this frame since previous frame already had x-direction overlap
+                    if (prevOverlap.x > 0)
+                    {
+                        // player moving down
+                        if (playerTrans.velocity.y > 0)
+                        {
+                            playerTrans.pos.y -= overlap.y; // player can't fall below tile
+                            playerState = abs(playerTrans.velocity.x) > 0 ? "run" : "stand";
+
+                            // jumping
+                            if (!m_player.getComponent<CInput>().up) // wait for player to release w key before allowing jump
+                            {
+                                m_player.getComponent<CInput>().canJump = true; // set to false after jumping in sMovement()
+                            }
+                        }
+
+                        // player moving up
+                        else if (playerTrans.velocity.y < 0)
+                        {
+                            playerTrans.pos.y += overlap.y;
+                        }
+                        playerTrans.velocity.y = 0;
+                    }
+
+                    // colliding in x-direction this frame
+                    if (prevOverlap.y > 0)
+                    {
+                        // player moving right
+                        if (playerTrans.velocity.x > 0)
+                        {
+                            playerTrans.pos.x -= overlap.x;
+                        }
+                        // player moving left
+                        else if (playerTrans.velocity.x < 0)
+                        {
+                            playerTrans.pos.x += overlap.x;
+                        }
+                        playerTrans.velocity.x = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    if (!collision)
+    {
+        playerState = "air";
+    }
+
+    // restrict player movement passed top, bottom, or side of map
+    const Vec2i& animSize = m_player.getComponent<CAnimation>().animation.getSize();
+    if (playerTrans.pos.x < animSize.x / 2)
+    {
+        playerTrans.pos.x = animSize.x / 2;
+        playerTrans.velocity.x = 0;
+    }
+    else if (playerTrans.pos.x > m_worldMaxPixels.x - animSize.x / 2)
+    {
+        playerTrans.pos.x = m_worldMaxPixels.x - animSize.x / 2;
+        playerTrans.velocity.x = 0;
+    }
+    else if (playerTrans.pos.y < animSize.y / 2)
+    {
+        playerTrans.pos.y = animSize.y / 2;
+        playerTrans.velocity.y = 0;
+    }
+    else if (playerTrans.pos.y > m_worldMaxPixels.y - animSize.y / 2)
+    {
+        playerTrans.pos.y = m_worldMaxPixels.y - animSize.y / 2;
+        playerTrans.velocity.y = 0;
+        playerInput.canJump = true;
+    }
+}
+
+/// @brief handle bullet-tile collisions
+void ScenePlay::bulletTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix, const std::vector<Entity>& bullets)
+{
+    PROFILE_FUNCTION();
+
+    // check bullet-tile collisions within a box of size 4 x 4 grid cells around each bullet
+    for (const Entity& bullet : bullets)
+    {
+        CTransform& bulletTrans = bullet.getComponent<CTransform>();
+
+        int bulletGridPosX = bulletTrans.pos.x / m_cellSizePixels.x;
+        int bulletGridPosY = bulletTrans.pos.y / m_cellSizePixels.y;
+        for (int x = bulletGridPosX - 2; x < bulletGridPosX + 2; ++x)
+        {
+            /// TODO: this may be faster using std::clamp in the loop arguments
+            if (x < 0 || x >= m_worldMaxCells.x)
+            {
+                continue;
+            }
+
+            for (int y = bulletGridPosY - 2; y < bulletGridPosY + 2; ++y)
+            {
+                /// TODO: this may be faster using std::clamp in the loop arguments
+                if (y < 0 || y >= m_worldMaxCells.y)
+                {
+                    continue;
+                }
+
+                if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
+                {
+                    // treating bullets as small rectangles to be able to use same Physics::GetOverlap function
+                    Vec2f overlap = Physics::GetOverlap(tileMatrix[x][y], bullet);
+
+                    if (overlap.x > 0 && overlap.y > 0)
+                    {
+                        /// TODO: do whatever else here I might want (animations, tile weakening, etc.), play around with damage after piercing, etc.
+
+                        int& bDamage = bullet.getComponent<CDamage>().damage;
+                        int& tHealth = tileMatrix[x][y].getComponent<CHealth>().current;
+
+                        tHealth -= bDamage;
+                        bDamage /= 2;
+
+                        /// TODO: put this is sStatus?
+                        if (bDamage <= 0)
+                        {
+                            bullet.destroy();
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

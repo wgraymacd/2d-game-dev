@@ -1,5 +1,5 @@
 #include "GameEngine.hpp"
-#include "Scene_Menu.hpp"
+#include "SceneMenu.hpp"
 #include "Assets.hpp"
 
 #include <string>
@@ -29,9 +29,26 @@ void GameEngine::init(const std::string& path)
 {
     m_assets.loadFromFile(path);
     m_window.create(sf::VideoMode({ 20 * 64, 20 * 36 }), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
-    m_window.setFramerateLimit(10);
+    m_window.setFramerateLimit(60);
 
-    addScene("MENU", std::make_shared<Scene_Menu>(*this));
+    addScene("MENU", std::make_shared<SceneMenu>(*this));
+}
+
+/// @brief continuously calls GameEngine::update while the game is still running
+void GameEngine::run()
+{
+    std::chrono::steady_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<long long, std::nano> lag(0); /// TODO: make sure this start at 0
+
+    while (isRunning())
+    {
+        std::chrono::steady_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<long long, std::nano> elapsedTime = currentTime - lastTime;
+        lastTime = currentTime;
+        lag += elapsedTime;
+
+        update(lag);
+    }
 }
 
 /// @brief updates the game state with GameEngine::sUserInput and the active scene's update function
@@ -104,23 +121,6 @@ void GameEngine::sUserInput()
         // }
 
         // handleContinuousInput();
-    }
-}
-
-/// @brief continuously calls GameEngine::update while the game is still running
-void GameEngine::run()
-{
-    std::chrono::steady_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<long long, std::nano> lag(0); /// TODO: make sure this start at 0
-
-    while (isRunning())
-    {
-        std::chrono::steady_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<long long, std::nano> elapsedTime = currentTime - lastTime;
-        lastTime = currentTime;
-        lag += elapsedTime;
-
-        update(lag);
     }
 }
 

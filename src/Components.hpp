@@ -71,9 +71,8 @@ public:
     int current = 1;
 
     CHealth() = default;
-    CHealth(int m, int c)
-        : max(m), current(c) {
-    }
+    CHealth(int m) : max(m), current(m) {}
+    CHealth(int m, int c) : max(m), current(c) {}
 };
 
 /// TODO: consider splitting into keyboard, mouse, controller, touch, etc.

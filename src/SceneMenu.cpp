@@ -1,5 +1,5 @@
-#include "Scene_Menu.hpp"
-#include "Scene_Play.hpp"
+#include "SceneMenu.hpp"
+#include "ScenePlay.hpp"
 #include "Scene.hpp"
 #include "Assets.hpp"
 #include "GameEngine.hpp"
@@ -7,16 +7,16 @@
 
 #include <SFML/Graphics.hpp>
 
-/// @brief constructs a new Scene_Menu object, calls Scene_Menu::init
+/// @brief constructs a new SceneMenu object, calls SceneMenu::init
 /// @param gameEngine the game's main engine; required by Scene to access the GameEngine object
-Scene_Menu::Scene_Menu(GameEngine& gameEngine)
+SceneMenu::SceneMenu(GameEngine& gameEngine)
     : Scene(gameEngine)
 {
     init();
 }
 
 /// @brief initialized the MENU scene: registers keybinds, sets text attributes, and defines level paths
-void Scene_Menu::init()
+void SceneMenu::init()
 {
     registerAction(static_cast<int>(sf::Keyboard::Key::W), "UP");
     registerAction(static_cast<int>(sf::Keyboard::Key::S), "DOWN");
@@ -32,7 +32,7 @@ void Scene_Menu::init()
 }
 
 /// @brief updates the scene's state
-void Scene_Menu::update(std::chrono::duration<long long, std::nano>& lag)
+void SceneMenu::update(std::chrono::duration<long long, std::nano>& lag)
 {
     /// TODO: implement lag catching up
     // only one thing to update in Menu scene, rendering
@@ -41,7 +41,7 @@ void Scene_Menu::update(std::chrono::duration<long long, std::nano>& lag)
 
 /// @brief performs the given action
 /// @param action an Action to perform; action has a type and a name
-void Scene_Menu::sDoAction(const Action& action)
+void SceneMenu::sDoAction(const Action& action)
 {
     if (action.type() == "START")
     {
@@ -55,7 +55,7 @@ void Scene_Menu::sDoAction(const Action& action)
         }
         else if (action.name() == "PLAY")
         {
-            m_game.addScene("PLAY", std::make_shared<Scene_Play>(m_game));
+            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game));
         }
         else if (action.name() == "QUIT")
         {
@@ -65,7 +65,7 @@ void Scene_Menu::sDoAction(const Action& action)
 }
 
 /// @brief renders the scene background and text
-void Scene_Menu::sRender()
+void SceneMenu::sRender()
 {
     // clear the window to a blue
     m_game.window().setView(m_game.window().getDefaultView());
@@ -98,7 +98,7 @@ void Scene_Menu::sRender()
 }
 
 /// @brief quits the game
-void Scene_Menu::onEnd()
+void SceneMenu::onEnd()
 {
     m_game.quit();
 }

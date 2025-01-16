@@ -10,14 +10,17 @@
 
 class EntityManager
 {
+    // tile map
+    Vec2i m_worldSizeCells; // size of the world in grid units
+    Vec2i m_cellSizePixels; // size of one cell in pixels
+    std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y)
+
     /// TODO: still needed? think about this in relation to the new memory pool
     std::vector<Entity> m_liveEntities;
     std::vector<Entity> m_entitiesToAdd;
 
-    // implementation with entity map
+    // implementation with entity map (as opposed to searching for all entities with a given tag in the memory pool)
     std::map<std::string, std::vector<Entity>> m_entityMap;
-
-    unsigned long m_totalEntities = 0;
 
     /// @brief remove dead entities from param entities
     void removeDeadEntities()
@@ -37,7 +40,7 @@ class EntityManager
     }
 
 public:
-    EntityManager() = default;
+    EntityManager(const Vec2i& worldSize, const Vec2i& cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
 
     /// TODO: implement new version of this if needed
     /// @brief adds entities to be added and removes entities to be destroyed
@@ -73,7 +76,19 @@ public:
         return m_liveEntities;
     }
 
-    /// TODO: implement the new version of this if needed, also could change this to return only entity IDs to not have to create a bunch of new entities (but consider how that affects usage in scene_play and so on), make this return a reference with data stored in memory if needed
+    std::vector<std::vector<Entity>>& getTileMatrix()
+    {
+        return m_tileMatrix;
+    }
+
+    /// TODO: this may not be the best way, but I'm testing, it's getting messy
+    void addTileToMatrix(Entity& tile)
+    {
+        const Vec2f& pos = tile.getComponent<CTransform>().pos;
+        m_tileMatrix[pos.x / m_cellSizePixels.x][pos.y / m_cellSizePixels.y] = tile;
+    }
+
+    /// TODO: implement the new version of this if needed, also could change this to return only entity IDs to not have to create a bunch of new entities (but consider how that affects usage in ScenePlay and so on), make this return a reference with data stored in memory if needed
     /// @brief gets all entities with a specified tag
     /// @param tag the type of entity to return (e.g., "player")
     /// @return an std::vector<Entity> of entities with the specified tag

@@ -22,8 +22,6 @@ class EntityMemoryPool
     const static unsigned long MAX_ENTITIES = 99999; // number of columns in the memory pool
     std::queue<unsigned long> m_freeList;            // stores indices of inactive entities to accelerate searching
 
-    unsigned long m_numEntities = 0;
-
     /// TODO: is this the way? something else? use more memory pools? idk
     std::tuple<
         std::vector<CTransform>,
@@ -53,7 +51,7 @@ class EntityMemoryPool
             std::vector<CFollowPlayer>(MAX_ENTITIES),
             std::vector<CPatrol>(MAX_ENTITIES) };
     std::vector<std::string> m_tags = std::vector<std::string>(MAX_ENTITIES);
-    std::vector<bool> m_active = std::vector<bool>(MAX_ENTITIES);
+    std::vector<bool> m_active = std::vector<bool>(MAX_ENTITIES); // defaulted to false for all indeces
 
     // initialize free list with all indices
     EntityMemoryPool(unsigned long maxEntities);

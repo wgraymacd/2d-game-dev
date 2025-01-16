@@ -8,7 +8,7 @@
 #include <vector>
 #include <chrono>
 
-class Scene_Menu : public Scene
+class SceneMenu : public Scene
 {
     std::string m_title;
     std::vector<std::string> m_menuStrings;
@@ -23,5 +23,5 @@ class Scene_Menu : public Scene
     void sDoAction(const Action& action) override;
 
 public:
-    Scene_Menu(GameEngine& gameEngine);
+    SceneMenu(GameEngine& gameEngine);
 };

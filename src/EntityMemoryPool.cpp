@@ -72,8 +72,6 @@ Entity EntityMemoryPool::addEntity(const std::string& tag)
     m_tags[index] = tag;
     m_active[index] = true;
 
-    ++m_numEntities;
-
     return Entity(index);
 }
 

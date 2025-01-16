@@ -7,13 +7,15 @@
 
 class Entity
 {
-    unsigned long m_id;
+    unsigned long m_id = -1;
 
     Entity(unsigned long id) : m_id(id) {}
 
     friend class EntityMemoryPool;
 
 public:
+    /// TODO: is this bad? need a new way of doing this so that Entity constructor stays private, maybe create new files for tile management and new classes inheriting from entity like Tile with a private constructor in the same file as the tile matrix functions
+    Entity() = default; // for initialization of tile matrix in entity manager, will create an m_id = -1
 
     /// @brief get a component of type T from this entity
     template <typename T>
