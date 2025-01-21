@@ -1,20 +1,22 @@
 Texture Tiles ../bin/images/tiles.png
 Texture Blocks ../bin/images/blocks.png
-AnimationStatic BlockClay Blocks 0 0 20 20
-AnimationStatic dirt Blocks 20 0 20 20
-AnimationStatic Grass Blocks 40 0 20 20
-AnimationStatic BlockWood Blocks 60 0 20 20
-AnimationStatic stone Blocks 0 20 20 20
-AnimationStatic BlockStone2 Blocks 20 20 20 20
-AnimationStatic Grass2 Blocks 40 20 20 20
-AnimationStatic BlockWood2 Blocks 60 20 20 20
-AnimationStatic BlockStoneRound1 Blocks 0 40 20 20
-AnimationStatic BlockStoneRound2 Blocks 20 40 20 20
-AnimationStatic BlockGrassRound1 Blocks 40 40 20 20
-AnimationStatic BlockGrassRound2 Blocks 60 40 20 20
-AnimationStatic BlockStoneGrass Blocks 0 60 20 20
-AnimationStatic BlockWood3 Blocks 20 60 20 20
-AnimationStatic BlockGrass1 Blocks 40 60 20 20
-AnimationStatic BlockGrass2 Blocks 60 60 20 20
-AnimationStatic Bullet Tiles 62 126 4 4
+Texture Bullets ../bin/images/bullets.png
+Static BlockClay Blocks 0 0 10 10 
+Static dirt Blocks 20 0 10 10 
+Static Grass Blocks 40 0 10 10 
+Static woodTall Blocks 60 0 20 40
+Static stone Blocks 0 20 10 10 
+Static BlockStone2 Blocks 20 20 10 10 
+Static Grass2 Blocks 40 20 10 10
+Static BlockWood2 Blocks 60 20 10 10
+Static BlockStoneRound1 Blocks 0 40 10 10 
+Static BlockStoneRound2 Blocks 20 40 10 10 
+Static BlockGrassRound1 Blocks 40 40 10 10 
+Static BlockGrassRound2 Blocks 60 40 10 10 
+Static BlockStoneGrass Blocks 0 60 10 10 
+Static BlockWood3 Blocks 20 60 10 10 
+Static BlockGrass1 Blocks 40 60 10 10 
+Static BlockGrass2 Blocks 60 60 10 10 
+Static Bullet Bullets 303 154 13 3
+Sound Bullet ../bin/sounds/AR.wav
 Font PixelCowboy ../bin/fonts/PixelCowboy.ttf

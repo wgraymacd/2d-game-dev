@@ -4,6 +4,7 @@
 #include "EntityManager.hpp"
 #include "Vec2.hpp"
 #include "GameEngine.hpp"
+#include "GlobalSettings.hpp"
 
 #include <SFML/Graphics.hpp>
 
@@ -19,25 +20,33 @@ class ScenePlay : public Scene
     };
 
 protected:
-    // grid related
-    const Vec2i m_worldMaxCells = { 200, 100 }; // bottom-right corner of world (grid coords)
-    const Vec2i m_cellSizePixels = { 20, 20 }; // cell size (pixels)
-    const Vec2i m_worldMaxPixels = { m_cellSizePixels.x * m_worldMaxCells.x, m_cellSizePixels.y * m_worldMaxCells.y };
-    sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
+    // tile grid
+    const Vec2ui m_worldMaxCells = GlobalSettings::worldMaxCells; // bottom-right corner of world (grid coords)
+    const Vec2ui m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
+    const Vec2ui m_worldMaxPixels = { m_cellSizePixels.x * m_worldMaxCells.x, m_cellSizePixels.y * m_worldMaxCells.y };
+
+    // views
+    sf::View m_mainView = sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()); // center, size
+    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, { m_cellSizePixels.x * 250.0f, m_cellSizePixels.y * 250.0f }); // center, size
 
     // entities
     EntityManager m_entityManager = EntityManager(m_worldMaxCells, m_cellSizePixels);
     Entity m_player = m_entityManager.addEntity("player");
+    Entity m_weapon = m_entityManager.addEntity("weapon");
     PlayerConfig m_playerConfig;
 
     // rendering
     bool m_drawTextures = true;
+    bool m_drawMinimap = true;
     bool m_drawCollision = false;
     bool m_drawGrid = false;
 
     // fps counter
     sf::Clock m_fpsClock;
     sf::Text m_fpsText = sf::Text(m_game.assets().getFont("PixelCowboy"));
+
+    // grid text
+    sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
 
 
     void init(); /// TODO: may add param here to differentiate between game types or something
@@ -53,6 +62,7 @@ protected:
     void onEnd() override;
 
     void sMovement();
+    void sFiring();
     void sStatus(); // lifespan, health, etc.
     void sCollision();
     void sDoAction(const Action& action) override;

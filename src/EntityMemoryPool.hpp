@@ -19,7 +19,7 @@ class Entity; // forward declaration
 /// TODO: consider creating a separate pool for tiles since they will never have many of the components available to all entities
 class EntityMemoryPool
 {
-    const static unsigned long MAX_ENTITIES = 99999; // number of columns in the memory pool
+    const static unsigned long MAX_ENTITIES = 999999; // number of columns in the memory pool
     std::queue<unsigned long> m_freeList;            // stores indices of inactive entities to accelerate searching
 
     /// TODO: is this the way? something else? use more memory pools? idk
@@ -34,6 +34,7 @@ class EntityMemoryPool
         std::vector<CAnimation>,
         std::vector<CGravity>,
         std::vector<CState>,
+        std::vector<CFireRate>,
         std::vector<CFollowPlayer>, // NPC behavior
         std::vector<CPatrol>        // NPC behavior
     >
@@ -48,6 +49,7 @@ class EntityMemoryPool
             std::vector<CAnimation>(MAX_ENTITIES),
             std::vector<CGravity>(MAX_ENTITIES),
             std::vector<CState>(MAX_ENTITIES),
+            std::vector<CFireRate>(MAX_ENTITIES),
             std::vector<CFollowPlayer>(MAX_ENTITIES),
             std::vector<CPatrol>(MAX_ENTITIES) };
     std::vector<std::string> m_tags = std::vector<std::string>(MAX_ENTITIES);
@@ -113,4 +115,9 @@ public:
 
     /// @brief get the tag of entity entityID
     const std::string& getTag(unsigned long entityID) const;
+
+    auto& getPool()
+    {
+        return m_pool;
+    }
 };

@@ -19,7 +19,7 @@ class Assets
     std::map<std::string, std::optional<sf::Sound>> m_soundMap; // made this optional because of the lack of a default constructor
     /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance
 
-    // can be for single sprites or for atlas
+    /// @brief add a texture to the texture map
     void addTexture(const std::string& textureName, const std::string& path, bool smooth)
     {
         m_textureMap[textureName] = sf::Texture();
@@ -37,17 +37,26 @@ class Assets
     }
 
     // animations with their own texture file
+
+    /// @brief add an animation to the animation map
+    /// @param textureName texture used for animation, single file with frames from left to right equally spaced
+    /// @param frameCount number of animation frames in the texture
+    /// @param frameDuration number of game frames to maintain each animation frame
     void addAnimation(const std::string& animationName, const std::string& textureName, const unsigned int frameCount, const unsigned int frameDuration)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
 
-    // static animations (images) found in texture atlases
+    /// @brief add a static animation to the animation map
+    /// @param textureName texture atlas used
+    /// @param position top left corner of texture region to be used
+    /// @param size size in pixels of texture region
     void addAnimation(const std::string& animationName, const std::string& textureName, const Vec2i& position, const Vec2i& size)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, size);
     }
 
+    /// @brief add a font to the font map
     void addFont(const std::string& fontName, const std::string& path)
     {
         m_fontMap[fontName] = sf::Font();
@@ -62,6 +71,7 @@ class Assets
         }
     }
 
+    /// @brief add a sound buffer and sound to the sound buffer and sound maps
     void addSound(const std::string& soundName, const std::string& path)
     {
         m_soundBufferMap[soundName] = sf::SoundBuffer();
@@ -74,11 +84,12 @@ class Assets
         {
             std::cout << "Loaded sound: " << path << std::endl;
             m_soundMap[soundName] = sf::Sound(m_soundBufferMap[soundName]);
-            m_soundMap[soundName].value().setVolume(25);
+            // m_soundMap[soundName].value().setVolume(25);
         }
     }
 
 public:
+    /// @brief required for pre-allocation of entity memory pool component vectors
     Assets() = default;
 
     /// @brief loads all assets from asset configuration file
@@ -97,7 +108,7 @@ public:
                 file >> name >> path;
                 addTexture(name, path, false);
             }
-            else if (str == "AnimationStatic")
+            else if (str == "Static")
             {
                 std::string name, texture;
                 Vec2i pos, size;
@@ -116,6 +127,12 @@ public:
                 std::string name, path;
                 file >> name >> path;
                 addFont(name, path);
+            }
+            else if (str == "Sound")
+            {
+                std::string name, path;
+                file >> name >> path;
+                addSound(name, path);
             }
             else
             {
@@ -153,9 +170,15 @@ public:
         return m_animationMap;
     }
 
-    sf::Sound& getSound(const std::string& soundName)
+    // sf::Sound& getSound(const std::string& soundName)
+    // {
+    //     assert(m_soundMap.find(soundName) != m_soundMap.end());
+    //     return m_soundMap.at(soundName).value(); /// TODO: do I have to check to see if the sound at soundName has a value? test this
+    // }
+
+    void playSound(const std::string& soundName)
     {
         assert(m_soundMap.find(soundName) != m_soundMap.end());
-        return m_soundMap.at(soundName).value(); /// TODO: do I have to check to see if the sound at soundName has a value? test this
+        m_soundMap.at(soundName).value().play();
     }
 };

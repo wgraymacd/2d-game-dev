@@ -1,11 +1,14 @@
+#include "GlobalSettings.hpp"
 #include "GameEngine.hpp"
 #include "SceneMenu.hpp"
+#include "Scene.hpp"
 #include "Assets.hpp"
 
 #include <string>
 #include <memory>
 #include <SFML/Graphics.hpp>
 #include <chrono>
+#include <fstream>
 
 /// TODO: consider multithreading, offload tasks like physics updates and asset loading to keep main game loop responsive
 /// TODO: decouple frame rate from updates in main game loop
@@ -28,8 +31,29 @@ GameEngine::GameEngine(const std::string& path)
 void GameEngine::init(const std::string& path)
 {
     m_assets.loadFromFile(path);
-    m_window.create(sf::VideoMode({ 20 * 64, 20 * 36 }), "2D Platformer"); // 20 pixel width and height for each block in game, so grid is 64 x 36 cells
-    m_window.setFramerateLimit(60);
+
+    // std::ifstream file(path);
+    // std::string str;
+    // while (file.good())
+    // {
+    //     file >> str;
+
+    //     if (str == "Window")
+    //     {
+    //         int width, height, frameRate;
+    //         file >> width >> height >> frameRate;
+    //         m_window.create(sf::VideoMode({ width, height }), "Game");
+    //         m_window.setFramerateLimit(frameRate);
+    //     }
+    //     else
+    //     {
+    //         std::cerr << "Unknown asset type: " << str << std::endl;
+    //     }
+    // }
+    // file.close();
+
+    m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game");
+    m_window.setFramerateLimit(GlobalSettings::frameRate);
 
     addScene("MENU", std::make_shared<SceneMenu>(*this));
 }
@@ -38,7 +62,7 @@ void GameEngine::init(const std::string& path)
 void GameEngine::run()
 {
     std::chrono::steady_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<long long, std::nano> lag(0); /// TODO: make sure this start at 0
+    std::chrono::duration<long long, std::nano> lag(0);
 
     while (isRunning())
     {
@@ -153,7 +177,7 @@ sf::RenderWindow& GameEngine::window()
 
 /// @brief gets all assets stored in the GameEngine object
 /// @return Assets object that holds all information related to the game's assets
-const Assets& GameEngine::assets() const
+Assets& GameEngine::assets()
 {
     return m_assets;
 }

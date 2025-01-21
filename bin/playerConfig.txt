@@ -1,1 +1,1 @@
-Player 2 6 40 40 2 15 10 0.75 Bullet
+Player 500 5 20 40 0.25 7 7 0.2 Bullet

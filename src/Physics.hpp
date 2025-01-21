@@ -32,10 +32,10 @@ namespace Physics
         float xDiff = abs(aPos.x - bPos.x);
         float yDiff = abs(aPos.y - bPos.y);
 
-        const Vec2i& aAnimSize = a.getComponent<CAnimation>().animation.getSize();
-        const Vec2i& bAnimSize = b.getComponent<CAnimation>().animation.getSize();
-        float xOverlap = aAnimSize.x / 2 + bAnimSize.x / 2 - xDiff;
-        float yOverlap = aAnimSize.y / 2 + bAnimSize.y / 2 - yDiff;
+        const Vec2i& aBounds = a.getComponent<CBoundingBox>().size;
+        const Vec2i& bBounds = b.getComponent<CBoundingBox>().size;
+        float xOverlap = aBounds.x / 2 + bBounds.x / 2 - xDiff;
+        float yOverlap = aBounds.y / 2 + bBounds.y / 2 - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }
@@ -53,10 +53,10 @@ namespace Physics
         float xDiff = abs(aPrevPos.x - bPrevPos.x);
         float yDiff = abs(aPrevPos.y - bPrevPos.y);
 
-        const Vec2i& aAnimSize = a.getComponent<CAnimation>().animation.getSize();
-        const Vec2i& bAnimSize = b.getComponent<CAnimation>().animation.getSize();
-        float xOverlap = aAnimSize.x / 2 + bAnimSize.x / 2 - xDiff;
-        float yOverlap = aAnimSize.y / 2 + bAnimSize.y / 2 - yDiff;
+        const Vec2i& aBounds = a.getComponent<CBoundingBox>().size;
+        const Vec2i& bBounds = b.getComponent<CBoundingBox>().size;
+        float xOverlap = aBounds.x / 2 + bBounds.x / 2 - xDiff;
+        float yOverlap = aBounds.y / 2 + bBounds.y / 2 - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }

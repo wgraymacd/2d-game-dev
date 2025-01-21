@@ -4,6 +4,7 @@
 #include "Vec2.hpp"
 #include <string>
 #include <vector>
+#include <chrono>
 
 class Component
 {
@@ -88,7 +89,6 @@ public:
 
     // shooting
     bool shoot = false;
-    bool canShoot = true;
 
     CInput() = default;
 };
@@ -139,6 +139,16 @@ public:
 
     CState() = default;
     CState(const std::string& s) : state(s) {}
+};
+
+class CFireRate : public Component
+{
+public:
+    int fireRate = 0; // bullets per second
+    std::chrono::steady_clock::time_point lastShotTime = std::chrono::high_resolution_clock::now();
+
+    CFireRate() = default;
+    CFireRate(int fr) : fireRate(fr) {}
 };
 
 class CFollowPlayer : public Component

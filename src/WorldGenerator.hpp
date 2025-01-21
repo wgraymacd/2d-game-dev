@@ -16,11 +16,11 @@
 /// TODO: add biomes with specific rules for generation, could even define temp, humidity, etc. and calc tree density or water or weather or anything from them
 /// TODO: enum for tile types
 /// TODO: could add world evolution if I want people to be on same map for long time
+/// NOTE: if I use a certain seed, shit never changes, so can always get back to the same world
 class WorldGenerator
 {
     int m_worldTilesX;
     int m_worldTilesY;
-    int m_seaLevel = 25;
 
     /// TODO: change from string to int for tile types
     std::vector<std::vector<std::string>> m_tileMatrix;
@@ -34,6 +34,8 @@ class WorldGenerator
     /// @brief lay out dirt and stone layer, filling m_tilePositions
     void generateBaseLayer()
     {
+        std::cout << "creating base layer..." << std::endl;
+
         std::string tileType = "";
         for (int y = 0; y < m_worldTilesY; y++)
         {
@@ -55,7 +57,8 @@ class WorldGenerator
     /// @brief add some dirt in stone and some stone in dirt
     void createBlockPatches()
     {
-        // std::cout << "creating block patches" <<std::endl;
+        std::cout << "creating block patches..." << std::endl;
+
         float patchScale = 0.5f;    // controls dirt/stone patch frequency
         float dirtThreshold = 0.4f;  // threshold for creating dirt vein
         float stoneThreshold = 0.2f; // threshold for creating stone patch
@@ -80,6 +83,7 @@ class WorldGenerator
     /// @brief add other things like bedrock veins
     void addBedrock()
     {
+        std::cout << "adding bedrock..." << std::endl;
 
     }
 
@@ -87,6 +91,8 @@ class WorldGenerator
     /// @brief add caves
     void addCaves()
     {
+        std::cout << "adding caves..." << std::endl;
+
         float caveScale = 0.5f;    // controls cave frequency
         float caveThreshold = 0.3f; // threshold for creating caves
         for (int y = 0; y < m_worldTilesY; y++)
@@ -96,26 +102,32 @@ class WorldGenerator
                 float caveNoise = m_noise.GetNoise((float)x * caveScale, (float)y * caveScale);
                 if (caveNoise > caveThreshold)
                 {
-                    // m_tilePositions[y * m_worldTilesX + x].type = "background";
-                    m_tileMatrix[x][y] = "background";
+                    m_tileMatrix[x][y] = "BlockGrass1"; /// TODO: get some background animations, handle this in general with the blocksMovement and blockVision in the bounding box component
                 }
             }
         }
+
+        /// TODO: can look into different type of noise for this like rigid multifractal noise, can change thresholds for when a cave is made based on world y coord
     }
 
     /// TODO: could improve it by incorporating some horizontal variation and adding more diversity in terms of terrain features above the sea level
     void createSkyline()
     {
+        std::cout << "creating skyline..." << std::endl;
+
         // 1D noise for skyline along x-axis
         std::vector<int> terrainHeights(m_worldTilesX);
         int terrainDelta = 20; // controls max deviation from sea level
-        int seaLevel = 25;
         float noiseScale = 0.5f;
+        int seaLevel = 50; // number of tiles below the top of the screen
         for (int x = 0; x < m_worldTilesX; x++)
         {
             float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
             terrainHeights[x] = static_cast<int>(noiseVal * terrainDelta + seaLevel);  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
         }
+
+        /// TODO: another 1d noise sweep but moving tiles left and right to get some overhangs and things like that, Perlin best for this
+        /// TODO: can do tons of passes, tweaks, whatever to make surface look like almost anything, look into it, this video gives the non-technical taste: https://www.youtube.com/watch?v=-POwgollFeY&ab_channel=DigiDigger, can do biomes like this by only applying some stuff to some areas 
 
         // remove tiles above terrain heights
         for (int x = 0; x < m_worldTilesX; ++x)
@@ -143,6 +155,8 @@ public:
 
     void generateWorld()
     {
+        PROFILE_FUNCTION();
+
         generateBaseLayer();
         createBlockPatches();
         addBedrock();

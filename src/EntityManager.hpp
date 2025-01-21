@@ -11,26 +11,30 @@
 class EntityManager
 {
     // tile map
-    Vec2i m_worldSizeCells; // size of the world in grid units
-    Vec2i m_cellSizePixels; // size of one cell in pixels
-    std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y)
+    Vec2ui m_worldSizeCells; // size of the world in grid units
+    Vec2ui m_cellSizePixels; // size of one cell in pixels
+    std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y), initialized in constructor
 
     /// TODO: still needed? think about this in relation to the new memory pool
-    std::vector<Entity> m_liveEntities;
+    // std::vector<Entity> m_liveEntities;
     std::vector<Entity> m_entitiesToAdd;
 
     // implementation with entity map (as opposed to searching for all entities with a given tag in the memory pool)
-    std::map<std::string, std::vector<Entity>> m_entityMap;
+    std::map<std::string, std::vector<Entity>> m_entityMap; // collidable layer entities without a dedicated layer matrix (player, bullet, weapon, npc, etc.)
 
     /// @brief remove dead entities from param entities
     void removeDeadEntities()
     {
+        PROFILE_FUNCTION();
+
         // remove from m_liveEntities
-        auto it = std::remove_if(m_liveEntities.begin(), m_liveEntities.end(),
-            [](const Entity& entity) { return !entity.isActive(); });
-        m_liveEntities.erase(it, m_liveEntities.end());
+        // auto it = std::remove_if(m_liveEntities.begin(), m_liveEntities.end(),
+        //     [](const Entity& entity) { return !entity.isActive(); });
+        // m_liveEntities.erase(it, m_liveEntities.end());
 
         // remove from m_entityMap
+        /// TODO: super slow if m_entityMap becomes large
+        /// TODO: try the locational thing to the player like the tileMatrix[x][y]? try pre initialized vectors and just use active vs inactive? remove map entirely in favor of different memory pools or something for each type of entity?
         for (auto& [key, entityVector] : m_entityMap)
         {
             auto itMap = std::remove_if(entityVector.begin(), entityVector.end(),
@@ -40,7 +44,7 @@ class EntityManager
     }
 
 public:
-    EntityManager(const Vec2i& worldSize, const Vec2i& cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
+    EntityManager(const Vec2ui& worldSize, const Vec2ui& cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
 
     /// TODO: implement new version of this if needed
     /// @brief adds entities to be added and removes entities to be destroyed
@@ -50,7 +54,7 @@ public:
 
         for (Entity& e : m_entitiesToAdd)
         {
-            m_liveEntities.push_back(e);
+            // m_liveEntities.push_back(e);
             m_entityMap[e.tag()].push_back(e);
         }
         m_entitiesToAdd.clear();
@@ -63,18 +67,23 @@ public:
     /// @return the entity to be added
     Entity addEntity(const std::string& tag)
     {
+        PROFILE_FUNCTION();
+
         Entity e = EntityMemoryPool::Instance().addEntity(tag);
-        m_entitiesToAdd.push_back(e);
+        if (tag == "player" || tag == "bullet" || tag == "weapon")
+        {
+            m_entitiesToAdd.push_back(e);
+        }
         return e;
     }
 
     /// TODO: implement the new version of this if needed
     /// @brief gets all entities in the active EntityManager
     /// @return m_liveEntities, the std::vector<Entity> (std::vector<std::shared_ptr<Entity>>) of all entities
-    std::vector<Entity>& getEntities()
-    {
-        return m_liveEntities;
-    }
+    // std::vector<Entity>& getEntities()
+    // {
+    //     return m_liveEntities;
+    // }
 
     std::vector<std::vector<Entity>>& getTileMatrix()
     {
@@ -84,6 +93,8 @@ public:
     /// TODO: this may not be the best way, but I'm testing, it's getting messy
     void addTileToMatrix(Entity& tile)
     {
+        PROFILE_FUNCTION();
+
         const Vec2f& pos = tile.getComponent<CTransform>().pos;
         m_tileMatrix[pos.x / m_cellSizePixels.x][pos.y / m_cellSizePixels.y] = tile;
     }

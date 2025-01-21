@@ -35,7 +35,6 @@ void SceneMenu::init()
 void SceneMenu::update(std::chrono::duration<long long, std::nano>& lag)
 {
     /// TODO: implement lag catching up
-    // only one thing to update in Menu scene, rendering
     sRender();
 }
 
@@ -55,6 +54,7 @@ void SceneMenu::sDoAction(const Action& action)
         }
         else if (action.name() == "PLAY")
         {
+            // m_game.changeScene("PLAY", false); /// TODO: possible to change scene and handle new ones? could then switch back and forth without reseting the play scene
             m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game));
         }
         else if (action.name() == "QUIT")
