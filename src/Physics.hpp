@@ -17,8 +17,6 @@ struct Intersect
 namespace Physics
 {
     /// @brief calculates overlap rectangle size of the bounding boxes of entity a and entity b
-    /// @param a an entity in the current scene
-    /// @param b an entity in the current scene
     /// @return a Vec2f of (x overlap, y overlap)
     Vec2f GetOverlap(Entity a, Entity b)
     {
@@ -41,8 +39,6 @@ namespace Physics
     }
 
     /// @brief calculate previous overlap rectangle size of the bounding boxes of entity a and b
-    /// @param a an entity in the current scene
-    /// @param b an entity in the current scene
     /// @return a Vec2f of (previous x overlap, previous y overlap)
     Vec2f GetPreviousOverlap(Entity a, Entity b)
     {
@@ -61,10 +57,16 @@ namespace Physics
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }
 
-    /// TODO: implement this function
-    bool IsInside(const Vec2f& pos, std::shared_ptr<Entity> e)
+    /// @brief check if a pixel position pos in the game world is inside of entity e's bounding box
+    bool IsInside(const Vec2f& pos, Entity e)
     {
-        return false;
+        const Vec2f& entityPos = e.getComponent<CTransform>().pos;
+        const Vec2f& bBoxHalfSize = e.getComponent<CBoundingBox>().halfSize;
+
+        bool horizontalInside = pos.x > entityPos.x - bBoxHalfSize.x && pos.x < entityPos.x + bBoxHalfSize.x;
+        bool verticalInside = pos.y > entityPos.y - bBoxHalfSize.y && pos.y < entityPos.y + bBoxHalfSize.y;
+
+        return horizontalInside && verticalInside;
     }
 
     /// TODO: implement this function

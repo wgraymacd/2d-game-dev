@@ -4,7 +4,7 @@
 #include "EntityManager.hpp"
 #include "Vec2.hpp"
 #include "GameEngine.hpp"
-#include "GlobalSettings.hpp"
+#include "Globals.hpp"
 
 #include <SFML/Graphics.hpp>
 
@@ -55,21 +55,25 @@ protected:
     void generateWorld();
     void spawnPlayer();
     void spawnBullet(Entity entity);
+    void updateProjectiles(std::vector<Entity>& bullets);
     void playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix);
-    void bulletTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix, const std::vector<Entity>& bullets);
-    Vec2f gridToMidPixel(float x, float y, Entity entity);
-    void update(std::chrono::duration<long long, std::nano>& lag) override;
-    void onEnd() override;
+    void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
+    Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
 
-    void sMovement();
-    void sFiring();
-    void sStatus(); // lifespan, health, etc.
-    void sCollision();
-    void sDoAction(const Action& action) override;
-    void sAnimation();
-    void sAI(); // NPC behavior
-    void sCamera();
-    void sRender() override;
+    void updateState(std::chrono::duration<long long, std::nano>& lag) override;
+    void onEnd() override;
+    // void resizeView(const Vec2f& size); /// TODO: could also have no arguments and go check globalsettings windowsize since updated first, this func used if resizing needs to be specific to each scene
+
+    /// TODO: group these to best handle single components for multiple entities at once
+    void sObjectMovement(); // read player state and input, modify player transform
+    void sObjectCollision(); // player transform, state, bounding box, and input, tile transform and health, bullet transform and damage
+    void sProjectiles(); // reads player input and weapon firerate, spawns bullets
+    void sLifespan(); // lifespan
+    void sDoAction(const Action& action) override; // modifies player input
+    void sAnimation(); // animation
+    void sAI(); // 
+    void sCamera(); // 
+    void sRender() override; // animations, transforms
 
     void drawLine(const Vec2f& p1, const Vec2f& p2);
 

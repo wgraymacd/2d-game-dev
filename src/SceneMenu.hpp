@@ -19,7 +19,7 @@ class SceneMenu : public Scene
     void init();
 
     void onEnd() override;
-    void update(std::chrono::duration<long long, std::nano>& lag) override;
+    void updateState(std::chrono::duration<long long, std::nano>& lag) override;
     void sRender() override;
     void sDoAction(const Action& action) override;
 

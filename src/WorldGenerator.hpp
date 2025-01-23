@@ -34,6 +34,8 @@ class WorldGenerator
     /// @brief lay out dirt and stone layer, filling m_tilePositions
     void generateBaseLayer()
     {
+        PROFILE_FUNCTION();
+
         std::cout << "creating base layer..." << std::endl;
 
         std::string tileType = "";
@@ -57,6 +59,8 @@ class WorldGenerator
     /// @brief add some dirt in stone and some stone in dirt
     void createBlockPatches()
     {
+        PROFILE_FUNCTION();
+
         std::cout << "creating block patches..." << std::endl;
 
         float patchScale = 0.5f;    // controls dirt/stone patch frequency
@@ -83,6 +87,8 @@ class WorldGenerator
     /// @brief add other things like bedrock veins
     void addBedrock()
     {
+        PROFILE_FUNCTION();
+
         std::cout << "adding bedrock..." << std::endl;
 
     }
@@ -91,6 +97,8 @@ class WorldGenerator
     /// @brief add caves
     void addCaves()
     {
+        PROFILE_FUNCTION();
+
         std::cout << "adding caves..." << std::endl;
 
         float caveScale = 0.5f;    // controls cave frequency
@@ -113,6 +121,8 @@ class WorldGenerator
     /// TODO: could improve it by incorporating some horizontal variation and adding more diversity in terms of terrain features above the sea level
     void createSkyline()
     {
+        PROFILE_FUNCTION();
+
         std::cout << "creating skyline..." << std::endl;
 
         // 1D noise for skyline along x-axis

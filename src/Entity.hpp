@@ -2,14 +2,18 @@
 
 #include "Components.hpp"
 #include "EntityMemoryPool.hpp"
+#include "Globals.hpp"
+#include "Timer.hpp"
+
 #include <string>
-#include <tuple>
+
+/// TODO: consider adding subtypes of entities like Tiles so that entity ids (check EntityMemoryPool) don't have to be offset for different memory pools (requires taking entityID - maxTiles as index to memory pool after tile memory pool)
 
 class Entity
 {
-    unsigned long m_id = -1;
+    EntityID m_id = -1;
 
-    Entity(unsigned long id) : m_id(id) {}
+    Entity(EntityID id) : m_id(id) {}
 
     friend class EntityMemoryPool;
 
@@ -21,6 +25,8 @@ public:
     template <typename T>
     T& getComponent() const
     {
+        // PROFILE_FUNCTION();
+
         return EntityMemoryPool::Instance().getComponent<T>(m_id);
     }
 
@@ -28,6 +34,8 @@ public:
     template <typename T>
     const bool hasComponent() const
     {
+        // PROFILE_FUNCTION();
+
         return EntityMemoryPool::Instance().hasComponent<T>(m_id);
     }
 
@@ -35,13 +43,9 @@ public:
     template <typename T, typename... TArgs>
     T& addComponent(TArgs &&...mArgs)
     {
-        return EntityMemoryPool::Instance().addComponent<T>(m_id, std::forward<TArgs>(mArgs)...);
-    }
+        PROFILE_FUNCTION();
 
-    /// @brief get this entity's tag
-    const std::string tag()
-    {
-        return EntityMemoryPool::Instance().getTag(m_id);
+        return EntityMemoryPool::Instance().addComponent<T>(m_id, std::forward<TArgs>(mArgs)...);
     }
 
     /// @brief destroy this entity

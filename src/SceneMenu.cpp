@@ -32,7 +32,7 @@ void SceneMenu::init()
 }
 
 /// @brief updates the scene's state
-void SceneMenu::update(std::chrono::duration<long long, std::nano>& lag)
+void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
 {
     /// TODO: implement lag catching up
     sRender();
@@ -55,7 +55,7 @@ void SceneMenu::sDoAction(const Action& action)
         else if (action.name() == "PLAY")
         {
             // m_game.changeScene("PLAY", false); /// TODO: possible to change scene and handle new ones? could then switch back and forth without reseting the play scene
-            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game));
+            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game), true);
         }
         else if (action.name() == "QUIT")
         {
@@ -64,11 +64,11 @@ void SceneMenu::sDoAction(const Action& action)
     }
 }
 
+/// TODO: since we no longer set the view to default on each frame, only setting it once in the beginning, view is gone when coming back from play scene, may be able to handle this in GameEngine or something
 /// @brief renders the scene background and text
 void SceneMenu::sRender()
 {
     // clear the window to a blue
-    m_game.window().setView(m_game.window().getDefaultView());
     m_game.window().clear(sf::Color(100, 100, 255));
 
     // draw the game title in the top-left of the screen

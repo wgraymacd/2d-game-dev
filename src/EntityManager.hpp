@@ -2,6 +2,7 @@
 
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
+#include "Globals.hpp"
 
 #include "Timer.hpp"
 
@@ -14,10 +15,9 @@ class EntityManager
     Vec2ui m_worldSizeCells; // size of the world in grid units
     Vec2ui m_cellSizePixels; // size of one cell in pixels
     std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y), initialized in constructor
+    /// TODO: could change tileMatrix to 1D array for even better chache performance when iterating over all tiles
 
-    /// TODO: still needed? think about this in relation to the new memory pool
-    // std::vector<Entity> m_liveEntities;
-    std::vector<Entity> m_entitiesToAdd;
+    std::vector<std::pair<std::string, Entity>> m_entitiesToAdd;
 
     // implementation with entity map (as opposed to searching for all entities with a given tag in the memory pool)
     std::map<std::string, std::vector<Entity>> m_entityMap; // collidable layer entities without a dedicated layer matrix (player, bullet, weapon, npc, etc.)
@@ -52,10 +52,9 @@ public:
     {
         PROFILE_FUNCTION();
 
-        for (Entity& e : m_entitiesToAdd)
+        for (std::pair<std::string, Entity>& pair : m_entitiesToAdd)
         {
-            // m_liveEntities.push_back(e);
-            m_entityMap[e.tag()].push_back(e);
+            m_entityMap[pair.first].push_back(pair.second);
         }
         m_entitiesToAdd.clear();
 
@@ -72,7 +71,7 @@ public:
         Entity e = EntityMemoryPool::Instance().addEntity(tag);
         if (tag == "player" || tag == "bullet" || tag == "weapon")
         {
-            m_entitiesToAdd.push_back(e);
+            m_entitiesToAdd.push_back(std::pair<std::string, Entity>(tag, e));
         }
         return e;
     }

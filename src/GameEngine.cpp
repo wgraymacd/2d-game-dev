@@ -1,4 +1,4 @@
-#include "GlobalSettings.hpp"
+#include "Globals.hpp"
 #include "GameEngine.hpp"
 #include "SceneMenu.hpp"
 #include "Scene.hpp"
@@ -6,9 +6,10 @@
 
 #include <string>
 #include <memory>
-#include <SFML/Graphics.hpp>
 #include <chrono>
 #include <fstream>
+#include <SFML/Graphics.hpp>
+#include <SFML/Window.hpp>
 
 /// TODO: consider multithreading, offload tasks like physics updates and asset loading to keep main game loop responsive
 /// TODO: decouple frame rate from updates in main game loop
@@ -52,7 +53,19 @@ void GameEngine::init(const std::string& path)
     // }
     // file.close();
 
-    m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game");
+    const std::vector<sf::VideoMode>& modes = sf::VideoMode::getFullscreenModes();
+    if (modes.empty())
+    {
+        std::cerr << "No supported fullscreen modes available!" << std::endl;
+        exit(-1);
+    }
+    // sf::VideoMode fullscreenMode = modes[0]; // 4 modes, 1st being highest resolution
+    // m_window.create(fullscreenMode, "Game", sf::Style::Default);
+
+    GlobalSettings::windowSize = modes[0].size;
+    m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game", sf::Style::Default); /// TODO: should be a fullscreen option here
+
+    // m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game");
     m_window.setFramerateLimit(GlobalSettings::frameRate);
 
     addScene("MENU", std::make_shared<SceneMenu>(*this));
@@ -79,7 +92,7 @@ void GameEngine::run()
 void GameEngine::update(std::chrono::duration<long long, std::nano>& lag)
 {
     sUserInput();
-    currentScene()->update(lag);
+    currentScene()->updateState(lag);
 }
 
 /// TODO: consider separate functions for keyboard, mouse, controller, touch, etc. to reduce size of this function
@@ -91,6 +104,27 @@ void GameEngine::sUserInput()
         if (event->is<sf::Event::Closed>())
         {
             quit();
+        }
+
+        if (const sf::Event::Resized* resizedEvent = event->getIf<sf::Event::Resized>())
+        {
+            // const float originalWidth = static_cast<float>(GlobalSettings::windowSize.x);
+            // const float originalHeight = static_cast<float>(GlobalSettings::windowSize.y);
+            // const float newWidth = static_cast<float>(resizedEvent->size.x);
+            // const float newHeight = static_cast<float>(resizedEvent->size.y);
+            // const float originalAspectRatio = originalWidth / originalHeight;
+            // const float newAspectRatio = static_cast<float>(newWidth / newHeight);
+
+            // const float scaleFactor = static_cast<float>(newAspectRatio > originalAspectRatio ? newHeight / originalHeight : newWidth / originalWidth);
+
+            // GlobalSettings::windowSize = resizedEvent->size;
+            // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>() * scaleFactor));
+
+            GlobalSettings::windowSize = resizedEvent->size;
+            m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>())));
+            // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()));
+
+            /// TODO: think about performing an action to resize view according to specific scene
         }
 
         /// keyboard

@@ -12,17 +12,11 @@ public:
 
     Vec2() = default; // explicitly tell compiler to use default constructor
 
-    Vec2(T xin, T yin)
-        : x(xin), y(yin)
-    {
-    }
+    Vec2(T xin, T yin) : x(xin), y(yin) {}
 
     /// @brief constructor to convert from sf::Vector2
     /// @param vec a reference to an sf::Vector2 object
-    Vec2(const sf::Vector2<T>& vec)
-        : x(vec.x), y(vec.y)
-    {
-    }
+    Vec2(const sf::Vector2<T>& vec) : x(vec.x), y(vec.y) {}
 
     /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
     operator sf::Vector2<T>() const

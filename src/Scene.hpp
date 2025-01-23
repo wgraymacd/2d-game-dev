@@ -19,7 +19,7 @@ protected:
 public:
     Scene(GameEngine& game);
 
-    virtual void update(std::chrono::duration<long long, std::nano>& lag) = 0;
+    virtual void updateState(std::chrono::duration<long long, std::nano>& lag) = 0;
     virtual void onEnd() = 0;
     virtual void sRender() = 0;
     virtual void sDoAction(const Action& action) = 0;

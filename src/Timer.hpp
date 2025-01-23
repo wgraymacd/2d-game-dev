@@ -2,7 +2,7 @@
 // singleton class insures that only one instance of the class can be created  
 // typical use case is for global functionality, like this case
 
-#define PROFILING 1
+#define PROFILING
 #ifdef PROFILING
 #define PROFILE_SCOPE(name) \
         ProfileTimer timer##__LINE__(name)
@@ -10,7 +10,7 @@
         PROFILE_SCOPE(__FUNCTION__)
 #else
 #define PROFILE_SCOPE(name)
-#define PROFILE_FUNCTION ()
+#define PROFILE_FUNCTION()
 #endif
 
 #pragma once
@@ -33,9 +33,6 @@ class Profiler
     std::ofstream m_fout = std::ofstream("result.json");
     bool m_firstEntry = true;
 
-    /// for only active profiles way
-    // std::unordered_map<std::string, ProfileResult> m_activeProfiles; // Track active profiles
-
     Profiler()
     {
         m_fout << "{\n    \"traceEvents\":\n    [\n";
@@ -49,8 +46,6 @@ public:
     }
     void writeProfile(const ProfileResult& r)
     {
-        /// all profiles way
-
         if (!m_firstEntry)
         {
             m_fout << ",\n";
@@ -68,38 +63,7 @@ public:
             << "\"dur\": " << (r.end - r.start) << ", "
             << "\"pid\": 0, "
             << "\"tid\": " << r.threadID << " }";
-
-
-        /// only active profile way
-
-        // std::string key = r.name + "_" + std::to_string(r.threadID);
-        // m_activeProfiles[key] = r;
     }
-
-    /// @brief write out the profiled functions and scopes from m_activeProfiles
-    // void flush()
-    // {
-    //     for (const auto& [key, r] : m_activeProfiles)
-    //     {
-    //         if (!m_firstEntry)
-    //         {
-    //             m_fout << ",\n";
-    //         }
-    //         else
-    //         {
-    //             m_firstEntry = false;
-    //         }
-
-    //         m_fout << "        { "
-    //             << "\"name\": \"" << r.name << "\", "
-    //             << "\"cat\": \"\", "
-    //             << "\"ph\": \"X\", "
-    //             << "\"ts\": " << r.start << ", "
-    //             << "\"dur\": " << (r.end - r.start) << ", "
-    //             << "\"pid\": 0, "
-    //             << "\"tid\": " << r.threadID << " }";
-    //     }
-    // }
 
     ~Profiler()
     {

@@ -1,10 +1,44 @@
 #pragma once
 
 #include "Components.hpp"
+#include "Globals.hpp"
 
 #include <vector>
 #include <string>
 #include <queue>
+// #include <unordered_map>
+
+/// container typename method
+// template <typename T>
+// struct ComponentContainer;
+// template <>
+// struct ComponentContainer<CTransform> { using Type = std::vector<CTransform>; };
+// template <>
+// struct ComponentContainer<CAnimation> { using Type = std::vector<CAnimation>; };
+// template <>
+// struct ComponentContainer<CBoundingBox> { using Type = std::vector<CBoundingBox>; };
+// template <>
+// struct ComponentContainer<CHealth> { using Type = std::vector<CHealth>; };
+// template <>
+// struct ComponentContainer<CLifespan> { using Type = std::unordered_map<EntityID, CLifespan>; };
+// template <>
+// struct ComponentContainer<CDamage> { using Type = std::unordered_map<EntityID, CDamage>; };
+// template <>
+// struct ComponentContainer<CInvincibility> { using Type = std::unordered_map<EntityID, CInvincibility>; };
+// template <>
+// struct ComponentContainer<CInput> { using Type = std::unordered_map<EntityID, CInput>; };
+// template <>
+// struct ComponentContainer<CGravity> { using Type = std::unordered_map<EntityID, CGravity>; };
+// template <>
+// struct ComponentContainer<CState> { using Type = std::unordered_map<EntityID, CState>; };
+// template <>
+// struct ComponentContainer<CFireRate> { using Type = std::unordered_map<EntityID, CFireRate>; };
+// template <>
+// struct ComponentContainer<CFollowPlayer> { using Type = std::unordered_map<EntityID, CFollowPlayer>; };
+// template <>
+// struct ComponentContainer<CPatrol> { using Type = std::unordered_map<EntityID, CPatrol>; };
+// template <typename T>
+// using ContainerType = typename ComponentContainer<T>::Type;
 
 class Entity; // forward declaration
 
@@ -16,91 +50,257 @@ class Entity; // forward declaration
 // | Tag  |  ""  |  ""  |  ""  |  ""  |  ""  |  ""  |  ""  |  ""  |  ""  |
 // |Active|  F   |  F   |  F   |  F   |  F   |  F   |  F   |  F   |  F   |
 
-/// TODO: consider creating a separate pool for tiles since they will never have many of the components available to all entities
 class EntityMemoryPool
 {
-    const static unsigned long MAX_ENTITIES = 999999; // number of columns in the memory pool
-    std::queue<unsigned long> m_freeList;            // stores indices of inactive entities to accelerate searching
+    EntityID m_maxTiles;
+    EntityID m_maxOtherEntities;
 
-    /// TODO: is this the way? something else? use more memory pools? idk
+    std::queue<EntityID> m_tileFreeList; // stores indices of inactive tiles to accelerate searching
+    std::queue<EntityID> m_otherEntityFreeList; // stores indices of inactive entities to accelerate searching
+
+    // using vectors for frequently needed components and unordered maps for sparse ones
+    // tuple stored on stack, vector istelf on stack but elements they hold allocated dynamically on heap
+    // std::tuple<
+    //     std::vector<CTransform>,
+    //     std::vector<CAnimation>,
+    //     std::vector<CBoundingBox>,
+    //     std::vector<CHealth>,
+    //     std::unordered_map<EntityID, CLifespan>,
+    //     std::unordered_map<EntityID, CDamage>,
+    //     std::unordered_map<EntityID, CInvincibility>, // brief moment after taking damage
+    //     std::unordered_map<EntityID, CInput>, // for player only (for now...)
+    //     std::unordered_map<EntityID, CGravity>,
+    //     std::unordered_map<EntityID, CState>, // "air", "stand", "run"
+    //     std::unordered_map<EntityID, CFireRate>,
+    //     std::unordered_map<EntityID, CFollowPlayer>, // NPC behavior
+    //     std::unordered_map<EntityID, CPatrol> // NPC behavior
+    // > m_pool;
+
+    // tiles (and other things that take up one space in the tileMatrix) (layer 0)
     std::tuple<
+        std::vector<CAnimation>,
         std::vector<CTransform>,
+        std::vector<CBoundingBox>,
+        std::vector<CHealth>
+        // std::vector<CGravity> /// TODO: will need this if tiles are falling
+    > m_tilePool;
+
+    // all entities but tiles (layer 0) and decorations (layer 1) /// TODO: maybe use unordered_map here instead of vectors if entities are hella spread out component-wise and there are lots of them, wasting memory
+    std::tuple<
+        std::vector<CAnimation>,
+        std::vector<CTransform>,
+        std::vector<CBoundingBox>,
+        std::vector<CHealth>,
         std::vector<CLifespan>,
         std::vector<CDamage>,
         std::vector<CInvincibility>, // brief moment after taking damage
-        std::vector<CHealth>,
-        std::vector<CInput>,
-        std::vector<CBoundingBox>,
-        std::vector<CAnimation>,
+        std::vector<CInput>, // for player only (for now...)
         std::vector<CGravity>,
-        std::vector<CState>,
+        std::vector<CState>, // "air", "stand", "run"
         std::vector<CFireRate>,
         std::vector<CFollowPlayer>, // NPC behavior
-        std::vector<CPatrol>        // NPC behavior
-    >
-        m_pool{
-            std::vector<CTransform>(MAX_ENTITIES),
-            std::vector<CLifespan>(MAX_ENTITIES),
-            std::vector<CDamage>(MAX_ENTITIES),
-            std::vector<CInvincibility>(MAX_ENTITIES),
-            std::vector<CHealth>(MAX_ENTITIES),
-            std::vector<CInput>(MAX_ENTITIES),
-            std::vector<CBoundingBox>(MAX_ENTITIES),
-            std::vector<CAnimation>(MAX_ENTITIES),
-            std::vector<CGravity>(MAX_ENTITIES),
-            std::vector<CState>(MAX_ENTITIES),
-            std::vector<CFireRate>(MAX_ENTITIES),
-            std::vector<CFollowPlayer>(MAX_ENTITIES),
-            std::vector<CPatrol>(MAX_ENTITIES) };
-    std::vector<std::string> m_tags = std::vector<std::string>(MAX_ENTITIES);
-    std::vector<bool> m_active = std::vector<bool>(MAX_ENTITIES); // defaulted to false for all indeces
+        std::vector<CPatrol> // NPC behavior
+    > m_otherEntityPool;
 
-    // initialize free list with all indices
-    EntityMemoryPool(unsigned long maxEntities);
+    std::vector<bool> m_active;
 
-    unsigned long getInactiveEntityIndex();
-    void resetEntityAtIndex(unsigned long index);
+    // decorations (layer 1) /// TODO: think of where to include these or if use new memory pool
+
+    EntityMemoryPool(EntityID maxTiles, EntityID maxEntities);
+
+    // void resetEntityAtIndex(EntityID index);
+
+    /// for the vector and unordered map pool implementation
+    // template <typename Container>
+    // void resetContainer(EntityID index, Container& container)
+    // {
+    //     container[index] = typename Container::value_type{};
+    //     container.erase(index);
+    //     if (typeid(container) == typeid(std::vector<typename Container::value_type>)) {
+    //         auto& vec = static_cast<std::vector<typename Container::value_type>&>(container);
+    //         if (index < vec.size()) {
+    //             vec[index] = typename Container::value_type{};
+    //         }
+    //     }
+    //     else if (typeid(container) == typeid(std::unordered_map<EntityID, typename Container::mapped_type>)) {
+    //         auto& map = static_cast<std::unordered_map<EntityID, typename Container::mapped_type>&>(container);
+    //         map.erase(index);
+    //     }
+    //     else {
+    //         throw std::runtime_error("Unsupported container type in resetContainer.");
+    //     }
+    //     if constexpr (std::is_same_v<Container, std::unordered_map<EntityID, typename std::decay_t<Container>::mapped_type>>) {
+    //         // Handle std::unordered_map
+    //         container.erase(index);
+    //     }
+    //     else if constexpr (std::is_same_v<Container, std::vector<typename Container::value_type>>) {
+    //         // Handle std::vector
+    //         if (index < container.size()) {
+    //             container[index] = typename Container::value_type{};
+    //         }
+    //     }
+    //     else {
+    //         // Unsupported container type
+    //         throw std::runtime_error("Unsupported container type in resetContainer.");
+    //     }
+    // }
+
+    /// @brief helper for static assertions on vector retrievals in memory pools, compile time
+    template <typename T>
+    static constexpr bool isTileComponent()
+    {
+        return std::is_same_v<T, CAnimation> ||
+            std::is_same_v<T, CTransform> ||
+            std::is_same_v<T, CBoundingBox> ||
+            std::is_same_v<T, CHealth>;
+    }
 
 public:
     static EntityMemoryPool& Instance();
 
-    /// TODO: worth implementing here or is this more inneficient than having a separate vector in EntityManager
-    // /// @brief get a complete vector of all active entities
-    // std::vector<Entity> getEntities();
-
-    // /// @brief get a vector of all entities with the tag tag
-    // std::vector<Entity> getEntities(const std::string &tag);
-
     /// @brief returns a component of type T from an entity with ID entityID
+    /// TODO: may be better way to separate tiles and other entities than doing this if else (same for methods below)
     template <typename T>
-    T& getComponent(unsigned long entityID)
+    T& getComponent(EntityID entityID)
     {
-        return std::get<std::vector<T>>(m_pool)[entityID];
+        if constexpr (!isTileComponent<T>())
+        {
+            return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
+        }
+        else
+        {
+            if (entityID < m_maxTiles) // entity is a tile
+            {
+                return std::get<std::vector<T>>(m_tilePool)[entityID];
+            }
+            else // entity is something else
+            {
+                return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
+            }
+        }
+
+        /// runtime check for vector vs map
+        // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
+        // {
+        //     return std::get<std::vector<T>>(m_pool)[entityID];
+        // }
+        // else
+        // {
+        //     return std::get<std::unordered_map<EntityID, T>>(m_pool)[entityID]; /// TODO: these are what causes the error, just the line being here
+        // }
+
+        /// container typename method
+        // auto& container = std::get<ContainerType<T>>(m_pool);
+        // return container[entityID];
     }
 
     /// @brief check to see if entity entityID has a component of type T
     /// TODO: implement this
     template <typename T>
-    bool hasComponent(unsigned long entityID)
+    bool hasComponent(EntityID entityID)
     {
-        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
-        const T& component = componentVector[entityID];
-        return component.exists;
+        if constexpr (!isTileComponent<T>())
+        {
+            std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+            T& component = componentVector[entityID - m_maxTiles];
+            return component.exists;
+        }
+        else
+        {
+            if (entityID < m_maxTiles) // entity is a tile
+            {
+                std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
+                T& component = componentVector[entityID];
+                return component.exists;
+            }
+            else // entity is something else
+            {
+                std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+                T& component = componentVector[entityID - m_maxTiles];
+                return component.exists;
+            }
+        }
+
+        /// runtime check for vector vs map
+        // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
+        // {
+        //     std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        //     const T& component = componentVector[entityID];
+        //     return component.exists;
+        // }
+        // else
+        // {
+        //     std::unordered_map<EntityID, T>& componentMap = std::get<std::unordered_map<EntityID, T>>(m_pool);
+        //     const T& component = componentMap[entityID];
+        //     return component.exists;
+        // }
+
+        /// container typename method
+        // auto& container = std::get<ContainerType<T>>(m_pool);
+        // const T& component = container[entityID];
+        // return component.exists;
     }
 
     /// @brief add a component of type T with arguments mArgs of types TArgs to entity entityID
     /// @return the added component
     template <typename T, typename... TArgs>
-    T& addComponent(unsigned long entityID, TArgs &&...mArgs)
+    T& addComponent(EntityID entityID, TArgs &&...mArgs)
     {
-        // set the values in the memory pool
-        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
-        T& comp = componentVector[entityID];
-        comp = T(std::forward<TArgs>(mArgs)...);
-        comp.exists = true;
+        if constexpr (!isTileComponent<T>()) // not a tile component
+        {
+            std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+            T& component = componentVector[entityID - m_maxTiles];
+            component = T(std::forward<TArgs>(mArgs)...);
+            component.exists = true;
+            return component;
+        }
+        else // could be tile or other entity
+        {
+            if (entityID < m_maxTiles) // entity is a tile
+            {
+                std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
+                T& component = componentVector[entityID];
+                component = T(std::forward<TArgs>(mArgs)...);
+                component.exists = true;
+                return component;
+            }
+            else // entity is something else
+            {
+                std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+                T& component = componentVector[entityID - m_maxTiles];
+                component = T(std::forward<TArgs>(mArgs)...);
+                component.exists = true;
+                return component;
+            }
+        }
 
-        // return the component
-        return comp;
+        /// runtime check for vector vs map
+        // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
+        // {
+        //     std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        //     T& comp = componentVector[entityID];
+        //     comp = T(std::forward<TArgs>(mArgs)...);
+        //     comp.exists = true;
+        //     return comp;
+        // }
+        // else
+        // {
+        //     std::unordered_map<EntityID, T>& componentMap = std::get<std::unordered_map<EntityID, T>>(m_pool);
+        //     T& comp = componentMap[entityID];
+        //     comp = T(std::forward<TArgs>(mArgs)...);
+        //     comp.exists = true;
+        //     return comp;
+        // }
+
+        /// container typename method
+        // auto& container = std::get<ContainerType<T>>(m_pool);
+        // // const T& component = container[entityID];
+        // // component = T(std::forward<TArgs>(mArgs)...);
+        // // component.exists = true;
+        // // return component;
+        // container[entityID] = T(std::forward<TArgs>(mArgs)...);
+        // container[entityID].exists = true;
+        // return container[entityID];
     }
 
     /// @brief add an entity with tag tag
@@ -108,16 +308,8 @@ public:
     Entity addEntity(const std::string& tag);
 
     /// @brief remove an entity from the memory pool
-    void removeEntity(unsigned long entityID);
+    void removeEntity(EntityID entityID);
 
     /// @brief return a bool representing the entity's living status
-    bool isActive(unsigned long entityID);
-
-    /// @brief get the tag of entity entityID
-    const std::string& getTag(unsigned long entityID) const;
-
-    auto& getPool()
-    {
-        return m_pool;
-    }
+    bool isActive(EntityID entityID);
 };

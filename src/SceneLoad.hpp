@@ -4,7 +4,7 @@
 
 // #include "Scene.hpp"
 // #include "GameEngine.hpp"
-// #include "GlobalSettings.hpp"
+// #include "Globals.hpp"
 
 // class SceneLoad : public Scene
 // {
