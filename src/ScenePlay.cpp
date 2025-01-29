@@ -20,6 +20,7 @@
 #include <string>
 #include <fstream>
 #include <chrono>
+#include <random> // number generation for colors of blocks
 
 /// @brief vonstructs a new ScenePlay object, calls ScenePlay::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
@@ -167,13 +168,40 @@ void ScenePlay::generateWorld()
         {
             if (tileMatrix[x][y] == "") continue;
 
+            std::cout << "adding tile " << x << ", " << y << std::endl;
+
             Entity tile = m_entityManager.addEntity("tile");
-            tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true); /// TODO: this is what takes so long to gen world, adding components
-            tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
-            tile.addComponent<CBoundingBox>(m_game.assets().getAnimation(tileMatrix[x][y]).getSize());
+
+            // tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true); /// TODO: this is what takes so long to gen world, adding animation, seems like this loop just stops (think twice now) at entity 499399
+            // tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
+            // tile.addComponent<CBoundingBox>(GlobalSettings::cellSizePixels, true, true);
+            // tile.addComponent<CPosition>(gridToMidPixel(x, y, tile)); // uses CBoundingBox data, must be after
             tile.addComponent<CHealth>(tileMatrix[x][y] == "dirt" ? 40 : 60);
 
-            m_entityManager.addTileToMatrix(tile);
+            unsigned char r, g, b;
+            float randomNumber = generateRandomFloat(0.9f, 1.1f); /// TODO: could be faster to use predetermined values or formula, like function of depth or something
+            const std::string& type = tileMatrix[x][y];
+            if (type == "dirt")
+            {
+                r = static_cast<unsigned char>(100.0f * randomNumber);
+                g = static_cast<unsigned char>(60.0f * randomNumber);
+                b = static_cast<unsigned char>(40.0f * randomNumber);
+            }
+            else if (type == "stone")
+            {
+                r = static_cast<unsigned char>(145.0f * randomNumber);
+                g = static_cast<unsigned char>(145.0f * randomNumber);
+                b = static_cast<unsigned char>(145.0f * randomNumber);
+            }
+            else
+            {
+                r = 10;
+                g = 10;
+                b = 10;
+            }
+            tile.addComponent<CColor>(r, g, b);
+
+            m_entityManager.addTileToMatrix(tile, x, y);
         }
     }
 }
@@ -374,6 +402,13 @@ void ScenePlay::sProjectiles()
     std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
 
     // move and possibly destroy existing projectiles first
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
+    updateProjectiles(bullets);
     updateProjectiles(bullets);
     updateProjectiles(bullets);
     updateProjectiles(bullets);
@@ -603,17 +638,23 @@ void ScenePlay::sRender()
         {
             for (int y = minY; y <= maxY; ++y)
             {
-                if (tileMatrix[x][y].isActive())
-                {
-                    const Entity& tile = tileMatrix[x][y];
+                const Entity& tile = tileMatrix[x][y];
 
-                    CTransform& trans = tile.getComponent<CTransform>();
-                    sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
+                if (tile.isActive())
+                {
+                    sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
+                    CColor& color = tile.getComponent<CColor>();
+                    block.setFillColor(sf::Color(color.r, color.g, color.b));
+                    block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
+                    window.draw(block);
+
+                    // CTransform& trans = tile.getComponent<CTransform>();
+                    // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
                     // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
-                    sprite.setPosition(trans.pos);
+                    // sprite.setPosition(trans.pos);
                     // sprite.setScale(trans.scale); /// TODO: will I even use scale?
 
-                    window.draw(sprite);
+                    // window.draw(sprite);
                 }
             }
         }
@@ -690,12 +731,15 @@ void ScenePlay::sRender()
     // {
     //     sf::CircleShape dot(4);
     //     dot.setFillColor(sf::Color::Black);
-    //     for (auto e : m_entityManager.getEntities())
+    //     for (int x = 0; x < m_worldMaxCells.x; ++x)
     //     {
-    //         if (e.hasComponent<CBoundingBox>())
+    //         for (int y = 0; y < m_worldMaxCells.y; ++y)
     //         {
-    //             auto& box = e.getComponent<CBoundingBox>();
-    //             auto& transform = e.getComponent<CTransform>();
+    //             const Entity& tile = tileMatrix[x][y];
+
+    //             CBoundingBox& box = tile.getComponent<CBoundingBox>();
+    //             CTransform& transform = tile.getComponent<CTransform>();
+
     //             sf::RectangleShape rect;
     //             rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
     //             rect.setOrigin(box.halfSize);
@@ -703,51 +747,50 @@ void ScenePlay::sRender()
     //             rect.setFillColor(sf::Color(0, 0, 0, 0));
     //             rect.setOutlineColor(sf::Color(255, 255, 255, 255));
 
-    //             if (box.blockMove && box.blockVision)
-    //             {
-    //                 rect.setOutlineColor(sf::Color::Black);
-    //             }
-    //             if (box.blockMove && !box.blockVision)
-    //             {
-    //                 rect.setOutlineColor(sf::Color::Blue);
-    //             }
-    //             if (!box.blockMove && box.blockVision)
-    //             {
-    //                 rect.setOutlineColor(sf::Color::Red);
-    //             }
-    //             if (!box.blockMove && !box.blockVision)
-    //             {
-    //                 rect.setOutlineColor(sf::Color::White);
-    //             }
+    //             // if (box.blockMove && box.blockVision)
+    //             // {
+    //             //     rect.setOutlineColor(sf::Color::Black);
+    //             // }
+    //             // if (box.blockMove && !box.blockVision)
+    //             // {
+    //             //     rect.setOutlineColor(sf::Color::Blue);
+    //             // }
+    //             // if (!box.blockMove && box.blockVision)
+    //             // {
+    //             //     rect.setOutlineColor(sf::Color::Red);
+    //             // }
+    //             // if (!box.blockMove && !box.blockVision)
+    //             // {
+    //             //     rect.setOutlineColor(sf::Color::White);
+    //             // }
 
     //             rect.setOutlineThickness(1);
-
     //             window.draw(rect);
     //         }
 
-    //         if (e.hasComponent<CPatrol>())
-    //         {
-    //             auto& patrol = e.getComponent<CPatrol>().positions;
-    //             for (size_t p = 0; p < patrol.size(); p++)
-    //             {
-    //                 dot.setPosition(patrol[p]);
-    //                 window.draw(dot);
-    //             }
-    //         }
+    //         // if (e.hasComponent<CPatrol>())
+    //         // {
+    //         //     auto& patrol = e.getComponent<CPatrol>().positions;
+    //         //     for (size_t p = 0; p < patrol.size(); p++)
+    //         //     {
+    //         //         dot.setPosition(patrol[p]);
+    //         //         window.draw(dot);
+    //         //     }
+    //         // }
 
-    //         if (e.hasComponent<CFollowPlayer>())
-    //         {
-    //             sf::VertexArray lines(sf::PrimitiveType::LineStrip, 2);
-    //             lines[0].position.x = e.getComponent<CTransform>().pos.x;
-    //             lines[0].position.y = e.getComponent<CTransform>().pos.y;
-    //             lines[0].color = sf::Color::Black;
-    //             lines[1].position.x = m_player.getComponent<CTransform>().pos.x;
-    //             lines[1].position.y = m_player.getComponent<CTransform>().pos.y;
-    //             lines[1].color = sf::Color::Black;
-    //             window.draw(lines);
-    //             dot.setPosition(e.getComponent<CFollowPlayer>().home);
-    //             window.draw(dot);
-    //         }
+    //         // if (e.hasComponent<CFollowPlayer>())
+    //         // {
+    //         //     sf::VertexArray lines(sf::PrimitiveType::LineStrip, 2);
+    //         //     lines[0].position.x = e.getComponent<CTransform>().pos.x;
+    //         //     lines[0].position.y = e.getComponent<CTransform>().pos.y;
+    //         //     lines[0].color = sf::Color::Black;
+    //         //     lines[1].position.x = m_player.getComponent<CTransform>().pos.x;
+    //         //     lines[1].position.y = m_player.getComponent<CTransform>().pos.y;
+    //         //     lines[1].color = sf::Color::Black;
+    //         //     window.draw(lines);
+    //         //     dot.setPosition(e.getComponent<CFollowPlayer>().home);
+    //         //     window.draw(dot);
+    //         // }
     //     }
     // }
 
@@ -857,14 +900,15 @@ void ScenePlay::drawLine(const Vec2f& p1, const Vec2f& p2)
 }
 
 /// @brief returns the midpoint of entity based on a given grid position
+/// TODO: eliminating this and just using the top-left positioning like SFML would probably save me seom computation time
 Vec2f ScenePlay::gridToMidPixel(const float gridX, const float gridY, const Entity entity)
 {
     PROFILE_FUNCTION();
 
-    const Vec2i& entityAnimSize = entity.getComponent<CAnimation>().animation.getSize();
+    const Vec2f& bBoxHalfSize = entity.getComponent<CBoundingBox>().halfSize;
 
-    float xPos = gridX * m_cellSizePixels.x + entityAnimSize.x / 2.0f;
-    float yPos = gridY * m_cellSizePixels.y + entityAnimSize.y / 2.0f;
+    float xPos = gridX * m_cellSizePixels.x + bBoxHalfSize.x;
+    float yPos = gridY * m_cellSizePixels.y + bBoxHalfSize.y;
 
     return Vec2f(xPos, yPos);
 }
@@ -892,7 +936,7 @@ void ScenePlay::spawnPlayer()
     m_player = m_entityManager.addEntity("player");
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), true);
     m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_playerConfig.GY, m_player));
-    m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH));
+    m_player.addComponent<CBoundingBox>(Vec2ui(m_playerConfig.CW, m_playerConfig.CH));
     m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
@@ -911,7 +955,7 @@ void ScenePlay::spawnBullet(Entity entity)
     PROFILE_FUNCTION();
 
     Vec2f& entityPos = entity.getComponent<CTransform>().pos;
-    float bulletSpeed = 10.0f;
+    float bulletSpeed = 1.5f;
 
     const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
     const Vec2f bulletVec = worldTarget - entityPos;
@@ -926,7 +970,7 @@ void ScenePlay::spawnBullet(Entity entity)
         );
     bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
     // bullet.addComponent<CBoundingBox>(bullet.getComponent<CAnimation>().animation.getSize());
-    bullet.addComponent<CLifespan>(60, m_currentFrame);
+    bullet.addComponent<CLifespan>(300, m_currentFrame);
     bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
 
     m_game.assets().playSound("Bullet");
@@ -950,6 +994,7 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
     int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
     int horizontalCheckLength = playerBounds.halfSize.x / m_cellSizePixels.x + 1;
     int verticalCheckLenght = playerBounds.halfSize.y / m_cellSizePixels.y + 1;
+
     for (int x = playerGridPosX - horizontalCheckLength; x <= playerGridPosX + horizontalCheckLength; ++x)
     {
         /// TODO: this may be faster using std::clamp in the loop arguments
@@ -968,21 +1013,34 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
 
             if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
             {
-                Vec2f overlap = Physics::GetOverlap(m_player, tileMatrix[x][y]);
+                // finding overlap (without tile bounding boxes)
+                float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels.x);
+                float yDiff = abs(playerTrans.pos.y - (y + 0.5f) * m_cellSizePixels.y);
+                float xOverlap = playerBounds.halfSize.x + m_cellSizePixels.x * 0.5f - xDiff;
+                float yOverlap = playerBounds.halfSize.y + m_cellSizePixels.y * 0.5f - yDiff;
+
+                // Vec2f overlap = Physics::GetOverlap(m_player, tileMatrix[x][y]);
 
                 // there is a collision
-                if (overlap.y > 0 && overlap.x > 0)
+                if (xOverlap > 0 && yOverlap > 0)
                 {
                     collision = true;
-                    Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tileMatrix[x][y]);
+
+                    // finding previous overlap (without tile bounding boxes)
+                    float xPrevDiff = abs(playerTrans.prevPos.x - (x + 0.5f) * m_cellSizePixels.x);
+                    float yPrevDiff = abs(playerTrans.prevPos.y - (y + 0.5f) * m_cellSizePixels.y);
+                    float xPrevOverlap = playerBounds.halfSize.x + m_cellSizePixels.x * 0.5f - xPrevDiff;
+                    float yPrevOverlap = playerBounds.halfSize.y + m_cellSizePixels.y * 0.5f - yPrevDiff;
+
+                    // Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tileMatrix[x][y]);
 
                     // we are colliding in y-direction this frame since previous frame already had x-direction overlap
-                    if (prevOverlap.x > 0)
+                    if (xPrevOverlap > 0)
                     {
                         // player moving down
                         if (playerTrans.velocity.y > 0)
                         {
-                            playerTrans.pos.y -= overlap.y; // player can't fall below tile
+                            playerTrans.pos.y -= yOverlap; // player can't fall below tile
                             playerState = abs(playerTrans.velocity.x) > 0 ? "run" : "stand";
 
                             // jumping
@@ -995,26 +1053,28 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
                         // player moving up
                         else if (playerTrans.velocity.y < 0)
                         {
-                            playerTrans.pos.y += overlap.y;
+                            playerTrans.pos.y += yOverlap;
                         }
                         playerTrans.velocity.y = 0;
                     }
 
                     // colliding in x-direction this frame
-                    if (prevOverlap.y > 0)
+                    if (yPrevOverlap > 0)
                     {
                         // player moving right
                         if (playerTrans.velocity.x > 0)
                         {
-                            playerTrans.pos.x -= overlap.x;
+                            playerTrans.pos.x -= xOverlap;
                         }
                         // player moving left
                         else if (playerTrans.velocity.x < 0)
                         {
-                            playerTrans.pos.x += overlap.x;
+                            playerTrans.pos.x += xOverlap;
                         }
                         playerTrans.velocity.x = 0;
                     }
+
+                    break; // found a collision and corrected, no need to do extra work
                 }
             }
         }
@@ -1068,8 +1128,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
         /// TODO: consider adding a bounding box check for bullets (or just leave them as one pixel at the tip of the bullet so I never have to check)
         // int horizontalCheckLength = bulletBounds.halfSize.x / m_cellSizePixels.x + 1;
         // int verticalCheckLenght = bulletBounds.halfSize.y / m_cellSizePixels.y + 1;
-
-        /// TODO: if no bounding box, don't even need any of this loop, can just get bullet pos (pixels), see if tile active at grid coord, then say there's a collision and handle it, no isinside or overlap or anything either
+        /// TODO: if no bounding box, don't even need any internal loop, can just get bullet pos (pixels), see if tile active at grid coord, then say there's a collision and handle it, no isInside or overlap or anything either (already done below)
 
         if (bulletGridPosX < 0 || bulletGridPosX >= m_worldMaxCells.x || bulletGridPosY < 0 || bulletGridPosY >= m_worldMaxCells.y)
         {
@@ -1078,7 +1137,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
 
         const Entity& tile = tileMatrix[bulletGridPosX][bulletGridPosY];
 
-        if (tile.isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
+        if (tile.isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this, batch operation, if not store tile components (some or all) in the tile matrix
         {
             int& bDamage = bullet.getComponent<CDamage>().damage;
             int& tHealth = tile.getComponent<CHealth>().current;
@@ -1090,13 +1149,32 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
             {
                 bullet.destroy();
             }
+            else
+            {
+                float ricochetChance = generateRandomFloat(0.0f, 1.0f);
+                if (ricochetChance > 0.0f)
+                {
+                    /// TODO: this favors horizontal ricochets since prevPos is only updated on every frame (this will be true even if a vertical collision should happen); either do more math or update bullets more times per frame (and slow their speed then)
+                    /// TODO: on that note, make this a lil more complex, use velocity and overlap to get better estimate of where the bullet is coming from
+                    if (bulletTrans.prevPos.x > (bulletGridPosX + 1) * m_cellSizePixels.x || bulletTrans.prevPos.x < bulletGridPosX * m_cellSizePixels.x) // colliding from a side
+                    {
+                        bulletTrans.velocity.x = -bulletTrans.velocity.x;
+                    }
+                    else // colliding from the top or bottom
+                    {
+                        bulletTrans.velocity.y = -bulletTrans.velocity.y;
+                    }
+
+                    bulletTrans.rotAngle = -bulletTrans.rotAngle;
+                }
+            }
 
             /// TODO: could create a toDestory vector and destroy entities all at once somewhere else if faster, test, since we are accessing tileMatrix and then memory pool back and forth for all bullets
             if (tHealth <= 0)
             {
                 tile.destroy();
 
-                /// TODO: check neighbors for floating tiles, then apply physics to them (if no close background)
+                /// TODO: check neighbors for floating tiles, then apply physics to them (if no close background) by adding a component to them
             }
         }
 
@@ -1146,6 +1224,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
 /// @brief move all projectiles and check for collisions
 void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
 {
+    PROFILE_FUNCTION();
     // move existing projectiles
     /// TODO: works for bullets, change when adding more projectile types
     for (Entity& p : projectiles)
@@ -1164,3 +1243,13 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
     // check for collisions with other players
     /// TODO: projectile-player collisions
 }
+
+float ScenePlay::generateRandomFloat(float min, float max)
+{
+    static std::random_device rd; // Seed
+    static std::mt19937 gen(rd()); // Mersenne Twister RNG
+    std::uniform_real_distribution<float> dis(min, max); // Range [min, max]
+
+    return dis(gen);
+}
+

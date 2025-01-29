@@ -9,7 +9,7 @@
 // class SceneLoad : public Scene
 // {
 //     const Vec2ui m_worldMaxCells = GlobalSettings::worldMaxCells;
-//     const Vec2ui m_cellSizePixels = GlobalSettings::cellSizePixels;
+//     const unsinged int m_cellSizePixels = GlobalSettings::cellSizePixels;
 
 //     std::string m_loadStep;
 //     sf::Text m_loadText = sf::Text(m_game.assets().getFont("PixelCowboy"));

@@ -1,3 +1,7 @@
+/// NOTE: std::queue, vector, and tuple all manage their own memory, clearing everything when they go out of scope
+/// NOTE: static singleton automatically detroyed when program terminates
+/// NOTE: if you don't use raw pointer or manual `new` and `delete` calls, then you don't need the destructor
+
 #pragma once
 
 #include "Components.hpp"
@@ -6,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <queue>
+#include <iostream>
 // #include <unordered_map>
 
 /// container typename method
@@ -78,11 +83,11 @@ class EntityMemoryPool
 
     // tiles (and other things that take up one space in the tileMatrix) (layer 0)
     std::tuple<
-        std::vector<CAnimation>,
-        std::vector<CTransform>,
-        std::vector<CBoundingBox>,
+        std::vector<CColor>,
+        // std::vector<CPosition>,
+        // std::vector<CBoundingBox>, /// TODO: could change this and health to their own versions for tiles, would simplify the get, has, and add component functions, could even just create a single CTileData component, but that introduce unnecessary accessing for physics vs rendering...
         std::vector<CHealth>
-        // std::vector<CGravity> /// TODO: will need this if tiles are falling
+        // std::vector<CGravity> /// TODO: will need this if tiles are falling, and will have to add back CTransform or new CVelocity and CRotation stuff
     > m_tilePool;
 
     // all entities but tiles (layer 0) and decorations (layer 1) /// TODO: maybe use unordered_map here instead of vectors if entities are hella spread out component-wise and there are lots of them, wasting memory
@@ -98,8 +103,10 @@ class EntityMemoryPool
         std::vector<CGravity>,
         std::vector<CState>, // "air", "stand", "run"
         std::vector<CFireRate>,
-        std::vector<CFollowPlayer>, // NPC behavior
-        std::vector<CPatrol> // NPC behavior
+        std::vector<CColor>
+        // std::vector<CPosition>
+        // std::vector<CFollowPlayer>, // NPC behavior
+        // std::vector<CPatrol> // NPC behavior
     > m_otherEntityPool;
 
     std::vector<bool> m_active;
@@ -149,9 +156,9 @@ class EntityMemoryPool
     template <typename T>
     static constexpr bool isTileComponent()
     {
-        return std::is_same_v<T, CAnimation> ||
-            std::is_same_v<T, CTransform> ||
-            std::is_same_v<T, CBoundingBox> ||
+        return std::is_same_v<T, CColor> ||
+            // std::is_same_v<T, CPosition> ||
+            // std::is_same_v<T, CBoundingBox> ||
             std::is_same_v<T, CHealth>;
     }
 
@@ -246,6 +253,7 @@ public:
     template <typename T, typename... TArgs>
     T& addComponent(EntityID entityID, TArgs &&...mArgs)
     {
+        // std::cout << "adding component to entity " << entityID << std::endl;
         if constexpr (!isTileComponent<T>()) // not a tile component
         {
             std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);

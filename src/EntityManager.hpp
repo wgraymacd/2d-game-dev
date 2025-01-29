@@ -16,11 +16,12 @@ class EntityManager
     Vec2ui m_cellSizePixels; // size of one cell in pixels
     std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y), initialized in constructor
     /// TODO: could change tileMatrix to 1D array for even better chache performance when iterating over all tiles
+    /// TODO: also consider chunk-based (map of pairs to chunks and chunks are 1d flat arrays of tiles) or quadtree storage, both are more efficient memory usage for more sparse worlds, efficient neighbor access, dynamic world size, and can still check neighbors with the indices regrdless
 
     std::vector<std::pair<std::string, Entity>> m_entitiesToAdd;
 
     // implementation with entity map (as opposed to searching for all entities with a given tag in the memory pool)
-    std::map<std::string, std::vector<Entity>> m_entityMap; // collidable layer entities without a dedicated layer matrix (player, bullet, weapon, npc, etc.)
+    std::map<std::string, std::vector<Entity>> m_entityMap; // collidable layer entities without a dedicated layer matrix (player, bullet, weapon, npc, etc.), NO TILES
 
     /// @brief remove dead entities from param entities
     void removeDeadEntities()
@@ -66,7 +67,7 @@ public:
     /// @return the entity to be added
     Entity addEntity(const std::string& tag)
     {
-        PROFILE_FUNCTION();
+        // PROFILE_FUNCTION();
 
         Entity e = EntityMemoryPool::Instance().addEntity(tag);
         if (tag == "player" || tag == "bullet" || tag == "weapon")
@@ -90,12 +91,12 @@ public:
     }
 
     /// TODO: this may not be the best way, but I'm testing, it's getting messy
-    void addTileToMatrix(Entity& tile)
+    void addTileToMatrix(Entity& tile, const int x, const int y)
     {
         PROFILE_FUNCTION();
 
-        const Vec2f& pos = tile.getComponent<CTransform>().pos;
-        m_tileMatrix[pos.x / m_cellSizePixels.x][pos.y / m_cellSizePixels.y] = tile;
+        // const Vec2f& pos = tile.getComponent<CPosition>().pos;
+        m_tileMatrix[x][y] = tile;
     }
 
     /// TODO: implement the new version of this if needed, also could change this to return only entity IDs to not have to create a bunch of new entities (but consider how that affects usage in ScenePlay and so on), make this return a reference with data stored in memory if needed

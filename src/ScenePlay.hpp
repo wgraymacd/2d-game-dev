@@ -59,6 +59,7 @@ protected:
     void playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix);
     void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
+    float generateRandomFloat(float min, float max);
 
     void updateState(std::chrono::duration<long long, std::nano>& lag) override;
     void onEnd() override;

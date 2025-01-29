@@ -22,7 +22,8 @@ namespace Physics
     {
         PROFILE_FUNCTION();
 
-        /// TODO: Ensure the entities' positions and animations are updated correctly before these functions are called to reflect the right collision state
+        /// TODO: Ensure the entities' positions and bounding boxes are updated correctly before these functions are called to reflect the right collision state
+        /// TODO: either change ctrans to cpos for tiles or do tile collisions without a bounding box at all (just tile matrix and position and global settings for tile size), could also decouple pos and velocity in general, check player and other entities (velocity only used with position, but is pos accessed by itself more than the two together? if so, decouple)
 
 
         const Vec2f& aPos = a.getComponent<CTransform>().pos;
@@ -30,10 +31,10 @@ namespace Physics
         float xDiff = abs(aPos.x - bPos.x);
         float yDiff = abs(aPos.y - bPos.y);
 
-        const Vec2i& aBounds = a.getComponent<CBoundingBox>().size;
-        const Vec2i& bBounds = b.getComponent<CBoundingBox>().size;
-        float xOverlap = aBounds.x / 2 + bBounds.x / 2 - xDiff;
-        float yOverlap = aBounds.y / 2 + bBounds.y / 2 - yDiff;
+        const Vec2f& aHalfBounds = a.getComponent<CBoundingBox>().halfSize;
+        const Vec2f& bHalfBounds = b.getComponent<CBoundingBox>().halfSize;
+        float xOverlap = aHalfBounds.x + bHalfBounds.x - xDiff;
+        float yOverlap = aHalfBounds.y + bHalfBounds.y - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }
@@ -49,10 +50,10 @@ namespace Physics
         float xDiff = abs(aPrevPos.x - bPrevPos.x);
         float yDiff = abs(aPrevPos.y - bPrevPos.y);
 
-        const Vec2i& aBounds = a.getComponent<CBoundingBox>().size;
-        const Vec2i& bBounds = b.getComponent<CBoundingBox>().size;
-        float xOverlap = aBounds.x / 2 + bBounds.x / 2 - xDiff;
-        float yOverlap = aBounds.y / 2 + bBounds.y / 2 - yDiff;
+        const Vec2f& aHalfBounds = a.getComponent<CBoundingBox>().halfSize;
+        const Vec2f& bHalfBounds = b.getComponent<CBoundingBox>().halfSize;
+        float xOverlap = aHalfBounds.x + bHalfBounds.x - xDiff;
+        float yOverlap = aHalfBounds.y + bHalfBounds.y - yDiff;
 
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }

@@ -17,7 +17,7 @@ namespace GlobalSettings
 
     inline Vec2ui windowSize = { 1280, 720 }; // default value, overriden by fullscreen mode
     inline const int frameRate = 120;
-    inline const Vec2ui worldMaxCells = { 500, 250 };
+    inline const Vec2ui worldMaxCells = { 400, 100 };
     inline const Vec2ui cellSizePixels = { 10, 10 };
     inline const EntityID worldMaxEntities = 1000; // not including tiles or other things outside of main entity memory pool
 }

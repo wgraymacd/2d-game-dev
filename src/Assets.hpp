@@ -17,7 +17,7 @@ class Assets
     std::map<std::string, sf::Font> m_fontMap;
     std::map<std::string, sf::SoundBuffer> m_soundBufferMap;
     std::map<std::string, std::optional<sf::Sound>> m_soundMap; // made this optional because of the lack of a default constructor
-    /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance
+    /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance, maybe replace with std::unique_pointer (chatGPT rec)?
 
     /// @brief add a texture to the texture map
     void addTexture(const std::string& textureName, const std::string& path, bool smooth)

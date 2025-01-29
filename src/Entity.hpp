@@ -43,7 +43,7 @@ public:
     template <typename T, typename... TArgs>
     T& addComponent(TArgs &&...mArgs)
     {
-        PROFILE_FUNCTION();
+        // PROFILE_FUNCTION();
 
         return EntityMemoryPool::Instance().addComponent<T>(m_id, std::forward<TArgs>(mArgs)...);
     }

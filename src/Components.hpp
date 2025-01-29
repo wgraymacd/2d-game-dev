@@ -16,19 +16,33 @@ public:
 class CTransform : public Component
 {
 public:
-    Vec2f pos = { 0.0, 0.0 }; // top-left corner of entity
-    Vec2f prevPos = { 0.0, 0.0 }; // pos last frame
-    Vec2f scale = { 1.0, 1.0 }; // can use to change direction entity is facing with a negative x
-    Vec2f velocity = { 0.0, 0.0 };
-    float rotAngle = 0; // rotation angle from x-axis in radians
+    Vec2f pos = { 0.0f, 0.0f }; // top-left corner of entity
+    Vec2f prevPos = { 0.0f, 0.0f }; // pos last frame
+    Vec2f scale = { 1.0f, 1.0f }; // can use to change direction entity is facing with a negative x
+    Vec2f velocity = { 0.0f, 0.0f };
+    float rotAngle = 0.0f; // rotation angle from x-axis in radians
 
     CTransform() = default;
-    CTransform(const Vec2f& p)
-        : pos(p), prevPos(p) {
-    }
-    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a)
-        : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {
-    }
+    CTransform(const Vec2f& p) : pos(p), prevPos(p) {}
+    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a) : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {}
+};
+
+// class CPosition : public Component
+// {
+// public:
+//     Vec2f pos = { 0.0f, 0.0f };
+
+//     CPosition() = default;
+//     CPosition(const Vec2f& p) : pos(p) {}
+// };
+
+class CColor : public Component
+{
+public:
+    unsigned char r, g, b;
+
+    CColor() = default;
+    CColor(const unsigned char r, const unsigned char g, const unsigned char b) : r(r), g(g), b(b) {}
 };
 
 class CLifespan : public Component
@@ -96,16 +110,16 @@ public:
 class CBoundingBox : public Component
 {
 public:
-    Vec2i size;
+    Vec2ui size;
     Vec2f halfSize;
     bool blockMove = false;
     bool blockVision = false;
 
     CBoundingBox() = default;
-    CBoundingBox(const Vec2i& s)
+    CBoundingBox(const Vec2ui& s)
         : size(s), halfSize(s.x / 2, s.y / 2) {
     }
-    CBoundingBox(const Vec2i& s, bool m, bool v)
+    CBoundingBox(const Vec2ui& s, bool m, bool v)
         : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2.0f, s.y / 2.0f) {
     }
 };
@@ -151,27 +165,27 @@ public:
     CFireRate(int fr) : fireRate(fr) {}
 };
 
-class CFollowPlayer : public Component
-{
-public:
-    Vec2f home = { 0, 0 };
-    float speed = 0;
+// class CFollowPlayer : public Component
+// {
+// public:
+//     Vec2f home = { 0, 0 };
+//     float speed = 0;
 
-    CFollowPlayer() = default;
-    CFollowPlayer(Vec2f& p, float s)
-        : home(p), speed(s) {
-    }
-};
+//     CFollowPlayer() = default;
+//     CFollowPlayer(Vec2f& p, float s)
+//         : home(p), speed(s) {
+//     }
+// };
 
-class CPatrol : public Component
-{
-public:
-    std::vector<Vec2f> positions;
-    size_t currentPosition = 0;
-    float speed = 0;
+// class CPatrol : public Component
+// {
+// public:
+//     std::vector<Vec2f> positions;
+//     size_t currentPosition = 0;
+//     float speed = 0;
 
-    CPatrol() = default;
-    CPatrol(std::vector<Vec2f>& pos, float s)
-        : positions(pos), speed(s) {
-    }
-};
+//     CPatrol() = default;
+//     CPatrol(std::vector<Vec2f>& pos, float s)
+//         : positions(pos), speed(s) {
+//     }
+// };
