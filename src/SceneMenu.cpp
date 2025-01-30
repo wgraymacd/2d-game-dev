@@ -79,7 +79,7 @@ void SceneMenu::sRender()
     m_game.window().draw(m_menuText);
 
     // draw all of the menu options
-    for (size_t i = 0; i < m_menuStrings.size(); i++)
+    for (int i = 0; i < m_menuStrings.size(); i++)
     {
         m_menuText.setString(m_menuStrings[i]);
         m_menuText.setFillColor(i == m_selectedMenuIndex ? sf::Color::White : sf::Color::Black);

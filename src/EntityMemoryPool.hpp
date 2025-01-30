@@ -83,10 +83,11 @@ class EntityMemoryPool
 
     // tiles (and other things that take up one space in the tileMatrix) (layer 0)
     std::tuple<
-        std::vector<CColor>,
+        std::vector<CType>,
         // std::vector<CPosition>,
         // std::vector<CBoundingBox>, /// TODO: could change this and health to their own versions for tiles, would simplify the get, has, and add component functions, could even just create a single CTileData component, but that introduce unnecessary accessing for physics vs rendering...
-        std::vector<CHealth>
+        std::vector<CHealth>,
+        std::vector<CColor>
         // std::vector<CGravity> /// TODO: will need this if tiles are falling, and will have to add back CTransform or new CVelocity and CRotation stuff
     > m_tilePool;
 
@@ -103,8 +104,8 @@ class EntityMemoryPool
         std::vector<CGravity>,
         std::vector<CState>, // "air", "stand", "run"
         std::vector<CFireRate>,
+        std::vector<CType>,
         std::vector<CColor>
-        // std::vector<CPosition>
         // std::vector<CFollowPlayer>, // NPC behavior
         // std::vector<CPatrol> // NPC behavior
     > m_otherEntityPool;
@@ -156,10 +157,9 @@ class EntityMemoryPool
     template <typename T>
     static constexpr bool isTileComponent()
     {
-        return std::is_same_v<T, CColor> ||
-            // std::is_same_v<T, CPosition> ||
-            // std::is_same_v<T, CBoundingBox> ||
-            std::is_same_v<T, CHealth>;
+        return std::is_same_v<T, CType> ||
+            std::is_same_v<T, CHealth> ||
+            std::is_same_v<T, CColor>;
     }
 
 public:

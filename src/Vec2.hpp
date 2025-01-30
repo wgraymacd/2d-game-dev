@@ -118,4 +118,8 @@ public:
 
 using Vec2f = Vec2<float>;
 using Vec2i = Vec2<int>;
-using Vec2ui = Vec2<unsigned int>;
+// using Vec2i16 = Vec2<int16_t>;
+// using Vec2ui = Vec2<unsigned int>;
+// using Vec2ui8 = Vec2<uint8_t>;
+// using Vec2ui16 = Vec2<uint16_t>;
+// using Vec2ui32 = Vec2<uint32_t>;

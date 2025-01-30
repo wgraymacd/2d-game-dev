@@ -25,7 +25,7 @@ struct ProfileResult
     std::string name = "Default";
     long long start = 0;
     long long end = 0;
-    size_t threadID = 0;
+    int threadID = 0;
 };
 
 class Profiler

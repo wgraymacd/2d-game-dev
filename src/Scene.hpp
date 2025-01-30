@@ -11,7 +11,7 @@ class Scene
 {
 protected:
     GameEngine& m_game;
-    size_t m_currentFrame = 0;
+    int m_currentFrame = 0;
     bool m_hasEnded = false;
     bool m_paused = false;
     std::map<int, std::string> m_actionMap;

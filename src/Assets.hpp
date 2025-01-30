@@ -42,7 +42,7 @@ class Assets
     /// @param textureName texture used for animation, single file with frames from left to right equally spaced
     /// @param frameCount number of animation frames in the texture
     /// @param frameDuration number of game frames to maintain each animation frame
-    void addAnimation(const std::string& animationName, const std::string& textureName, const unsigned int frameCount, const unsigned int frameDuration)
+    void addAnimation(const std::string& animationName, const std::string& textureName, const int frameCount, const int frameDuration)
     {
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
@@ -118,7 +118,7 @@ public:
             else if (str == "Animation")
             {
                 std::string name, texture;
-                unsigned int frameCount, frameDuration;
+                int frameCount, frameDuration;
                 file >> name >> texture >> frameCount >> frameDuration;
                 addAnimation(name, texture, frameCount, frameDuration);
             }

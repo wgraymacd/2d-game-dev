@@ -25,10 +25,10 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
     }
 
     m_tilePool = std::make_tuple(
-        std::vector<CColor>(maxTiles),
-        // std::vector<CPosition>(maxTiles),
+        std::vector<CType>(maxTiles),
         // std::vector<CBoundingBox>(maxTiles),
-        std::vector<CHealth>(maxTiles)
+        std::vector<CHealth>(maxTiles),
+        std::vector<CColor>(maxTiles)
     );
 
     m_otherEntityPool = std::make_tuple(
@@ -43,8 +43,8 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
         std::vector<CGravity>(maxOtherEntities),
         std::vector<CState>(maxOtherEntities),
         std::vector<CFireRate>(maxOtherEntities),
+        std::vector<CType>(maxOtherEntities),
         std::vector<CColor>(maxOtherEntities)
-        // std::vector<CPosition>(maxOtherEntities)
         // std::vector<CFollowPlayer>(maxOtherEntities),
         // std::vector<CPatrol>(maxOtherEntities)
     );
@@ -100,12 +100,11 @@ EntityMemoryPool& EntityMemoryPool::Instance()
     return pool;
 } // a singleton, globally acces in safe way, only one instance ever
 
-/// TODO: could consider just returning unsigned long IDs everywhere instead of entity objects
+/// TODO: could consider just returning IDs everywhere instead of entity objects
 
 /// @brief add an entity to the corresponding pool based on tag
 Entity EntityMemoryPool::addEntity(const std::string& tag)
 {
-    std::cout << "adding entity" << std::endl;
     EntityID index;
 
     if (tag == "tile")

@@ -27,22 +27,22 @@ public:
     CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a) : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {}
 };
 
-// class CPosition : public Component
-// {
-// public:
-//     Vec2f pos = { 0.0f, 0.0f };
-
-//     CPosition() = default;
-//     CPosition(const Vec2f& p) : pos(p) {}
-// };
-
 class CColor : public Component
 {
 public:
-    unsigned char r, g, b;
+    uint8_t r, g, b;
 
     CColor() = default;
-    CColor(const unsigned char r, const unsigned char g, const unsigned char b) : r(r), g(g), b(b) {}
+    CColor(const uint8_t r, const uint8_t g, const uint8_t b) : r(r), g(g), b(b) {}
+};
+
+class CType : public Component
+{
+public:
+    int type = 0;
+
+    CType() = default;
+    CType(const int type) : type(type) {}
 };
 
 class CLifespan : public Component
@@ -52,9 +52,7 @@ public:
     int frameCreated = 0;
 
     CLifespan() = default;
-    CLifespan(int duration, int frame)
-        : lifespan(duration), frameCreated(frame) {
-    }
+    CLifespan(const int duration, const int frame) : lifespan(duration), frameCreated(frame) {}
 };
 
 class CDamage : public Component
@@ -110,16 +108,16 @@ public:
 class CBoundingBox : public Component
 {
 public:
-    Vec2ui size;
+    Vec2i size;
     Vec2f halfSize;
     bool blockMove = false;
     bool blockVision = false;
 
     CBoundingBox() = default;
-    CBoundingBox(const Vec2ui& s)
+    CBoundingBox(const Vec2i& s)
         : size(s), halfSize(s.x / 2, s.y / 2) {
     }
-    CBoundingBox(const Vec2ui& s, bool m, bool v)
+    CBoundingBox(const Vec2i& s, bool m, bool v)
         : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2.0f, s.y / 2.0f) {
     }
 };

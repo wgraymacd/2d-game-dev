@@ -12,8 +12,8 @@
 class EntityManager
 {
     // tile map
-    Vec2ui m_worldSizeCells; // size of the world in grid units
-    Vec2ui m_cellSizePixels; // size of one cell in pixels
+    Vec2i m_worldSizeCells; // size of the world in grid units
+    Vec2i m_cellSizePixels; // size of one cell in pixels
     std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y), initialized in constructor
     /// TODO: could change tileMatrix to 1D array for even better chache performance when iterating over all tiles
     /// TODO: also consider chunk-based (map of pairs to chunks and chunks are 1d flat arrays of tiles) or quadtree storage, both are more efficient memory usage for more sparse worlds, efficient neighbor access, dynamic world size, and can still check neighbors with the indices regrdless
@@ -45,7 +45,7 @@ class EntityManager
     }
 
 public:
-    EntityManager(const Vec2ui& worldSize, const Vec2ui& cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
+    EntityManager(const Vec2i& worldSize, const Vec2i& cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
 
     /// TODO: implement new version of this if needed
     /// @brief adds entities to be added and removes entities to be destroyed
@@ -93,9 +93,8 @@ public:
     /// TODO: this may not be the best way, but I'm testing, it's getting messy
     void addTileToMatrix(Entity& tile, const int x, const int y)
     {
-        PROFILE_FUNCTION();
+        // PROFILE_FUNCTION();
 
-        // const Vec2f& pos = tile.getComponent<CPosition>().pos;
         m_tileMatrix[x][y] = tile;
     }
 

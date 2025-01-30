@@ -21,9 +21,9 @@ class ScenePlay : public Scene
 
 protected:
     // tile grid
-    const Vec2ui m_worldMaxCells = GlobalSettings::worldMaxCells; // bottom-right corner of world (grid coords)
-    const Vec2ui m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
-    const Vec2ui m_worldMaxPixels = { m_cellSizePixels.x * m_worldMaxCells.x, m_cellSizePixels.y * m_worldMaxCells.y };
+    const Vec2i m_worldMaxCells = GlobalSettings::worldMaxCells; // bottom-right corner of world (grid coords)
+    const Vec2i m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
+    const Vec2i m_worldMaxPixels = { m_cellSizePixels.x * m_worldMaxCells.x, m_cellSizePixels.y * m_worldMaxCells.y };
 
     // views
     sf::View m_mainView = sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()); // center, size

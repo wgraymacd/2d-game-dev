@@ -62,8 +62,8 @@ void GameEngine::init(const std::string& path)
     // sf::VideoMode fullscreenMode = modes[0]; // 4 modes, 1st being highest resolution
     // m_window.create(fullscreenMode, "Game", sf::Style::Default);
 
-    GlobalSettings::windowSize = modes[0].size;
-    m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game", sf::Style::Default); /// TODO: should be a fullscreen option here
+    GlobalSettings::windowSize = { static_cast<int>(modes[0].size.x), static_cast<int>(modes[0].size.y) }; /// TODO: make windowSize Vec2ui? See when doing data type shit
+    m_window.create(sf::VideoMode(modes[0].size), "Game", sf::Style::Default); /// TODO: should be a fullscreen option here
 
     // m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game");
     m_window.setFramerateLimit(GlobalSettings::frameRate);
@@ -120,7 +120,7 @@ void GameEngine::sUserInput()
             // GlobalSettings::windowSize = resizedEvent->size;
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>() * scaleFactor));
 
-            GlobalSettings::windowSize = resizedEvent->size;
+            GlobalSettings::windowSize = { static_cast<int>(resizedEvent->size.x), static_cast<int>(resizedEvent->size.y) };
             m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>())));
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()));
 

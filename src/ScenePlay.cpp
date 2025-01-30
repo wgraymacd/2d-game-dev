@@ -1,4 +1,6 @@
 /// TODO: multithreading
+/// TODO: worry about signed vs unsigned and size and even size_t (adapts to platform's word size) and all that later after learning more about performance differences and such (e.g., may not want to mix signed and unsigned ints like uint32_t and int8_t)
+/// TODO: in some cases processing a 64-bit int is faster than a 32-bit one (or 32 faster than 16), but in many cases memory is what slows down a program, so just have to test between memory efficiency and CPU efficiency
 
 #include "Timer.hpp"
 #include "Globals.hpp"
@@ -14,6 +16,7 @@
 #include "Animation.hpp"
 #include "Action.hpp"
 #include "WorldGenerator.hpp"
+#include "TileType.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
@@ -157,7 +160,7 @@ void ScenePlay::generateWorld()
     // generate world and get tile positions
     WorldGenerator gen(m_worldMaxCells.x, m_worldMaxCells.y);
     gen.generateWorld();
-    const std::vector<std::vector<std::string>>& tileMatrix = gen.getTileMatrix();
+    const std::vector<std::vector<uint8_t>>& tileMatrix = gen.getTileMatrix();
 
     // spawn tiles according to their positions in the grid
     for (int x = 0; x < m_worldMaxCells.x; ++x)
@@ -166,42 +169,40 @@ void ScenePlay::generateWorld()
 
         for (int y = 0; y < m_worldMaxCells.y; ++y)
         {
-            if (tileMatrix[x][y] == "") continue;
-
-            std::cout << "adding tile " << x << ", " << y << std::endl;
-
-            Entity tile = m_entityManager.addEntity("tile");
-
-            // tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true); /// TODO: this is what takes so long to gen world, adding animation, seems like this loop just stops (think twice now) at entity 499399
-            // tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
-            // tile.addComponent<CBoundingBox>(GlobalSettings::cellSizePixels, true, true);
-            // tile.addComponent<CPosition>(gridToMidPixel(x, y, tile)); // uses CBoundingBox data, must be after
-            tile.addComponent<CHealth>(tileMatrix[x][y] == "dirt" ? 40 : 60);
-
-            unsigned char r, g, b;
-            float randomNumber = generateRandomFloat(0.9f, 1.1f); /// TODO: could be faster to use predetermined values or formula, like function of depth or something
-            const std::string& type = tileMatrix[x][y];
-            if (type == "dirt")
+            uint8_t tileType = tileMatrix[x][y];
+            if (tileType)
             {
-                r = static_cast<unsigned char>(100.0f * randomNumber);
-                g = static_cast<unsigned char>(60.0f * randomNumber);
-                b = static_cast<unsigned char>(40.0f * randomNumber);
-            }
-            else if (type == "stone")
-            {
-                r = static_cast<unsigned char>(145.0f * randomNumber);
-                g = static_cast<unsigned char>(145.0f * randomNumber);
-                b = static_cast<unsigned char>(145.0f * randomNumber);
-            }
-            else
-            {
-                r = 10;
-                g = 10;
-                b = 10;
-            }
-            tile.addComponent<CColor>(r, g, b);
+                std::cout << "adding tile " << x << ", " << y << std::endl;
 
-            m_entityManager.addTileToMatrix(tile, x, y);
+                Entity tile = m_entityManager.addEntity("tile");
+
+                // tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true); /// TODO: this is what takes so long to gen world, adding animation, seems like this loop just stops (think twice now) at entity 499399
+                // tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
+                // tile.addComponent<CBoundingBox>(GlobalSettings::cellSizePixels, true, true);
+                // tile.addComponent<CPosition>(gridToMidPixel(x, y, tile)); // uses CBoundingBox data, must be after
+                tile.addComponent<CType>(tileType);
+
+                float randomNumber = generateRandomFloat(0.9f, 1.1f); /// TODO: could be faster to use predetermined values or formula, like function of depth or something
+
+                if (tileType == DIRT)
+                {
+                    tile.addComponent<CHealth>(40);
+                    tile.addComponent<CColor>(100.0f * randomNumber, 60.0f * randomNumber, 40.0f * randomNumber);
+                }
+                else if (tileType == STONE)
+                {
+                    tile.addComponent<CHealth>(60);
+                    tile.addComponent<CColor>(145.0f * randomNumber, 145.0f * randomNumber, 145.0f * randomNumber);
+                }
+                else
+                {
+                    std::cerr << "invalid tile type\n";
+                    exit(-1);
+                }
+
+                m_entityManager.addTileToMatrix(tile, x, y);
+            }
+
         }
     }
 }
@@ -576,7 +577,7 @@ void ScenePlay::sCamera()
 
     // center the view on the player
     /// TODO: deal with the edge of world view, prolly make it so that view center is always at player center for competitive fairness and less disorientation, will need a way to keep players inside world bound tho (force or invisible wall with background or darkness or just more tiles that extend out of sight, could also throw in some easter eggs / secrets there
-    const Vec2ui& viewSize = m_game.window().getSize();
+    const Vec2i viewSize(m_game.window().getSize().x, m_game.window().getSize().y); /// TODO: is this better than just getting an unsigned Vec2 reference (Vec2ui&)? Change back when doing the data type optimizations if I add back Vec2ui and such
     float viewCenterX = std::clamp(pPos.x, viewSize.x / 2.0f, m_worldMaxPixels.x - viewSize.x / 2.0f);
     float viewCenterY = std::clamp(pPos.y, viewSize.y / 2.0f, m_worldMaxPixels.y - viewSize.y / 2.0f);
     m_mainView.setCenter({ viewCenterX, viewCenterY });
@@ -617,7 +618,7 @@ void ScenePlay::sRender()
     playerSprite.setPosition(playerTrans.pos);
     window.draw(m_player.getComponent<CAnimation>().animation.getSprite());
 
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x;
+    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed for operations below
     int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
 
     if (m_drawTextures)
@@ -626,13 +627,13 @@ void ScenePlay::sRender()
 
         const Vec2f& viewSize = m_mainView.getSize(); //  window size is the view size now
 
-        int horizontalCheckLength = static_cast<int>(viewSize.x / m_cellSizePixels.x / 2.0f); /// TODO: change this + 1 if needed, test
-        int verticalCheckLength = static_cast<int>(viewSize.y / m_cellSizePixels.y / 2.0f);
+        int horizontalCheckLength = viewSize.x / m_cellSizePixels.x / 2.0f;
+        int verticalCheckLength = viewSize.y / m_cellSizePixels.y / 2.0f;
 
         int minX = std::max(0, playerGridPosX - horizontalCheckLength);
-        int maxX = std::min(static_cast<int>(m_worldMaxCells.x) - 1, playerGridPosX + horizontalCheckLength);
+        int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength); // ensure m_worldMaxCells != 0 ever or there will be wrap around
         int minY = std::max(0, playerGridPosY - verticalCheckLength);
-        int maxY = std::min(static_cast<int>(m_worldMaxCells.y) - 1, playerGridPosY + verticalCheckLength);
+        int maxY = std::min(m_worldMaxCells.y - 1, playerGridPosY + verticalCheckLength);
 
         for (int x = minX; x <= maxX; ++x)
         {
@@ -643,7 +644,9 @@ void ScenePlay::sRender()
                 if (tile.isActive())
                 {
                     sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
+
                     CColor& color = tile.getComponent<CColor>();
+
                     block.setFillColor(sf::Color(color.r, color.g, color.b));
                     block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
                     window.draw(block);
@@ -672,57 +675,6 @@ void ScenePlay::sRender()
 
             window.draw(sprite);
         }
-
-        /// grid
-
-        // if (m_drawGrid)
-        // {
-        //     float leftX = window.getView().getCenter().x - (window.getView().getSize().x / 2);
-        //     float rightX = leftX + window.getView().getSize().x; // + m_cellSizePixels.x maybe
-        //     // logic if grid (0, 0) at bottom left
-        //     // float bottomY = window.getView().getCenter().y + (window.getView().getSize().y / 2);
-        //     // float topY = bottomY - window.getView().getSize().y;
-        //     // logic if grid (0, 0) at top left
-        //     float topY = window.getView().getCenter().y - window.getView().getSize().y / 2;
-        //     float bottomY = topY + window.getView().getSize().y; // + m_cellSizePixels.y maybe
-
-        //     float nextGridX = leftX - fmodf(leftX, m_cellSizePixels.x);
-        //     // logic if grid (0, 0) at bottom left
-        //     // float nextGridY = bottomY - fmodf(bottomY, m_cellSizePixels.y);
-        //     // logic if grid (0, 0) at top left
-        //     float nextGridY = topY - fmodf(topY, m_cellSizePixels.y);
-
-        //     // vertical grid lines
-        //     for (float x = nextGridX; x <= rightX; x += m_cellSizePixels.x)
-        //     {
-        //         drawLine(Vec2f(x, topY), Vec2f(x, bottomY));
-        //     }
-
-        //     // horizontal grid lines
-        //     // logic if grid (0, 0) at bottom left
-        //     // for (float y = nextGridY; y >= topY; y -= m_cellSizePixels.y)
-        //     // logic if grid (0, 0) at top left
-        //     for (float y = nextGridY; y <= bottomY; y += m_cellSizePixels.y)
-        //     {
-        //         drawLine(Vec2f(leftX, y), Vec2f(rightX, y));
-
-        //         // grid cell labels
-        //         for (float x = nextGridX; x <= rightX; x += m_cellSizePixels.x)
-        //         {
-        //             std::string xCell = std::to_string(static_cast<int>(x / m_cellSizePixels.x));
-        //             // logic if grid (0, 0) at bottom left
-        //             // std::string yCell = std::to_string(static_cast<int>((bottomY - y) / m_cellSizePixels.y));
-        //             // logic if grid (0, 0) at top left
-        //             std::string yCell = std::to_string(static_cast<int>(y / m_cellSizePixels.y));
-
-        //             m_gridText.setString("(" + xCell + "," + yCell + ")");
-        //             // m_gridText.setPosition(x + 3, y - m_cellSizePixels.y + 2); // position label inside cell, bottom left (0, 0)
-        //             m_gridText.setPosition({ x + 3, y + 2 }); // position label inside cell, top left (0, 0)
-        //             m_gridText.setFillColor(sf::Color(255, 255, 255, 50));
-        //             window.draw(m_gridText);
-        //         }
-        //     }
-        // }
     }
 
     /// draw all entity collision bounding boxes with a rectangle
@@ -736,17 +688,14 @@ void ScenePlay::sRender()
     //         for (int y = 0; y < m_worldMaxCells.y; ++y)
     //         {
     //             const Entity& tile = tileMatrix[x][y];
-
     //             CBoundingBox& box = tile.getComponent<CBoundingBox>();
     //             CTransform& transform = tile.getComponent<CTransform>();
-
     //             sf::RectangleShape rect;
     //             rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
     //             rect.setOrigin(box.halfSize);
     //             rect.setPosition(transform.pos);
     //             rect.setFillColor(sf::Color(0, 0, 0, 0));
     //             rect.setOutlineColor(sf::Color(255, 255, 255, 255));
-
     //             // if (box.blockMove && box.blockVision)
     //             // {
     //             //     rect.setOutlineColor(sf::Color::Black);
@@ -763,21 +712,18 @@ void ScenePlay::sRender()
     //             // {
     //             //     rect.setOutlineColor(sf::Color::White);
     //             // }
-
     //             rect.setOutlineThickness(1);
     //             window.draw(rect);
     //         }
-
     //         // if (e.hasComponent<CPatrol>())
     //         // {
     //         //     auto& patrol = e.getComponent<CPatrol>().positions;
-    //         //     for (size_t p = 0; p < patrol.size(); p++)
+    //         //     for (int p = 0; p < patrol.size(); p++)
     //         //     {
     //         //         dot.setPosition(patrol[p]);
     //         //         window.draw(dot);
     //         //     }
     //         // }
-
     //         // if (e.hasComponent<CFollowPlayer>())
     //         // {
     //         //     sf::VertexArray lines(sf::PrimitiveType::LineStrip, 2);
@@ -936,7 +882,7 @@ void ScenePlay::spawnPlayer()
     m_player = m_entityManager.addEntity("player");
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), true);
     m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_playerConfig.GY, m_player));
-    m_player.addComponent<CBoundingBox>(Vec2ui(m_playerConfig.CW, m_playerConfig.CH));
+    m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH));
     m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
@@ -955,7 +901,7 @@ void ScenePlay::spawnBullet(Entity entity)
     PROFILE_FUNCTION();
 
     Vec2f& entityPos = entity.getComponent<CTransform>().pos;
-    float bulletSpeed = 1.5f;
+    float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
 
     const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
     const Vec2f bulletVec = worldTarget - entityPos;
@@ -990,27 +936,20 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
 
     // check player-tile collisions within a box of size 4 x 4 grid cells around player
     /// TODO: make this box as small as possible for less calculations
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x;
+    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // must be signed as subtraction below 0 is happening
     int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
     int horizontalCheckLength = playerBounds.halfSize.x / m_cellSizePixels.x + 1;
-    int verticalCheckLenght = playerBounds.halfSize.y / m_cellSizePixels.y + 1;
+    int verticalCheckLength = playerBounds.halfSize.y / m_cellSizePixels.y + 1;
 
-    for (int x = playerGridPosX - horizontalCheckLength; x <= playerGridPosX + horizontalCheckLength; ++x)
+    int minX = std::max(0, playerGridPosX - horizontalCheckLength);
+    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength); // ensure m_worldMaxCells != 0 ever or we get wrap around
+    int minY = std::max(0, playerGridPosY - verticalCheckLength);
+    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPosY + verticalCheckLength);
+
+    for (int x = minX; x <= maxX; ++x)
     {
-        /// TODO: this may be faster using std::clamp in the loop arguments
-        if (x < 0 || x >= m_worldMaxCells.x)
+        for (int y = minY; y <= maxY; ++y)
         {
-            continue;
-        }
-
-        for (int y = playerGridPosY - verticalCheckLenght; y <= playerGridPosY + verticalCheckLenght; ++y)
-        {
-            /// TODO: this may be faster using std::clamp in the loop arguments
-            if (y < 0 || y >= m_worldMaxCells.y)
-            {
-                continue;
-            }
-
             if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
             {
                 // finding overlap (without tile bounding boxes)
@@ -1125,7 +1064,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
         int bulletGridPosX = bulletTrans.pos.x / m_cellSizePixels.x;
         int bulletGridPosY = bulletTrans.pos.y / m_cellSizePixels.y;
 
-        /// TODO: consider adding a bounding box check for bullets (or just leave them as one pixel at the tip of the bullet so I never have to check)
+        /// TODO: consider adding a bounding box check for bullets (or just leave them as one pixel at the tip of the bullet so I never have to check), depends on what I want with bullet variety (would just have to copy whats in player tiles with bullets)
         // int horizontalCheckLength = bulletBounds.halfSize.x / m_cellSizePixels.x + 1;
         // int verticalCheckLenght = bulletBounds.halfSize.y / m_cellSizePixels.y + 1;
         /// TODO: if no bounding box, don't even need any internal loop, can just get bullet pos (pixels), see if tile active at grid coord, then say there's a collision and handle it, no isInside or overlap or anything either (already done below)
@@ -1149,13 +1088,13 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
             {
                 bullet.destroy();
             }
-            else
+            else if (tile.getComponent<CType>().type == STONE)
             {
                 float ricochetChance = generateRandomFloat(0.0f, 1.0f);
-                if (ricochetChance > 0.0f)
+                if (ricochetChance > 0.8f)
                 {
-                    /// TODO: this favors horizontal ricochets since prevPos is only updated on every frame (this will be true even if a vertical collision should happen); either do more math or update bullets more times per frame (and slow their speed then)
-                    /// TODO: on that note, make this a lil more complex, use velocity and overlap to get better estimate of where the bullet is coming from
+                    /// TODO: this favors horizontal ricochets a little bit (prevPos is 1.5 pixels behind pos) since horizontal is checked first, could either have more bullet updates to make prvPos and pos closer or use velocity and neighbors and things to make it perfect, but it prolly isn't necessary, or maybe check both and then decide randomly if both work (with x components as below and with y components instead of just an else)
+
                     if (bulletTrans.prevPos.x > (bulletGridPosX + 1) * m_cellSizePixels.x || bulletTrans.prevPos.x < bulletGridPosX * m_cellSizePixels.x) // colliding from a side
                     {
                         bulletTrans.velocity.x = -bulletTrans.velocity.x;
@@ -1166,6 +1105,9 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
                     }
 
                     bulletTrans.rotAngle = -bulletTrans.rotAngle;
+
+                    /// TODO: no richochets after entering solid material, only on surfaces
+                    // bullet.canRocichet = false;
                 }
             }
 
@@ -1177,6 +1119,11 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
                 /// TODO: check neighbors for floating tiles, then apply physics to them (if no close background) by adding a component to them
             }
         }
+        // else
+        // {
+        //     /// TODO: no richochets after entering solid material, only on surfaces
+        //     bullet.canRicochet = true;
+        // }
 
         /// way with the local bounds for checking, if using bounding box for bullets
         // for (int x = bulletGridPosX - 2; x < bulletGridPosX + 2; ++x) /// TODO: tweak these numbers until good
@@ -1230,6 +1177,7 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
     for (Entity& p : projectiles)
     {
         CTransform& pTrans = p.getComponent<CTransform>();
+        pTrans.prevPos = pTrans.pos;
         pTrans.pos += pTrans.velocity;
     }
 
