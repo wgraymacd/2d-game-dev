@@ -26,7 +26,6 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
 
     m_tilePool = std::make_tuple(
         std::vector<CType>(maxTiles),
-        // std::vector<CBoundingBox>(maxTiles),
         std::vector<CHealth>(maxTiles),
         std::vector<CColor>(maxTiles)
     );
@@ -45,8 +44,6 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
         std::vector<CFireRate>(maxOtherEntities),
         std::vector<CType>(maxOtherEntities),
         std::vector<CColor>(maxOtherEntities)
-        // std::vector<CFollowPlayer>(maxOtherEntities),
-        // std::vector<CPatrol>(maxOtherEntities)
     );
 
     // m_pool = std::make_tuple(

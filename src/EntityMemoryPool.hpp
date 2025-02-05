@@ -2,6 +2,8 @@
 /// NOTE: static singleton automatically detroyed when program terminates
 /// NOTE: if you don't use raw pointer or manual `new` and `delete` calls, then you don't need the destructor
 
+/// TODO: optimize tiles vs other entities better, maybe make a Tile.hpp file with a Tile struct instead of doing the ECS way (if data accessed all together, definitly faster), or edit the way the memory pools are tied together to get two entirely separate ones with separate functions (addComponent redirects to addOtherEntityComponent or addTileComponent depending on entity type which can be checked with entity ID > maxTiles)
+
 #pragma once
 
 #include "Components.hpp"

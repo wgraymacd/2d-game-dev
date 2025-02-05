@@ -11,7 +11,7 @@
 struct Intersect
 {
     bool result = false;
-    Vec2f pos;
+    Vec2f pos; // position of intersection
 };
 
 namespace Physics
@@ -70,7 +70,8 @@ namespace Physics
         return horizontalInside && verticalInside;
     }
 
-    /// TODO: implement this function
+    /// @brief determine if line AB intersects with line CD
+    /// @return an Intersect object
     Intersect LineIntersect(const Vec2f& a, const Vec2f& b, const Vec2f& c, const Vec2f& d)
     {
         Vec2f r = b - a;

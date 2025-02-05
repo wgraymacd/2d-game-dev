@@ -25,7 +25,7 @@ class WorldGenerator
     int m_worldTilesY;
 
     /// TODO: change from string to int for tile types
-    std::vector<std::vector<uint8_t>> m_tileMatrix;
+    std::vector<std::vector<TileType>> m_tileMatrix;
 
     FastNoiseLite m_noise;
 
@@ -160,7 +160,7 @@ public:
         : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY)
     {
         m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-        m_tileMatrix = std::vector<std::vector<uint8_t>>(m_worldTilesX, std::vector<uint8_t>(m_worldTilesY));
+        m_tileMatrix = std::vector<std::vector<TileType>>(m_worldTilesX, std::vector<TileType>(m_worldTilesY));
     }
 
     void generateWorld()
@@ -174,7 +174,7 @@ public:
         createSkyline();
     }
 
-    std::vector<std::vector<uint8_t>> getTileMatrix()
+    std::vector<std::vector<TileType>> getTileMatrix()
     {
         return m_tileMatrix;
     }

@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <math.h>
+#include <limits>
 
 template <typename T> // if hardcoded to be floats, might want to use doubles later, just make a template
 class Vec2
@@ -111,6 +112,30 @@ public:
     {
         return x * vec.y - vec.x * y;
     }
+
+    /// @brief return the angle of the vector formed by vec - this from the x-axis
+    float angleFrom(const Vec2& vec) const
+    {
+        float angle = atan2f(y - vec.y, x - vec.x);
+        return (angle >= 0) ? angle : (angle + 2 * M_PI);
+
+        // return atan2f(y - vec.y, x - vec.x);
+    }
+
+    /// @brief get the length of this vector
+    float length() const
+    {
+        return sqrtf(x * x + y * y);
+    }
+
+    /// @brief get this vector's slope
+    float slope() const
+    {
+        if (x == 0)
+            return std::numeric_limits<float>::max();
+        else
+            return static_cast<float>(y) / static_cast<float>(x);
+    }
 };
 
 
@@ -123,3 +148,18 @@ using Vec2i = Vec2<int>;
 // using Vec2ui8 = Vec2<uint8_t>;
 // using Vec2ui16 = Vec2<uint16_t>;
 // using Vec2ui32 = Vec2<uint32_t>;
+
+
+/// hash function for Vec2i
+
+namespace std
+{
+    template <>
+    struct hash<Vec2i>
+    {
+        std::size_t operator()(const Vec2i& v) const
+        {
+            return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1);
+        }
+    };
+}

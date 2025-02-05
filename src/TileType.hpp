@@ -1,6 +1,8 @@
 #pragma once
 
-enum TileType {
+#include <cstdint>
+
+enum TileType : uint8_t {
     NONE = 0,
     DIRT = 1, // easy to destroy
     STONE = 2, // harder to destroy, bullets can ricochet

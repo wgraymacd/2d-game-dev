@@ -21,9 +21,11 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include <string>
+#include <vector>
 #include <fstream>
 #include <chrono>
 #include <random> // number generation for colors of blocks
+#include <unordered_set>
 
 /// @brief vonstructs a new ScenePlay object, calls ScenePlay::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
@@ -117,7 +119,7 @@ void ScenePlay::loadGame()
         }
         else if (type == "Player")
         {
-            file >> m_playerConfig.GX >> m_playerConfig.GY >> m_playerConfig.CW >> m_playerConfig.CH >> m_playerConfig.SX >> m_playerConfig.SY >> m_playerConfig.SM >> m_playerConfig.GRAVITY >> m_playerConfig.BA;
+            file >> m_playerConfig.CW >> m_playerConfig.CH >> m_playerConfig.SX >> m_playerConfig.SY >> m_playerConfig.SM >> m_playerConfig.GRAVITY >> m_playerConfig.BA;
         }
         else
         {
@@ -160,7 +162,7 @@ void ScenePlay::generateWorld()
     // generate world and get tile positions
     WorldGenerator gen(m_worldMaxCells.x, m_worldMaxCells.y);
     gen.generateWorld();
-    const std::vector<std::vector<uint8_t>>& tileMatrix = gen.getTileMatrix();
+    const std::vector<std::vector<TileType>>& tileMatrix = gen.getTileMatrix();
 
     // spawn tiles according to their positions in the grid
     for (int x = 0; x < m_worldMaxCells.x; ++x)
@@ -169,7 +171,7 @@ void ScenePlay::generateWorld()
 
         for (int y = 0; y < m_worldMaxCells.y; ++y)
         {
-            uint8_t tileType = tileMatrix[x][y];
+            TileType tileType = tileMatrix[x][y];
             if (tileType)
             {
                 std::cout << "adding tile " << x << ", " << y << std::endl;
@@ -202,7 +204,6 @@ void ScenePlay::generateWorld()
 
                 m_entityManager.addTileToMatrix(tile, x, y);
             }
-
         }
     }
 }
@@ -597,28 +598,15 @@ void ScenePlay::sRender()
 
     sf::RenderWindow& window = m_game.window();
     window.setView(m_mainView);
-
-    // color the background darker so you know that the game is paused
-    if (!m_paused)
-    {
-        window.clear(sf::Color(5, 5, 5));
-    }
-    else
-    {
-        window.clear(sf::Color(10, 10, 10));
-    }
+    window.clear(sf::Color(10, 10, 10));
 
     const CTransform& playerTrans = m_player.getComponent<CTransform>();
     const std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
 
     /// draw all entity textures / animations in layers
 
-    // collidable layer (tiles, player, bullets, items)
-    sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
-    playerSprite.setPosition(playerTrans.pos);
-    window.draw(m_player.getComponent<CAnimation>().animation.getSprite());
-
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed for operations below
+    // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
+    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed, for operations below
     int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
 
     if (m_drawTextures)
@@ -630,40 +618,57 @@ void ScenePlay::sRender()
         int horizontalCheckLength = viewSize.x / m_cellSizePixels.x / 2.0f;
         int verticalCheckLength = viewSize.y / m_cellSizePixels.y / 2.0f;
 
+        // limits on grid coords to check
         int minX = std::max(0, playerGridPosX - horizontalCheckLength);
-        int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength); // ensure m_worldMaxCells != 0 ever or there will be wrap around
+        int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength);
         int minY = std::max(0, playerGridPosY - verticalCheckLength);
         int maxY = std::min(m_worldMaxCells.y - 1, playerGridPosY + verticalCheckLength);
 
+        // trying method 1 for visible tiles
+        std::vector<Vec2i> openTiles; /// TODO: use these for vertices method, might not even need it and could just use visited
+        std::stack<Vec2i> tileStack;
+        std::vector<std::vector<bool>> visited(viewSize.x / m_cellSizePixels.x + 1, std::vector<bool>(viewSize.y / m_cellSizePixels.y + 1)); /// TODO: could add a visited property to each tile instead but this is good for now
+
+        // {
+        //     PROFILE_SCOPE("find open tiles");
+        findOpenTiles(playerGridPosX, playerGridPosY, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
+        // }
+
+        // gonna render everything we visited and nothing else (background and all that that isn't covered by a tile)
+        // {
+        //     PROFILE_SCOPE("drawing visited");
         for (int x = minX; x <= maxX; ++x)
         {
             for (int y = minY; y <= maxY; ++y)
             {
-                const Entity& tile = tileMatrix[x][y];
-
-                if (tile.isActive())
+                if (visited[x - minX][y - minY])
                 {
                     sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
 
-                    CColor& color = tile.getComponent<CColor>();
+                    if (tileMatrix[x][y].isActive())
+                    {
+                        CColor& color = tileMatrix[x][y].getComponent<CColor>();
+                        block.setFillColor(sf::Color(color.r, color.g, color.b));
+                    }
+                    else
+                    {
+                        block.setFillColor(sf::Color(100, 100, 100));
+                    }
 
-                    block.setFillColor(sf::Color(color.r, color.g, color.b));
                     block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
                     window.draw(block);
-
-                    // CTransform& trans = tile.getComponent<CTransform>();
-                    // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
-                    // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
-                    // sprite.setPosition(trans.pos);
-                    // sprite.setScale(trans.scale); /// TODO: will I even use scale?
-
-                    // window.draw(sprite);
                 }
             }
         }
+        // }
 
+        // player
+        sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
+        playerSprite.setPosition(playerTrans.pos);
+        window.draw(m_player.getComponent<CAnimation>().animation.getSprite());
+
+        // bullets
         std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
-
         for (Entity& bullet : bullets)
         {
             CTransform& transform = bullet.getComponent<CTransform>();
@@ -675,6 +680,189 @@ void ScenePlay::sRender()
 
             window.draw(sprite);
         }
+
+        // use open-air tiles with ray casting 
+        std::vector<Vec2i> vertices; // in pixels
+        std::unordered_set<Vec2i> vertexSet; // use unordered set to collect unique vertices and put only unique ones in vector
+
+        // four corners of the screen
+        vertices.emplace_back(static_cast<int>(window.getView().getCenter().x - viewSize.x / 2.0f), static_cast<int>(window.getView().getCenter().y - viewSize.y / 2.0f));
+        vertices.emplace_back(static_cast<int>(window.getView().getCenter().x + viewSize.x / 2.0f) + 1, static_cast<int>(window.getView().getCenter().y - viewSize.y / 2.0f));
+        vertices.emplace_back(static_cast<int>(window.getView().getCenter().x - viewSize.x / 2.0f), static_cast<int>(window.getView().getCenter().y + viewSize.y / 2.0f) + 1); /// TODO: these may not be necessary of players will never reach bottom of world
+        vertices.emplace_back(static_cast<int>(window.getView().getCenter().x + viewSize.x / 2.0f) + 1, static_cast<int>(window.getView().getCenter().y + viewSize.y / 2.0f) + 1); /// TODO: these may not be necessary of players will never reach bottom of world
+
+
+        for (const Vec2i& tileCoords : openTiles)
+        {
+            Vec2i corners[4] = { tileCoords,
+                               { tileCoords.x, tileCoords.y + 1 },
+                               { tileCoords.x + 1, tileCoords.y },
+                               { tileCoords.x + 1, tileCoords.y + 1 } };
+
+            for (const Vec2i& v : corners)
+            {
+                if (vertexSet.insert(v * m_cellSizePixels.x).second) // insert() returns {iterator, bool}, bool is true if inserted /// TODO: if x and y cell sizes differ, this gets fucked
+                {
+                    vertices.push_back(v * m_cellSizePixels.x); /// TODO: if x and y cell sizes differ, this gets fucked
+                }
+            }
+        }
+
+        // std::cout << "START START START START" << std::endl;
+        // for (const auto& vertex : vertices)
+        // {
+        //     std::cout << vertex.x << " " << vertex.y << std::endl;
+        // }
+        // std::cout << "END END END END END END" << std::endl;
+
+        const Vec2i playerPos = playerTrans.pos.to<int>(); /// TODO: keep float? too inacurate? reference or not?
+        for (int i = 0; i < vertices.size(); ++i)
+        {
+            Vec2i& vertex = vertices[i];
+            // std::cout << "index is " << i << " and vertex is " << vertex.x << " " << vertex.y << std::endl;
+            Vec2i ray = vertex - playerPos;
+
+            float rayLength = ray.length();
+
+            float slope = ray.slope();
+            float reciprocalSlope = 1.0f / slope;
+
+            float xMoveHypDist = sqrtf(1 + slope * slope); // in grid coords /// TODO: can maybe make int since cells are 10 pixel side lengths and ties aren't that important to perfectly resolve
+            float yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope); // in grid coords
+
+            // coordinates of grid cell the traveling ray is in
+            /// TODO: test edge cases: if hitting right side of tile, I want this coord to truncate to the left side of the tile (since tiles positioned with top-left), this could be wrong, subtly
+            int xCoord = playerGridPosX;
+            int yCoord = playerGridPosY;
+
+            // way we step in x or y when traveling the ray
+            Vec2i rayStep;
+
+            // accumulated distances (pixels) in the direction of the hypoteneuse caused by a change in x/y from the start of the ray (player position), starting with initial pixel offset from grid coord (top-left)
+            float xTravel, yTravel;
+
+            if (ray.x < 0)
+            {
+                rayStep.x = -1;
+                xTravel = (playerPos.x - (xCoord * m_cellSizePixels.x)) * xMoveHypDist;
+            }
+            else
+            {
+                rayStep.x = 1;
+                xTravel = (m_cellSizePixels.x - (playerPos.x - (xCoord * m_cellSizePixels.x))) * xMoveHypDist;
+            }
+
+            if (ray.y < 0)
+            {
+                rayStep.y = -1;
+                yTravel = (playerPos.y - (yCoord * m_cellSizePixels.y)) * yMoveHypDist;
+            }
+            else
+            {
+                rayStep.y = 1;
+                yTravel = (m_cellSizePixels.y - (playerPos.y - (yCoord * m_cellSizePixels.y))) * yMoveHypDist;
+            }
+
+            bool tileFound = false;
+            while (!tileFound && (xTravel < rayLength || yTravel < rayLength))
+            {
+                if (xTravel < yTravel)
+                {
+                    xCoord += rayStep.x;
+                    xTravel += xMoveHypDist * m_cellSizePixels.x;
+                }
+                else
+                {
+                    yCoord += rayStep.y;
+                    yTravel += yMoveHypDist * m_cellSizePixels.y;
+                }
+
+                // std::cout << "checking for tile at " << xCoord << " " << yCoord << "\n";
+                if (tileMatrix[xCoord][yCoord].isActive()) /// TODO: may want to implement bounds check or think more about this and edge cases like vertex on side of world
+                {
+                    tileFound = true;
+
+                    // remove vertex from vertices
+                    vertex = vertices.back();
+                    vertices.pop_back();
+                    --i;
+                }
+            }
+        }
+
+        // if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
+        // if vertex reached and not originally unique (keep repeats? aka tile right away if line continues), just keep vertex point, do nothing
+        // somehow incorporate the fact that (maybe not here but somewhere) I want to see more than just one layer of tiles deep
+            // idea: render all tiles who have a vertex included in the triangle fan
+            // then propagate 50% light to the neighbors of those tiles if light < 100% (so we don't do it to those tiles), then to neighbors neighbors if light < 50% (again, the if's make sure we arent checking already checked tiles), etc.
+
+        // sort the reachable vertices in CCW order
+        std::sort(vertices.begin(), vertices.end(), [&playerPos](const Vec2i& a, const Vec2i& b) { return a.angleFrom(playerPos) < b.angleFrom(playerPos); });
+
+
+
+        // create triangle fan of vertices (pixels)
+        std::vector<Vec2i> triangleFan;
+        triangleFan.push_back(playerPos);
+        triangleFan.insert(triangleFan.end(), vertices.begin(), vertices.end());
+        triangleFan.push_back(vertices.front()); // close the shape
+
+        // std::cout << "START START START START x" << std::endl;
+        // for (int i = 0; i < triangleFan.size(); ++i)
+        // {
+        //     std::cout << triangleFan[i].x << std::endl;
+        // }
+        // std::cout << "END END END END END END x" << std::endl;
+
+        // std::cout << "START START START START y" << std::endl;
+        // for (int i = 0; i < triangleFan.size(); ++i)
+        // {
+        //     std::cout << triangleFan[i].y << std::endl;
+        // }
+        // std::cout << "END END END END END END y" << std::endl;
+
+        // render things inside triangle fan
+        sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
+        for (int i = 0; i < triangleFan.size(); ++i)
+        {
+            fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
+            fan[i].color = sf::Color(255, 255, 0, 100);
+
+            sf::CircleShape dot(2); // Radius of 2 pixels
+            dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) }); // Center the dot
+            dot.setFillColor(sf::Color::Red);
+            window.draw(dot);
+        }
+        window.draw(fan);
+
+
+        /// normal rendering without vision lighting:
+        // for (int x = minX; x <= maxX; ++x)
+        // {
+        //     for (int y = minY; y <= maxY; ++y)
+        //     {
+        //         const Entity& tile = tileMatrix[x][y];
+
+        //         if (tile.isActive())
+        //         {
+        //             sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
+
+        //             CColor& color = tile.getComponent<CColor>();
+
+        //             block.setFillColor(sf::Color(color.r, color.g, color.b));
+        //             block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
+        //             window.draw(block);
+
+        //             // CTransform& trans = tile.getComponent<CTransform>();
+        //             // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
+        //             // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
+        //             // sprite.setPosition(trans.pos);
+        //             // sprite.setScale(trans.scale); /// TODO: will I even use scale?
+
+        //             // window.draw(sprite);
+        //         }
+        //     }
+        // }
     }
 
     /// draw all entity collision bounding boxes with a rectangle
@@ -750,10 +938,26 @@ void ScenePlay::sRender()
     window.setView(window.getDefaultView());
     window.draw(m_fpsText);
 
-    /// light cone
-    /// TODO:
+    /// TODO: line of sight without cone? triangle fan method, ray casting
+    // cannot see tiles behind others
+    // ideas:
+        // 1. player's current (x, y), then do some sort of search or something to find all end nodes where tile is active and check only those
+        // 1.1. cast rays to vertices of those tiles only (can manage) and do triangle fan method
+        // 2. cast a certain number of rays equally spaced out (if all vertices on screen is too much) and walk along them until a tile is hit (not as precise, but could maybe blurr around and get better effect anyway?) (could define the number of rays based on tile size so that there is 1 per tile for tiles at edge of screen)
+        // 2.1. even if missing a couple tiles with random rays, I could interpolate (just gen the fan) and draw the full tiles in between and it would likely be right
 
 
+    /// TODO: light cone: see in direction of pointer only
+    // get mouse pointer pos
+    // create 2 vectors at angles -x and x away from player-to-pointer vector
+    // line segment from player to edge of screen and check for intersection, first intersection visible, rest not
+    // use a shader?
+    // triangle fan with limited angle
+    // entity can see up to closest intersection point
+    // lighting effects : light travels outward in all directions
+    // cast rays at all vertices, shine two extras for each ray just to the left and right of it to have rays that go all the way to the edges of the screen, then connect all endpoints of lines and fill in the light
+    // can shine a few more rays to get a shadow look
+    // may be able to do this my own way since places where light should extend(but wouldn't with the connect-the-dots method if not using the extra two ways for every vertex-aiming ray) do not have a ray that intersects a line between them
 
     /// minimap 
 
@@ -881,7 +1085,7 @@ void ScenePlay::spawnPlayer()
     // set player components
     m_player = m_entityManager.addEntity("player");
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), true);
-    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_playerConfig.GY, m_player));
+    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, 10, m_player)); /// TODO: make spawning in dynamic
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH));
     m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
@@ -1201,3 +1405,49 @@ float ScenePlay::generateRandomFloat(float min, float max)
     return dis(gen);
 }
 
+/// @brief find tile grid coords that are reachable from (x, y) grid coords without breaking other tiles and add them to openTiles
+void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited)
+{
+    // base case - off game world or rendering screen
+    /// TODO: seg fault on world edge case, just make world bounds so that camera always in middle and player never reaches "edge"
+    if (x < minX || y < minY || x > maxX || y > maxY)
+    {
+        return;
+    }
+
+    // base case - active tile found
+    if (tileMatrix[x][y].isActive())
+    {
+        openTiles.emplace_back(x, y);
+        return;
+    }
+
+    // recursive step - add all neighbors and call function on next tile 
+    if (x < maxX && !visited[x - minX + 1][y - minY])
+    {
+        tileStack.emplace(x + 1, y);
+        visited[x - minX + 1][y - minY] = true;
+    }
+    if (y > minY && !visited[x - minX][y - minY - 1])
+    {
+        tileStack.emplace(x, y - 1);
+        visited[x - minX][y - minY - 1] = true;
+    }
+    if (x > minX && !visited[x - minX - 1][y - minY])
+    {
+        tileStack.emplace(x - 1, y);
+        visited[x - minX - 1][y - minY] = true;
+    }
+    if (y < maxY && !visited[x - minX][y - minY + 1])
+    {
+        tileStack.emplace(x, y + 1);
+        visited[x - minX][y - minY + 1] = true;
+    }
+
+    while (!tileStack.empty())
+    {
+        Vec2i topVal = tileStack.top();
+        tileStack.pop();
+        findOpenTiles(topVal.x, topVal.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
+    }
+}

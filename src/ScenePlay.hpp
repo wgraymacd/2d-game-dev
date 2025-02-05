@@ -15,7 +15,7 @@ class ScenePlay : public Scene
 {
     struct PlayerConfig
     {
-        float GX, GY, CW, CH, SX, SY, SM, GRAVITY; // grid pos, bounding box size, speed in X and Y and max, gravity
+        float CW, CH, SX, SY, SM, GRAVITY; // bounding box size, speed in X and Y and max, gravity
         std::string BA; // bullet animation
     };
 
@@ -60,6 +60,7 @@ protected:
     void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
     float generateRandomFloat(float min, float max);
+    void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
 
     void updateState(std::chrono::duration<long long, std::nano>& lag) override;
     void onEnd() override;
