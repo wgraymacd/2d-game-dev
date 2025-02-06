@@ -606,7 +606,7 @@ void ScenePlay::sRender()
     /// draw all entity textures / animations in layers
 
     // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed, for operations below
+    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
     int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
 
     if (m_drawTextures)
@@ -629,14 +629,9 @@ void ScenePlay::sRender()
         std::stack<Vec2i> tileStack;
         std::vector<std::vector<bool>> visited(viewSize.x / m_cellSizePixels.x + 1, std::vector<bool>(viewSize.y / m_cellSizePixels.y + 1)); /// TODO: could add a visited property to each tile instead but this is good for now
 
-        // {
-        //     PROFILE_SCOPE("find open tiles");
         findOpenTiles(playerGridPosX, playerGridPosY, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
-        // }
 
         // gonna render everything we visited and nothing else (background and all that that isn't covered by a tile)
-        // {
-        //     PROFILE_SCOPE("drawing visited");
         for (int x = minX; x <= maxX; ++x)
         {
             for (int y = minY; y <= maxY; ++y)
@@ -660,7 +655,6 @@ void ScenePlay::sRender()
                 }
             }
         }
-        // }
 
         // player
         sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
@@ -691,7 +685,6 @@ void ScenePlay::sRender()
         vertices.emplace_back(static_cast<int>(window.getView().getCenter().x - viewSize.x / 2.0f), static_cast<int>(window.getView().getCenter().y + viewSize.y / 2.0f) + 1); /// TODO: these may not be necessary of players will never reach bottom of world
         vertices.emplace_back(static_cast<int>(window.getView().getCenter().x + viewSize.x / 2.0f) + 1, static_cast<int>(window.getView().getCenter().y + viewSize.y / 2.0f) + 1); /// TODO: these may not be necessary of players will never reach bottom of world
 
-
         for (const Vec2i& tileCoords : openTiles)
         {
             Vec2i corners[4] = { tileCoords,
@@ -708,22 +701,13 @@ void ScenePlay::sRender()
             }
         }
 
-        // std::cout << "START START START START" << std::endl;
-        // for (const auto& vertex : vertices)
-        // {
-        //     std::cout << vertex.x << " " << vertex.y << std::endl;
-        // }
-        // std::cout << "END END END END END END" << std::endl;
-
         const Vec2i playerPos = playerTrans.pos.to<int>(); /// TODO: keep float? too inacurate? reference or not?
         for (int i = 0; i < vertices.size(); ++i)
         {
             Vec2i& vertex = vertices[i];
-            // std::cout << "index is " << i << " and vertex is " << vertex.x << " " << vertex.y << std::endl;
             Vec2i ray = vertex - playerPos;
-
             float rayLength = ray.length();
-
+            Vec2f rayUnitVec = ray.to<float>() / rayLength;
             float slope = ray.slope();
             float reciprocalSlope = 1.0f / slope;
 
@@ -763,8 +747,8 @@ void ScenePlay::sRender()
                 yTravel = (m_cellSizePixels.y - (playerPos.y - (yCoord * m_cellSizePixels.y))) * yMoveHypDist;
             }
 
-            bool tileFound = false;
-            while (!tileFound && (xTravel < rayLength || yTravel < rayLength))
+            bool tileHit = false;
+            while (!tileHit && (xTravel < rayLength - 0.001f || yTravel < rayLength - 0.001f)) // important to have threshold here /// TODO: alternatively, could create a check for if the line has arrived in cell that has that vertex and there is no tile in it, might be able to have one loop for each ray this way; for now, use second loop below
             {
                 if (xTravel < yTravel)
                 {
@@ -777,10 +761,9 @@ void ScenePlay::sRender()
                     yTravel += yMoveHypDist * m_cellSizePixels.y;
                 }
 
-                // std::cout << "checking for tile at " << xCoord << " " << yCoord << "\n";
                 if (tileMatrix[xCoord][yCoord].isActive()) /// TODO: may want to implement bounds check or think more about this and edge cases like vertex on side of world
                 {
-                    tileFound = true;
+                    tileHit = true;
 
                     // remove vertex from vertices
                     vertex = vertices.back();
@@ -788,18 +771,44 @@ void ScenePlay::sRender()
                     --i;
                 }
             }
+
+            // if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
+            /// TODO: add a small bit of angle away from the vertex and tile it's on so that the sorting for the fan works, or do the 3 ray method if needed (see what's faster)
+            // while (!tileHit) // another loop to continue the ray to the next tile or edge of screen in the case that the vertex was visible
+            // {
+            //     if (xTravel < yTravel)
+            //     {
+            //         xCoord += rayStep.x;
+            //         xTravel += xMoveHypDist * m_cellSizePixels.x;
+
+            //         if (xCoord < minX || xCoord > maxX || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==? also, first two conditions always checked first?
+            //         {
+            //             tileHit = true;
+            //             vertices.push_back(playerPos + (rayUnitVec * xTravel).to<int>());
+            //         }
+            //     }
+            //     else
+            //     {
+            //         yCoord += rayStep.y;
+            //         yTravel += yMoveHypDist * m_cellSizePixels.y;
+
+            //         if (yCoord < minY || yCoord > maxY || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==?
+            //         {
+            //             tileHit = true;
+            //             vertices.push_back(playerPos + (rayUnitVec * yTravel).to<int>());
+            //         }
+            //     }
+            // }
         }
 
-        // if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
         // if vertex reached and not originally unique (keep repeats? aka tile right away if line continues), just keep vertex point, do nothing
         // somehow incorporate the fact that (maybe not here but somewhere) I want to see more than just one layer of tiles deep
             // idea: render all tiles who have a vertex included in the triangle fan
             // then propagate 50% light to the neighbors of those tiles if light < 100% (so we don't do it to those tiles), then to neighbors neighbors if light < 50% (again, the if's make sure we arent checking already checked tiles), etc.
 
-        // sort the reachable vertices in CCW order
+        // sort the reachable vertices in CCW order 
+        /// TODO: consider storing angle for each vertex in the vector, faster probably
         std::sort(vertices.begin(), vertices.end(), [&playerPos](const Vec2i& a, const Vec2i& b) { return a.angleFrom(playerPos) < b.angleFrom(playerPos); });
-
-
 
         // create triangle fan of vertices (pixels)
         std::vector<Vec2i> triangleFan;
@@ -830,7 +839,7 @@ void ScenePlay::sRender()
 
             sf::CircleShape dot(2); // Radius of 2 pixels
             dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) }); // Center the dot
-            dot.setFillColor(sf::Color::Red);
+            dot.setFillColor(sf::Color::Blue);
             window.draw(dot);
         }
         window.draw(fan);
@@ -945,6 +954,8 @@ void ScenePlay::sRender()
         // 1.1. cast rays to vertices of those tiles only (can manage) and do triangle fan method
         // 2. cast a certain number of rays equally spaced out (if all vertices on screen is too much) and walk along them until a tile is hit (not as precise, but could maybe blurr around and get better effect anyway?) (could define the number of rays based on tile size so that there is 1 per tile for tiles at edge of screen)
         // 2.1. even if missing a couple tiles with random rays, I could interpolate (just gen the fan) and draw the full tiles in between and it would likely be right
+        // 3. turn tile map into polygon with only outside edges (has other physics advantages as well for collisions and such and can have edges that don't align with axes and so on), only regen poly map if tile map changes, then use vertices from poly map with 3 ray per vertex method, could do line segment intersections (implemented in Physics) or incremental tile checks
+        // 3.1. https://www.youtube.com/watch?v=fc3nnG2CG8U&t=17s&ab_channel=javidx9
 
 
     /// TODO: light cone: see in direction of pointer only
