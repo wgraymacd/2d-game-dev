@@ -1,5 +1,5 @@
 # Current State of the Game
-
+![A screenshot of the game (if not showing, go to bin/sneakPeak.png)](bin/sneakPeak.png)
 
 # Big-Picture Goal:
 I am building a 2D video game from scratch using:
