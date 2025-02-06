@@ -57,5 +57,5 @@ asset config:
 
 #### misc:
 
-'p' pauses game
-'esc' goes back to main menu or quits if on main menu
+- 'p' pauses game
+- 'esc' goes back to main menu or quits if on main menu
