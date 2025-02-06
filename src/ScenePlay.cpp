@@ -842,7 +842,7 @@ void ScenePlay::sRender()
             dot.setFillColor(sf::Color::Blue);
             window.draw(dot);
         }
-        window.draw(fan);
+        window.draw(fan); /// TODO: still a lil goofy because of angle sorting (e.g., player center pos at same y as a tile, then both vertices visible so both lines at same angle and yeah, must fix)
 
 
         /// normal rendering without vision lighting:
