@@ -949,7 +949,7 @@ void ScenePlay::sRender()
         for (int i = 0; i < triangleFan.size(); ++i)
         {
             fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
-            fan[i].color = sf::Color(255, 255, 0, 100);
+            fan[i].color = sf::Color(255, 255, 255, 100);
 
             // sf::CircleShape dot(2);
             // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
