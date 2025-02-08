@@ -113,13 +113,14 @@ public:
         return x * vec.y - vec.x * y;
     }
 
-    /// @brief return the angle of the vector formed by vec - this from the x-axis
+    /// TODO: change this, it's a lil confusing naming, maybe just use angle
+    /// @brief return the angle of the vector formed by vec - this from the +x-axis, [-π, π]
     float angleFrom(const Vec2& vec) const
     {
         float angle = atan2f(y - vec.y, x - vec.x);
         return (angle >= 0) ? angle : (angle + 2 * M_PI);
 
-        // return atan2f(y - vec.y, x - vec.x);
+        // return atan2f(y - vec.y, x - vec.x); // returns angles from -π to π, implicitly casts arguments to floats
     }
 
     /// @brief get the length of this vector
@@ -131,10 +132,15 @@ public:
     /// @brief get this vector's slope
     float slope() const
     {
-        if (x == 0)
-            return std::numeric_limits<float>::max();
-        else
-            return static_cast<float>(y) / static_cast<float>(x);
+        if (x == 0) return std::numeric_limits<float>::max();
+        return static_cast<float>(y) / static_cast<float>(x);
+    }
+
+    Vec2 norm() const
+    {
+        float length = this->length();
+        if (length == 0) return Vec2(0, 0);
+        return Vec2(x / length, y / length);
     }
 };
 
@@ -160,6 +166,15 @@ namespace std
         std::size_t operator()(const Vec2i& v) const
         {
             return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1);
+        }
+    };
+
+    template <>
+    struct hash<Vec2f>
+    {
+        std::size_t operator()(const Vec2f& v) const
+        {
+            return std::hash<float>()(v.x) ^ (std::hash<float>()(v.y) << 1);
         }
     };
 }

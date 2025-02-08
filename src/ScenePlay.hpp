@@ -43,10 +43,10 @@ protected:
 
     // fps counter
     sf::Clock m_fpsClock;
-    sf::Text m_fpsText = sf::Text(m_game.assets().getFont("PixelCowboy"));
+    sf::Text m_fpsText = sf::Text(m_game.assets().getFont("font"));
 
     // grid text
-    sf::Text m_gridText = sf::Text(m_game.assets().getFont("PixelCowboy"));
+    sf::Text m_gridText = sf::Text(m_game.assets().getFont("font"));
 
 
     void init(); /// TODO: may add param here to differentiate between game types or something

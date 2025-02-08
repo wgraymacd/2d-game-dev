@@ -12,7 +12,7 @@
 //     const unsinged int m_cellSizePixels = GlobalSettings::cellSizePixels;
 
 //     std::string m_loadStep;
-//     sf::Text m_loadText = sf::Text(m_game.assets().getFont("PixelCowboy"));
+//     sf::Text m_loadText = sf::Text(m_game.assets().getFont("font"));
 
 //     void init();
 //     void onEnd() override;

@@ -129,7 +129,7 @@ class WorldGenerator
         std::vector<int> terrainHeights(m_worldTilesX);
         float terrainDelta = 20.0f; // controls max deviation from sea level
         float noiseScale = 0.5f;
-        float seaLevel = 50.0f; // number of tiles below the top of the screen
+        float seaLevel = m_worldTilesY / 5; // number of tiles below the top of the screen
         for (int x = 0; x < m_worldTilesX; ++x)
         {
             float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
