@@ -61,20 +61,16 @@ public:
     int damage = 1;
 
     CDamage() = default;
-    CDamage(int d)
-        : damage(d) {
-    }
+    CDamage(int d) : damage(d) {}
 };
 
 class CInvincibility : public Component
 {
 public:
-    int iframes = 0;
+    int timeRemaining = 0;
 
     CInvincibility() = default;
-    CInvincibility(int f)
-        : iframes(f) {
-    }
+    CInvincibility(int t) : timeRemaining(t) {}
 };
 
 class CHealth : public Component
@@ -114,24 +110,18 @@ public:
     bool blockVision = false;
 
     CBoundingBox() = default;
-    CBoundingBox(const Vec2i& s)
-        : size(s), halfSize(s.x / 2, s.y / 2) {
-    }
-    CBoundingBox(const Vec2i& s, bool m, bool v)
-        : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2.0f, s.y / 2.0f) {
-    }
+    CBoundingBox(const Vec2i& s) : size(s), halfSize(s.x / 2, s.y / 2) {}
+    CBoundingBox(const Vec2i& s, bool m, bool v) : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2.0f, s.y / 2.0f) {}
 };
 
 class CAnimation : public Component
 {
 public:
     Animation animation;
-    bool repeat = false;
+    bool repeat = false; // looping animation
 
     CAnimation() = default;
-    CAnimation(const Animation& animation, bool r)
-        : animation(animation), repeat(r) {
-    }
+    CAnimation(const Animation& animation, bool r) : animation(animation), repeat(r) {}
 };
 
 class CGravity : public Component

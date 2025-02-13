@@ -47,7 +47,7 @@ class Assets
         m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
     }
 
-    /// @brief add a static animation to the animation map
+    /// @brief add a static animation (region of texture atlas) to the animation map
     /// @param textureName texture atlas used
     /// @param position top left corner of texture region to be used
     /// @param size size in pixels of texture region
@@ -89,8 +89,6 @@ class Assets
     }
 
 public:
-    /// @brief required for pre-allocation of entity memory pool component vectors
-    Assets() = default;
 
     /// @brief loads all assets from asset configuration file
     /// @param path the file path to the asset configuration file

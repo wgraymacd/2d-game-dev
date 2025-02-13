@@ -1,6 +1,7 @@
 Texture Tiles ../bin/images/tiles.png
 Texture Blocks ../bin/images/blocks.png
 Texture Bullets ../bin/images/bullets.png
+Texture Weapons ../bin/images/gunsAtlas.png
 Static BlockClay Blocks 0 0 10 10 
 Static dirt Blocks 20 0 10 10 
 Static Grass Blocks 40 0 10 10 
@@ -17,6 +18,7 @@ Static BlockStoneGrass Blocks 0 60 10 10
 Static BlockWood3 Blocks 20 60 10 10 
 Static BlockGrass1 Blocks 40 60 10 10 
 Static BlockGrass2 Blocks 60 60 10 10 
-Static Bullet Bullets 303 154 13 3
+Static Bullet Bullets 290 151 13 3
+Static Weapon Weapons 2 169 84 31
 Sound Bullet ../bin/sounds/AR.wav
 Font font ../bin/fonts/font.ttf

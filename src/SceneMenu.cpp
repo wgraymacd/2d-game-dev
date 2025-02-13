@@ -42,7 +42,7 @@ void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
 /// @param action an Action to perform; action has a type and a name
 void SceneMenu::sDoAction(const Action& action)
 {
-    if (action.type() == "START")
+    if (action.type() == START)
     {
         if (action.name() == "UP")
         {

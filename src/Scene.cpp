@@ -8,9 +8,7 @@ class GameEngine; // forward declaration
 
 /// @brief constructs a new Scene object
 /// @param game a reference to the game's main engine; required by derived classes of Scene to access top-level methods for Scene changing, adding, game quiting, etc.
-Scene::Scene(GameEngine& game)
-    : m_game(game) {
-}
+Scene::Scene(GameEngine& game) : m_game(game) {}
 
 /// @brief maps an input to an action name
 /// @param input a key or mouse button

@@ -39,7 +39,6 @@ protected:
     bool m_drawTextures = true;
     bool m_drawMinimap = true;
     bool m_drawCollision = false;
-    bool m_drawGrid = false;
 
     // fps counter
     sf::Clock m_fpsClock;
@@ -67,17 +66,15 @@ protected:
     // void resizeView(const Vec2f& size); /// TODO: could also have no arguments and go check globalsettings windowsize since updated first, this func used if resizing needs to be specific to each scene
 
     /// TODO: group these to best handle single components for multiple entities at once
-    void sObjectMovement(); // read player state and input, modify player transform
-    void sObjectCollision(); // player transform, state, bounding box, and input, tile transform and health, bullet transform and damage
-    void sProjectiles(); // reads player input and weapon firerate, spawns bullets
-    void sLifespan(); // lifespan
-    void sDoAction(const Action& action) override; // modifies player input
-    void sAnimation(); // animation
+    void sObjectMovement(); // entity: state, input, transform
+    void sObjectCollision(); // entity: transform, state, bounding box, input, damage; tile: 
+    void sProjectiles(); // entity: input, firerate, transform, invincibility, damage, health; tile: health, type
+    void sLifespan(); // entity: lifespan
+    void sDoAction(const Action& action) override; // entity: input
+    void sAnimation(); // entity: animation
     void sAI(); // 
-    void sCamera(); // 
-    void sRender() override; // animations, transforms
-
-    void drawLine(const Vec2f& p1, const Vec2f& p2);
+    void sCamera(); // entity: transform
+    void sRender() override; // entity: animation, transform; tile: color
 
 public:
     ScenePlay(GameEngine& game); /// TODO: may add param here to differentiate between game types or something

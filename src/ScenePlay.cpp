@@ -51,7 +51,6 @@ void ScenePlay::init()
     registerAction(static_cast<int>(sf::Keyboard::Key::Escape), "QUIT");
     registerAction(static_cast<int>(sf::Keyboard::Key::T), "TOGGLE_TEXTURE");
     registerAction(static_cast<int>(sf::Keyboard::Key::C), "TOGGLE_COLLISION");
-    registerAction(static_cast<int>(sf::Keyboard::Key::G), "TOGGLE_GRID");
     registerAction(static_cast<int>(sf::Keyboard::Key::M), "TOGGLE_MAP");
 
     // player keyboard setup
@@ -110,8 +109,6 @@ void ScenePlay::loadGame()
             // tile->add<CTransform>(gridToMidPixel(gridX, gridY, tile));
 
             // tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
-
-            // std::cout << "added Tile: " << tile->id() << " " << tile->get<CAnimation>().animation.getName() << " " << tile->get<CTransform>().pos.x << ", " << tile->get<CTransform>().pos.y << std::endl;
         }
         else if (type == "Dec")
         {
@@ -155,8 +152,7 @@ void ScenePlay::generateWorld()
         - grow trees
         - reskin tiles process to make them all fit together nicely
         - fill in liquids
-        - illumiate everything, pretty it up
-        - use optimization so things aren't insanely slow
+        - illumiate everything, pretty it up, create edge vector if needed for polygon stuff and new ray casting (updated on changes thereafter)
     */
 
     // generate world and get tile positions
@@ -228,7 +224,7 @@ void ScenePlay::updateState(std::chrono::duration<long long, std::nano>& lag)
             sObjectCollision(); // then object collisions
             sProjectiles(); // then iterations of projectile movement and collisions, then projectile spawns
             sAI();
-            sAnimation(); // draw all animations (could move this around)
+            sAnimation(); // update all animations (could move this around)
             sCamera(); // finally, set camera
 
             m_entityManager.update(); // add and remove all entities staged during updates above
@@ -259,10 +255,11 @@ void ScenePlay::onEnd()
  * systems
  */
 
- /// @brief handle player, weapon, etc. movement per frame before bullet movement/collision (object = non-projectile)
+ /// @brief handle player, weapon, etc. movement per frame before bullet movement/collision (object = non-projectile); includes CTransform, CInput, CState
 void ScenePlay::sObjectMovement()
 {
     PROFILE_FUNCTION();
+
 
     /// player
 
@@ -272,8 +269,8 @@ void ScenePlay::sObjectMovement()
 
     Vec2f velToAdd(0.0f, 0.0f);
 
-    /// TODO: consider turing this into real physics
-    // gravity
+    /// TODO: consider turing all this into real physics
+
     float airResistance = 15.0f;
     if (playerTrans.velocity.y + m_playerConfig.GRAVITY >= airResistance)
     {
@@ -287,7 +284,6 @@ void ScenePlay::sObjectMovement()
     // no left or right input - slow down in x-direction (less if in air, more if on ground) until stopped
     if (!playerInput.left && !playerInput.right)
     {
-        // float friction = m_playerConfig.SX / 2.0f;
         // set friction value based on state
         float friction;
         if (playerState == "air")
@@ -310,6 +306,7 @@ void ScenePlay::sObjectMovement()
         }
     }
 
+    // move right until reaching max speed and face the direction we are moving in
     if (playerInput.right)
     {
         if (playerTrans.velocity.x + m_playerConfig.SX <= m_playerConfig.SM)
@@ -321,8 +318,7 @@ void ScenePlay::sObjectMovement()
             velToAdd.x = m_playerConfig.SM - playerTrans.velocity.x;
         }
 
-        playerTrans.scale.x = abs(playerTrans.scale.x);
-        /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
+        // playerTrans.scale.x = abs(playerTrans.scale.x);
     }
 
     if (playerInput.left)
@@ -336,8 +332,7 @@ void ScenePlay::sObjectMovement()
             velToAdd.x = -m_playerConfig.SM - playerTrans.velocity.x;
         }
 
-        playerTrans.scale.x = -abs(playerTrans.scale.x);
-        /// TODO: overrite if shooting in other direction (here or maybe in spawnBullet or something)
+        // playerTrans.scale.x = -abs(playerTrans.scale.x);
     }
 
     if (playerInput.up && playerInput.canJump)
@@ -363,27 +358,51 @@ void ScenePlay::sObjectMovement()
     //     if (playerInput.down)
     //     {
     //         playerState = "crouch";
-    //         std::cout << "playerState set to: " << playerState << std::endl;
     //     }
     //     else
     //     {
     //         playerState = "stand";
-    //         std::cout << "playerState set to: " << playerState << std::endl;
     //     }
     // }
 
-    /// weapons
-    /// TODO: finish this
+    // set scale based on mouse position
+    const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+    const Vec2f aimVec = worldTarget - playerTrans.pos;
+    if (aimVec.x < 0)
+    {
+        playerTrans.scale.x = -abs(playerTrans.scale.x);
+    }
+    else
+    {
+        playerTrans.scale.x = abs(playerTrans.scale.x);
+    }
+
+
+    /// weapons /// TODO: this
 
     for (Entity& weapon : m_entityManager.getEntities("weapon"))
     {
-        weapon.getComponent<CTransform>().pos = playerTrans.pos;
+        CTransform& weaponTrans = weapon.getComponent<CTransform>();
+        CBoundingBox& weaponBox = weapon.getComponent<CBoundingBox>();
+
+        weaponTrans.pos = playerTrans.pos + aimVec.norm() * weaponBox.halfSize.x;
+        weaponTrans.rotAngle = aimVec.angle();
+
+        // set scale based on mouse position
+        if (aimVec.x < 0)
+        {
+            weaponTrans.scale.y = -abs(weaponTrans.scale.x);
+        }
+        else
+        {
+            weaponTrans.scale.y = abs(weaponTrans.scale.x);
+        }
     }
 }
 
 /// TODO: modularize some of this if needed to reduce repition and make it easier to read
 /// TODO: increase efficiency with chunking or something like that, maybe a distance check or an in-frame/in-window check if possible
-/// @brief handle collisions and m_player CState updates
+/// @brief handle collisions and m_player CState updates; includes tile matrix, CTransform, CState, CBoundingBox, CInput
 void ScenePlay::sObjectCollision()
 {
     PROFILE_FUNCTION();
@@ -396,7 +415,7 @@ void ScenePlay::sObjectCollision()
     /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
 }
 
-/// @brief handle all weapon firing logic (and melee if implemented) and projectile movement
+/// @brief handle all weapon firing logic (and melee if implemented) and projectile movement; decoupled from other entities since updated multiple times per frame; includes CInput, CFireRate, CTransform, CDamage, CHealth, CType, tile matrix
 void ScenePlay::sProjectiles()
 {
     PROFILE_FUNCTION();
@@ -427,12 +446,12 @@ void ScenePlay::sProjectiles()
 }
 
 /// TODO: grouping similar actions (e.g., input actions like "JUMP", "LEFT", "RIGHT", etc.) into an enum or constants to avoid potential typos and improve maintainability. This way, your if-else chains would be more scalable if new actions are added
-/// @brief sets CInput variables according to action, no action logic here
+/// @brief sets CInput variables according to action, no action logic here; includes CInput
 void ScenePlay::sDoAction(const Action& action)
 {
     PROFILE_FUNCTION();
 
-    if (action.type() == "START")
+    if (action.type() == START)
     {
         if (action.name() == "TOGGLE_TEXTURE")
         {
@@ -441,10 +460,6 @@ void ScenePlay::sDoAction(const Action& action)
         else if (action.name() == "TOGGLE_COLLISION")
         {
             m_drawCollision = !m_drawCollision;
-        }
-        else if (action.name() == "TOGGLE_GRID")
-        {
-            m_drawGrid = !m_drawGrid;
         }
         else if (action.name() == "TOGGLE_MAP")
         {
@@ -475,7 +490,7 @@ void ScenePlay::sDoAction(const Action& action)
             m_player.getComponent<CInput>().shoot = true;
         }
     }
-    else if (action.type() == "END")
+    else if (action.type() == END)
     {
         if (action.name() == "LEFT")
         {
@@ -504,7 +519,7 @@ void ScenePlay::sAI()
 }
 
 /// TODO: finish this
-/// @brief updates all entities' lifespan and whatever else status
+/// @brief updates all entities' lifespan and whatever else status; includes CLifespan
 void ScenePlay::sLifespan()
 {
     PROFILE_FUNCTION();
@@ -569,7 +584,7 @@ void ScenePlay::sAnimation()
     // set animation of player based on its CState component
 }
 
-/// @brief handles camera view logic
+/// @brief handles camera view logic; includes CTransform
 void ScenePlay::sCamera()
 {
     PROFILE_FUNCTION();
@@ -591,7 +606,7 @@ void ScenePlay::sCamera()
     // view.move({ dx, dy });
 }
 
-/// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter
+/// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter; includes CTransform, CAnimation, tile matrix
 void ScenePlay::sRender()
 {
     PROFILE_FUNCTION();
@@ -685,7 +700,16 @@ void ScenePlay::sRender()
         // player
         sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
         playerSprite.setPosition(playerTrans.pos);
-        window.draw(m_player.getComponent<CAnimation>().animation.getSprite());
+        playerSprite.setScale(playerTrans.scale);
+        window.draw(playerSprite);
+
+        // weapons
+        CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
+        sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
+        weaponSprite.setPosition(weaponTrans.pos);
+        weaponSprite.setScale(weaponTrans.scale);
+        weaponSprite.setRotation(sf::radians(weaponTrans.rotAngle));
+        window.draw(weaponSprite);
 
         // bullets
         std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
@@ -734,7 +758,6 @@ void ScenePlay::sRender()
         {
             Vec2f& vertex = vertices[i];
             float rayAngle = vertex.angleFrom(playerPos);
-            std::cout << rayAngle << std::endl;
 
             /// for this method: if it's middle ray and reaches vertex, remove it; if it's side ray, let it go until it hits something and add a vertex there
             // for (int dTheta = -1; dTheta < 2; ++dTheta)
@@ -1161,22 +1184,8 @@ void ScenePlay::sRender()
  * helper functions
  */
 
- /// @brief helper function for grid drawing; draws line from p1 to p2 on the screen
-void ScenePlay::drawLine(const Vec2f& p1, const Vec2f& p2)
-{
-    PROFILE_FUNCTION();
-
-    sf::Vertex line[] =
-    {
-        {p1, sf::Color(255, 255, 255, 50)},
-        {p2, sf::Color(255, 255, 255, 50)}
-    };
-
-    m_game.window().draw(line, 2, sf::PrimitiveType::Lines);
-}
-
-/// @brief returns the midpoint of entity based on a given grid position
-/// TODO: eliminating this and just using the top-left positioning like SFML would probably save me seom computation time
+ /// @brief returns the midpoint of entity based on a given grid position
+ /// TODO: eliminating this and just using the top-left positioning like SFML would probably save me seom computation time
 Vec2f ScenePlay::gridToMidPixel(const float gridX, const float gridY, const Entity entity)
 {
     PROFILE_FUNCTION();
@@ -1212,16 +1221,19 @@ void ScenePlay::spawnPlayer()
     m_player = m_entityManager.addEntity("player");
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), true);
     m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 8, m_player)); /// TODO: make spawning in dynamic
-    m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH));
+    m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
     m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
+    // m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
 
-    // spawn player weapons
+    // spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
     m_weapon.addComponent<CFireRate>(12);
-    m_weapon.addComponent<CDamage>(100);
+    m_weapon.addComponent<CDamage>(50);
     m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos); /// TODO: make this a lil infront of player
+    m_weapon.addComponent<CBoundingBox>(Vec2i(40, 10), false, false); /// TODO: make this dynamic for each weapon
+    m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
     /// TODO: add animation, gravity, bounding box, transform, state, etc. since weapons will drop from player on death
 }
 
@@ -1230,22 +1242,23 @@ void ScenePlay::spawnBullet(Entity entity)
 {
     PROFILE_FUNCTION();
 
-    Vec2f& entityPos = entity.getComponent<CTransform>().pos;
+    CTransform& entityTrans = entity.getComponent<CTransform>();
+    CBoundingBox& entityBox = entity.getComponent<CBoundingBox>();
+    Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.rotAngle), sinf(entityTrans.rotAngle)) * entityBox.halfSize.x;
     float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
 
     const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-    const Vec2f bulletVec = worldTarget - entityPos;
+    const Vec2f bulletVec = worldTarget - entityTrans.pos;
 
     Entity bullet = m_entityManager.addEntity("bullet");
     bullet.addComponent<CTransform>
         (
-            entityPos,
-            bulletVec * bulletSpeed / worldTarget.dist(entityPos),
-            Vec2f(3.0f, 3.0f),
-            atanf(bulletVec.y / bulletVec.x)
+            spawnPos,
+            bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos),
+            Vec2f(2.0f, 2.0f),
+            entityTrans.rotAngle
         );
-    bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), true);
-    // bullet.addComponent<CBoundingBox>(bullet.getComponent<CAnimation>().animation.getSize());
+    bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
     bullet.addComponent<CLifespan>(300, m_currentFrame);
     bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
 
@@ -1502,24 +1515,46 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
 void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
 {
     PROFILE_FUNCTION();
-    // move existing projectiles
+
     /// TODO: works for bullets, change when adding more projectile types
-    for (Entity& p : projectiles)
+    for (Entity& projectile : projectiles)
     {
-        CTransform& pTrans = p.getComponent<CTransform>();
-        pTrans.prevPos = pTrans.pos;
-        pTrans.pos += pTrans.velocity;
+        // movement
+        CTransform& projectileTrans = projectile.getComponent<CTransform>();
+        projectileTrans.prevPos = projectileTrans.pos;
+        projectileTrans.pos += projectileTrans.velocity;
+
+        // collisions with players
+        // for (Entity& player : m_entityManager.getEntities("player"))
+        // {
+        //     if (Physics::IsInside(projectileTrans.pos, player) && player.getComponent<CInvincibility>().timeRemaining > 0)
+        //     {
+        //         int& projectileDamage = projectile.getComponent<CDamage>().damage;
+        //         int& playerHealth = player.getComponent<CHealth>().current;
+        //         playerHealth -= projectileDamage;
+        //         projectileDamage /= 2; /// TODO: tweak later
+
+        //         if (projectileDamage <= 0)
+        //         {
+        //             projectile.destroy();
+        //         }
+
+        //         if (playerHealth <= 0)
+        //         {
+        //             std::cout << "killed player" << std::endl;
+        //             player.destroy();
+        //         }
+        //     }
+        // }
     }
 
     // move other existing projectiles (like bombs, affected by gravity)
     /// TODO: remember to group these checks so that it's fast, might want to use "projectile" tag in entity manager and use an if (hasComponent(<CGravity>)) or whatever to find the bombs vs bullets vs whatever, all in one loop
+    /// TODO: be more ECS-like, put all manip of CTrans in the sMovement system or something
 
     // check for collisions with tiles
     std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
     projectileTileCollisions(tileMatrix, projectiles);
-
-    // check for collisions with other players
-    /// TODO: projectile-player collisions
 }
 
 float ScenePlay::generateRandomFloat(float min, float max)
@@ -1577,3 +1612,4 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
         findOpenTiles(topVal.x, topVal.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
     }
 }
+

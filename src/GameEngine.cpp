@@ -134,7 +134,7 @@ void GameEngine::sUserInput()
             if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyPressed->code));
                 action != currentScene()->getActionMap().end())
             {
-                currentScene()->sDoAction(Action(action->second, "START"));
+                currentScene()->sDoAction(Action(action->second, START));
             }
         }
         else if (const sf::Event::KeyReleased* keyReleased = event->getIf<sf::Event::KeyReleased>())
@@ -142,7 +142,7 @@ void GameEngine::sUserInput()
             if (auto action = currentScene()->getActionMap().find(static_cast<int>(keyReleased->code));
                 action != currentScene()->getActionMap().end())
             {
-                currentScene()->sDoAction(Action(action->second, "END"));
+                currentScene()->sDoAction(Action(action->second, END));
             }
         }
 
@@ -152,14 +152,14 @@ void GameEngine::sUserInput()
         {
             currentScene()->sDoAction(Action(
                 currentScene()->getActionMap().at(static_cast<int>(mousePressed->button) + sf::Keyboard::KeyCount),
-                "START"
+                START
             ));
         }
         else if (const sf::Event::MouseButtonReleased* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
         {
             currentScene()->sDoAction(Action(
                 currentScene()->getActionMap().at(static_cast<int>(mouseReleased->button) + sf::Keyboard::KeyCount),
-                "END"
+                END
             ));
         }
 

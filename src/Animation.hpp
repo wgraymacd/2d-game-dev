@@ -7,13 +7,13 @@
 class Animation
 {
     std::string m_name;
-    int m_frameCount;    // number of animaion frames in the animation
+    int m_frameCount; // number of animaion frames in the animation
     int m_frameDuration; // number of game frames in one animation frame
-    Vec2i m_atlasPosition;  // for regions of texture atlases
-    Vec2i m_size;               // dimensions of one animation frame
+    Vec2i m_atlasPosition; // for regions of texture atlases
+    Vec2i m_size; // dimensions of one animation frame
 
     int m_currentFrame; // current frame of the animation
-    int m_gameFramesPassed; // number of game frames passed since created, unsigned int doubles range of this value and has predictable wrap-around behavior, may have to use unsigned long if game is played for a long time (TODO: learn more about using unsigned before this, performance implications)
+    int m_gameFramesPassed; // number of game frames passed since created
     sf::Texture m_texture; // texture used for sprite
     sf::Sprite m_sprite = sf::Sprite(m_texture);
     /// TODO: may be a better way to fix this defualt constructor problem than using a default texture and just replacing it

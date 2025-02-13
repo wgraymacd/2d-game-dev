@@ -4,16 +4,22 @@
 
 #include <string>
 
+enum ActionType
+{
+    START = 0,
+    END = 1
+};
+
 class Action
 {
     std::string m_name;
-    std::string m_type;
+    ActionType m_type;
 
 public:
 
     Action() = default;
 
-    Action(const std::string& name, const std::string& type)
+    Action(const std::string& name, const ActionType type)
         : m_name(name), m_type(type) {
     }
 
@@ -22,7 +28,7 @@ public:
         return m_name;
     }
 
-    const std::string& type() const
+    const ActionType type() const
     {
         return m_type;
     }

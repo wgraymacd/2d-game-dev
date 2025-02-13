@@ -123,6 +123,13 @@ public:
         // return atan2f(y - vec.y, x - vec.x); // returns angles from -π to π, implicitly casts arguments to floats
     }
 
+    /// @brief return the angle of the vector from the +x-axis, [-π, π]
+    float angle() const
+    {
+        float angle = atan2f(y, x);
+        return (angle >= 0) ? angle : (angle + 2 * M_PI);
+    }
+
     /// @brief get the length of this vector
     float length() const
     {
@@ -136,6 +143,8 @@ public:
         return static_cast<float>(y) / static_cast<float>(x);
     }
 
+    /// @brief return this vector's unit vector
+    /// @return 
     Vec2 norm() const
     {
         float length = this->length();
