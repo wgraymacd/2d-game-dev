@@ -16,9 +16,9 @@ namespace GlobalSettings
     // constexpr: constant, hardcoded, known at compile time, never changes
 
     /// TODO: change these types to minimum possible storage with uint16_t and whatever
-    inline Vec2i windowSize = { 1280, 720 }; // default value, overriden by fullscreen mode
+    inline Vec2i windowSize = { 1920, 1080 }; // default value, overriden by fullscreen mode
     inline const int frameRate = 120;
     inline const Vec2i worldMaxCells = { 1000, 1000 };
-    inline const Vec2i cellSizePixels = { 10, 10 };
+    inline const int cellSizePixels = 10;
     inline const EntityID worldMaxEntities = 1000; // not including tiles or other things outside of main entity memory pool
 }

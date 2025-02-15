@@ -64,6 +64,7 @@ void GameEngine::init(const std::string& path)
 
     GlobalSettings::windowSize = { static_cast<int>(modes[0].size.x), static_cast<int>(modes[0].size.y) }; /// TODO: make windowSize Vec2ui? See when doing data type shit
     m_window.create(sf::VideoMode(modes[0].size), "Game", sf::Style::Default); /// TODO: should be a fullscreen option here
+    std::cout << "created window: " << modes[0].size.x << " x " << modes[0].size.y << std::endl;
 
     // m_window.create(sf::VideoMode(GlobalSettings::windowSize), "Game");
     m_window.setFramerateLimit(GlobalSettings::frameRate);

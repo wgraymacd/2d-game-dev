@@ -22,17 +22,17 @@ class ScenePlay : public Scene
 protected:
     // tile grid
     const Vec2i m_worldMaxCells = GlobalSettings::worldMaxCells; // bottom-right corner of world (grid coords)
-    const Vec2i m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
-    const Vec2i m_worldMaxPixels = { m_cellSizePixels.x * m_worldMaxCells.x, m_cellSizePixels.y * m_worldMaxCells.y };
+    const int m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
+    const Vec2i m_worldMaxPixels = { m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
 
-    // views
+    // views and textures
     sf::View m_mainView = sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()); // center, size
-    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, { m_cellSizePixels.x * 250.0f, m_cellSizePixels.y * 250.0f }); // center, size
+    sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
+    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, { m_cellSizePixels * 250.0f, m_cellSizePixels * 250.0f }); // center, size
 
     // entities
     EntityManager m_entityManager = EntityManager(m_worldMaxCells, m_cellSizePixels);
-    Entity m_player = m_entityManager.addEntity("player");
-    Entity m_weapon = m_entityManager.addEntity("weapon");
+    Entity m_player, m_weapon; // commonly used
     PlayerConfig m_playerConfig;
 
     // rendering
@@ -44,10 +44,6 @@ protected:
     sf::Clock m_fpsClock;
     sf::Text m_fpsText = sf::Text(m_game.assets().getFont("font"));
 
-    // grid text
-    sf::Text m_gridText = sf::Text(m_game.assets().getFont("font"));
-
-
     void init(); /// TODO: may add param here to differentiate between game types or something
 
     void loadGame(); /// TODO: may add param here to differentiate between game types or something
@@ -57,6 +53,8 @@ protected:
     void updateProjectiles(std::vector<Entity>& bullets);
     void playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix);
     void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
+    void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
+    void spawnRagdoll(Entity& player, Entity& bullet);
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
     float generateRandomFloat(float min, float max);
     void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
@@ -69,7 +67,7 @@ protected:
     void sObjectMovement(); // entity: state, input, transform
     void sObjectCollision(); // entity: transform, state, bounding box, input, damage; tile: 
     void sProjectiles(); // entity: input, firerate, transform, invincibility, damage, health; tile: health, type
-    void sLifespan(); // entity: lifespan
+    void sStatus(); // entity: lifespan, invincibility
     void sDoAction(const Action& action) override; // entity: input
     void sAnimation(); // entity: animation
     void sAI(); // 

@@ -1,6 +1,7 @@
 /// TODO: multithreading
 /// TODO: worry about signed vs unsigned and size and even size_t (adapts to platform's word size) and all that later after learning more about performance differences and such (e.g., may not want to mix signed and unsigned ints like uint32_t and int8_t)
 /// TODO: in some cases processing a 64-bit int is faster than a 32-bit one (or 32 faster than 16), but in many cases memory is what slows down a program, so just have to test between memory efficiency and CPU efficiency
+/// TODO: render tile layer (and any other things) at the minimum resolution in it's own view, then scale the size of that view to match with others (this way the resolution of the tile map can be shit (and minimap) but still look the same, and the character and guns and all can be great, can even put back in textures for tiles probably)
 
 #include "Timer.hpp"
 #include "Globals.hpp"
@@ -22,6 +23,7 @@
 #include <SFML/Audio.hpp>
 #include <string>
 #include <vector>
+#include <array>
 #include <fstream>
 #include <chrono>
 #include <random> // number generation for colors of blocks
@@ -60,9 +62,6 @@ void ScenePlay::init()
 
     // player mouse setup
     registerAction(static_cast<int>(sf::Mouse::Button::Left), "SHOOT", true);
-
-    // grid text setup
-    m_gridText.setCharacterSize(12);
 
     // fps counter setup
     m_fpsText.setCharacterSize(12);
@@ -219,7 +218,7 @@ void ScenePlay::updateState(std::chrono::duration<long long, std::nano>& lag)
         {
             // this can be infinite loop if it takes longer to do all this than the time per frame
             /// TODO: think about order here if it even matters
-            sLifespan(); // lifespan calculation first to not waste calculations on dead entities
+            sStatus(); // lifespan and invincibility time calculations first to not waste calculations on dead entities
             sObjectMovement(); // object movement
             sObjectCollision(); // then object collisions
             sProjectiles(); // then iterations of projectile movement and collisions, then projectile spawns
@@ -260,143 +259,166 @@ void ScenePlay::sObjectMovement()
 {
     PROFILE_FUNCTION();
 
+    float airResistance = 15.0f; // m/s slow-down
 
-    /// player
-
-    std::string& playerState = m_player.getComponent<CState>().state;
-    CInput& playerInput = m_player.getComponent<CInput>();
-    CTransform& playerTrans = m_player.getComponent<CTransform>();
-
-    Vec2f velToAdd(0.0f, 0.0f);
-
-    /// TODO: consider turing all this into real physics
-
-    float airResistance = 15.0f;
-    if (playerTrans.velocity.y + m_playerConfig.GRAVITY >= airResistance)
+    // player
+    if (m_player.isActive())
     {
-        velToAdd.y += airResistance - playerTrans.velocity.y;
-    }
-    else
-    {
-        velToAdd.y += m_playerConfig.GRAVITY;
-    }
+        std::string& playerState = m_player.getComponent<CState>().state;
+        CInput& playerInput = m_player.getComponent<CInput>();
+        CTransform& playerTrans = m_player.getComponent<CTransform>();
+        CGravity& playerGrav = m_player.getComponent<CGravity>();
 
-    // no left or right input - slow down in x-direction (less if in air, more if on ground) until stopped
-    if (!playerInput.left && !playerInput.right)
-    {
-        // set friction value based on state
-        float friction;
-        if (playerState == "air")
-        {
-            friction = 0.2f;
-        }
-        else // if (playerState == "run")
-        {
-            friction = 1.0f;
-        }
+        Vec2f velToAdd(0.0f, 0.0f);
 
-        // slow down until stopped
-        if (abs(playerTrans.velocity.x) >= friction)
+        /// TODO: consider turing all this into real physics
+
+        if (playerTrans.velocity.y + playerGrav.gravity >= airResistance)
         {
-            velToAdd.x += (playerTrans.velocity.x > 0 ? -friction : friction);
+            velToAdd.y += airResistance - playerTrans.velocity.y;
         }
         else
         {
-            velToAdd.x -= playerTrans.velocity.x;
+            velToAdd.y += playerGrav.gravity;
         }
-    }
 
-    // move right until reaching max speed and face the direction we are moving in
-    if (playerInput.right)
-    {
-        if (playerTrans.velocity.x + m_playerConfig.SX <= m_playerConfig.SM)
+        // no left or right input - slow down in x-direction (less if in air, more if on ground) until stopped
+        if (!playerInput.left && !playerInput.right)
         {
-            velToAdd.x += m_playerConfig.SX;
+            // set friction value based on state
+            float friction;
+            if (playerState == "air")
+            {
+                friction = 0.2f;
+            }
+            else // if (playerState == "run")
+            {
+                friction = 1.0f;
+            }
+
+            // slow down until stopped
+            if (abs(playerTrans.velocity.x) >= friction)
+            {
+                velToAdd.x += (playerTrans.velocity.x > 0 ? -friction : friction);
+            }
+            else
+            {
+                velToAdd.x -= playerTrans.velocity.x;
+            }
         }
-        else
+
+        // move right until reaching max speed and face the direction we are moving in
+        if (playerInput.right)
         {
-            velToAdd.x = m_playerConfig.SM - playerTrans.velocity.x;
+            if (playerTrans.velocity.x + m_playerConfig.SX <= m_playerConfig.SM)
+            {
+                velToAdd.x += m_playerConfig.SX;
+            }
+            else
+            {
+                velToAdd.x = m_playerConfig.SM - playerTrans.velocity.x;
+            }
+
+            // playerTrans.scale.x = abs(playerTrans.scale.x);
         }
 
-        // playerTrans.scale.x = abs(playerTrans.scale.x);
-    }
-
-    if (playerInput.left)
-    {
-        if (playerTrans.velocity.x - m_playerConfig.SX >= -m_playerConfig.SM)
+        if (playerInput.left)
         {
-            velToAdd.x -= m_playerConfig.SX;
+            if (playerTrans.velocity.x - m_playerConfig.SX >= -m_playerConfig.SM)
+            {
+                velToAdd.x -= m_playerConfig.SX;
+            }
+            else
+            {
+                velToAdd.x = -m_playerConfig.SM - playerTrans.velocity.x;
+            }
+
+            // playerTrans.scale.x = -abs(playerTrans.scale.x);
         }
-        else
+
+        if (playerInput.up && playerInput.canJump)
         {
-            velToAdd.x = -m_playerConfig.SM - playerTrans.velocity.x;
+            velToAdd.y -= m_playerConfig.SY;
+            playerInput.canJump = false; // set to true in sCollision (must see if on the ground)
         }
 
-        // playerTrans.scale.x = -abs(playerTrans.scale.x);
-    }
+        // on release of jump key
+        /// TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
+        if (!playerInput.up && playerTrans.velocity.y < 0)
+        {
+            playerTrans.velocity.y = 0;
+        }
 
-    if (playerInput.up && playerInput.canJump)
-    {
-        velToAdd.y -= m_playerConfig.SY;
-        playerInput.canJump = false; // set to true in sCollision (must see if on the ground)
-    }
+        playerTrans.velocity += velToAdd;
+        playerTrans.prevPos = playerTrans.pos;
+        playerTrans.pos += playerTrans.velocity;
 
-    // on release of jump key
-    /// TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
-    if (!playerInput.up && playerTrans.velocity.y < 0)
-    {
-        playerTrans.velocity.y = 0;
-    }
-
-    playerTrans.velocity += velToAdd;
-    playerTrans.prevPos = playerTrans.pos;
-    playerTrans.pos += playerTrans.velocity;
-
-    /// TODO: have crouching? does this then go in sUserInput?
-    // if (playerTrans.velocity.x == 0 && playerTrans.velocity.y == 0)
-    // {
-    //     if (playerInput.down)
-    //     {
-    //         playerState = "crouch";
-    //     }
-    //     else
-    //     {
-    //         playerState = "stand";
-    //     }
-    // }
-
-    // set scale based on mouse position
-    const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-    const Vec2f aimVec = worldTarget - playerTrans.pos;
-    if (aimVec.x < 0)
-    {
-        playerTrans.scale.x = -abs(playerTrans.scale.x);
-    }
-    else
-    {
-        playerTrans.scale.x = abs(playerTrans.scale.x);
-    }
-
-
-    /// weapons /// TODO: this
-
-    for (Entity& weapon : m_entityManager.getEntities("weapon"))
-    {
-        CTransform& weaponTrans = weapon.getComponent<CTransform>();
-        CBoundingBox& weaponBox = weapon.getComponent<CBoundingBox>();
-
-        weaponTrans.pos = playerTrans.pos + aimVec.norm() * weaponBox.halfSize.x;
-        weaponTrans.rotAngle = aimVec.angle();
+        /// TODO: have crouching? does this then go in sUserInput?
+        // if (playerTrans.velocity.x == 0 && playerTrans.velocity.y == 0)
+        // {
+        //     if (playerInput.down)
+        //     {
+        //         playerState = "crouch";
+        //     }
+        //     else
+        //     {
+        //         playerState = "stand";
+        //     }
+        // }
 
         // set scale based on mouse position
+        const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+        const Vec2f aimVec = worldTarget - playerTrans.pos;
         if (aimVec.x < 0)
         {
-            weaponTrans.scale.y = -abs(weaponTrans.scale.x);
+            playerTrans.scale.x = -abs(playerTrans.scale.x);
         }
         else
         {
-            weaponTrans.scale.y = abs(weaponTrans.scale.x);
+            playerTrans.scale.x = abs(playerTrans.scale.x);
         }
+
+        // weapon held by player
+        for (Entity& weapon : m_entityManager.getEntities("weapon"))
+        {
+            CTransform& weaponTrans = weapon.getComponent<CTransform>();
+            CBoundingBox& weaponBox = weapon.getComponent<CBoundingBox>();
+
+            weaponTrans.pos = playerTrans.pos + aimVec.norm() * weaponBox.halfSize.x;
+            weaponTrans.angle = aimVec.angle();
+
+            // set scale based on mouse position
+            if (aimVec.x < 0)
+            {
+                weaponTrans.scale.y = -abs(weaponTrans.scale.x);
+            }
+            else
+            {
+                weaponTrans.scale.y = abs(weaponTrans.scale.x);
+            }
+        }
+    }
+
+    // ragdolls
+    for (Entity& radgoll : m_entityManager.getEntities("ragdoll"))
+    {
+        CTransform& ragTrans = radgoll.getComponent<CTransform>();
+        CBoundingBox& ragBox = radgoll.getComponent<CBoundingBox>();
+        CGravity& ragGrav = radgoll.getComponent<CGravity>();
+
+        if (ragTrans.velocity.y + ragGrav.gravity >= airResistance)
+        {
+            ragTrans.velocity.y += airResistance - ragTrans.velocity.y;
+        }
+        else
+        {
+            ragTrans.velocity.y += ragGrav.gravity;
+        }
+
+        ragTrans.prevPos = ragTrans.pos;
+        ragTrans.pos += ragTrans.velocity;
+        ragTrans.prevAngle = ragTrans.angle;
+        ragTrans.angle += ragTrans.angularVelocity;
     }
 }
 
@@ -413,6 +435,77 @@ void ScenePlay::sObjectCollision()
     playerTileCollisions(tileMatrix);
 
     /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
+
+    // ragdoll-tile collisions
+    for (Entity& rag : m_entityManager.getEntities("ragdoll"))
+    {
+        CTransform& trans = rag.getComponent<CTransform>();
+        CBoundingBox& box = rag.getComponent<CBoundingBox>();
+
+        // check entity vertices inside tiles
+        std::array<Vec2f, 4> vertices;
+        float halfDiag = sqrtf(box.size.x * box.size.x + box.size.y * box.size.y) / 2.0f;
+        float angleToVertex0 = sinf(box.halfSize.y / halfDiag) + trans.angle; // bottom-right (without trans.angle)
+        float angleToVertex1 = M_PI - angleToVertex0; // bottom-left (without trans.angle)
+        float angleToVertex2 = M_PI + angleToVertex0;
+        float angleToVertex3 = 2.0f * M_PI - angleToVertex0;
+        vertices[0] = trans.pos + Vec2f(cosf(angleToVertex0) * halfDiag, sinf(angleToVertex0) * halfDiag);
+        vertices[1] = trans.pos + Vec2f(cosf(angleToVertex1) * halfDiag, sinf(angleToVertex1) * halfDiag);
+        vertices[2] = trans.pos + Vec2f(cosf(angleToVertex2) * halfDiag, sinf(angleToVertex2) * halfDiag);
+        vertices[3] = trans.pos + Vec2f(cosf(angleToVertex3) * halfDiag, sinf(angleToVertex3) * halfDiag);
+
+        /// TODO: improve this with actual previous angle (this assumes previous angular velocity is the same as current) or change entirely
+        std::array<Vec2f, 4> prevVertices;
+        angleToVertex0 = sinf(box.halfSize.y / halfDiag) + trans.prevAngle;
+        angleToVertex1 = M_PI - angleToVertex0;
+        angleToVertex2 = M_PI + angleToVertex0;
+        angleToVertex3 = 2.0f * M_PI - angleToVertex0;
+        prevVertices[0] = trans.prevPos + Vec2f(cosf(angleToVertex0) * halfDiag, sinf(angleToVertex0) * halfDiag);
+        prevVertices[1] = trans.prevPos + Vec2f(cosf(angleToVertex1) * halfDiag, sinf(angleToVertex1) * halfDiag);
+        prevVertices[2] = trans.prevPos + Vec2f(cosf(angleToVertex2) * halfDiag, sinf(angleToVertex2) * halfDiag);
+        prevVertices[3] = trans.prevPos + Vec2f(cosf(angleToVertex3) * halfDiag, sinf(angleToVertex3) * halfDiag);
+
+        // std::cout << "halfDiag: " << halfDiag << std::endl;
+        // for (int i = 0; i < 4; ++i)
+        // {
+        //     std::cout << "angleToVertex: " << angleToVertex0 << " " << angleToVertex1 << " " << angleToVertex2 << " " << angleToVertex3 << std::endl;
+        //     std::cout << "vertex " << i << ": " << vertices[i].x << " " << vertices[i].y << std::endl;
+        // }
+
+        for (int i = 0; i < 4; ++i)
+        {
+            Vec2f vert = vertices[i];
+            Vec2f prevVert = prevVertices[i];
+            Vec2i gridPos = vert.to<int>() / m_cellSizePixels;
+            Vec2i prevGridPos = prevVert.to<int>() / m_cellSizePixels;
+
+            if (tileMatrix[gridPos.x][gridPos.y].isActive()) // vertex inside tile
+            {
+                std::cout << "collision with vertex " << vert.x << " " << vert.y << " at grid pos " << gridPos.x << " " << gridPos.y << std::endl;
+
+                if (prevGridPos.x < gridPos.x) // collided from the left
+                {
+                    trans.pos.x -= vert.x - m_cellSizePixels * gridPos.x; // push entity out of tile
+                    Physics::ForceEntity(rag, Vec2f((prevVert.x - vert.x), 0.0f) * 0.1f, vert);
+                }
+                else if (prevGridPos.x > gridPos.x) // collided from the right
+                {
+                    trans.pos.x += m_cellSizePixels - (vert.x - m_cellSizePixels * gridPos.x);
+                    Physics::ForceEntity(rag, Vec2f((prevVert.x - vert.x), 0.0f) * 0.1f, vert);
+                }
+                else if (prevGridPos.y > gridPos.y) //  collided from the bottom
+                {
+                    trans.pos.y += m_cellSizePixels - (vert.y - m_cellSizePixels * gridPos.y);
+                    Physics::ForceEntity(rag, Vec2f(0.0f, (prevVert.y - vert.y)) * 0.1f, vert);
+                }
+                else // collided from the top
+                {
+                    trans.pos.y -= vert.y - m_cellSizePixels * gridPos.y;
+                    Physics::ForceEntity(rag, Vec2f(0.0f, (prevVert.y - vert.y)) * 0.1f, vert);
+                }
+            }
+        }
+    }
 }
 
 /// @brief handle all weapon firing logic (and melee if implemented) and projectile movement; decoupled from other entities since updated multiple times per frame; includes CInput, CFireRate, CTransform, CDamage, CHealth, CType, tile matrix
@@ -519,15 +612,15 @@ void ScenePlay::sAI()
 }
 
 /// TODO: finish this
-/// @brief updates all entities' lifespan and whatever else status; includes CLifespan
-void ScenePlay::sLifespan()
+/// @brief updates all entities' lifespan and whatever else status; includes CLifespan, CInvincibility
+void ScenePlay::sStatus()
 {
     PROFILE_FUNCTION();
 
     /// TODO: do same locational thing here as with collision and tileMatrix[x][y]
     /// TODO: may want to separate lifespan and health since shit is stored so that components are cached together, or change the way components and entities are stored
 
-    // bullets have lifespan and health
+    // bullets lifespan
     for (Entity& e : m_entityManager.getEntities("bullet"))
     {
         int& lifespan = e.getComponent<CLifespan>().lifespan;
@@ -537,14 +630,22 @@ void ScenePlay::sLifespan()
         }
         else
         {
-            lifespan--;
+            --lifespan;
         }
     }
 
-    /// TODO: player has health
+    // players have invincibility times
+    for (Entity& e : m_entityManager.getEntities("player"))
+    {
+        int& invTime = e.getComponent<CInvincibility>().timeRemaining;
+        if (invTime > 0)
+        {
+            --invTime;
+        }
+    }
 
-    // old code
-    // for (auto& e : m_entityManager.getEntities())
+    /// TODO: old code that may still be viable, test against current code later, good to iterate through single components at a time for memory speed
+    // for (Entity& e : m_entityManager.getEntities())
     // {
     //     // lifespan
     //     if (e.hasComponent<CLifespan>())
@@ -618,462 +719,499 @@ void ScenePlay::sRender()
     const CTransform& playerTrans = m_player.getComponent<CTransform>();
     const std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
 
+
     /// draw all entity textures / animations in layers
 
     // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
-    int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
+    Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
 
     if (m_drawTextures)
-    {
+
         PROFILE_SCOPE("rendering textures");
 
-        const Vec2f& viewSize = m_mainView.getSize(); //  window size is the view size now
+    const Vec2f& mainViewSize = m_mainView.getSize(); //  window size is the view size now
 
-        int horizontalCheckLength = viewSize.x / m_cellSizePixels.x / 2.0f;
-        int verticalCheckLength = viewSize.y / m_cellSizePixels.y / 2.0f;
+    Vec2i checkLength = (mainViewSize / m_cellSizePixels / 2.0f).to<int>();
 
-        // limits on grid coords to check
-        int minX = std::max(0, playerGridPosX - horizontalCheckLength);
-        int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength);
-        int minY = std::max(0, playerGridPosY - verticalCheckLength);
-        int maxY = std::min(m_worldMaxCells.y - 1, playerGridPosY + verticalCheckLength);
+    // limits on grid coords to check
+    int minX = std::max(0, playerGridPos.x - checkLength.x);
+    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
+    int minY = std::max(0, playerGridPos.y - checkLength.y);
+    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
 
-        // trying method 1 for visible tiles
-        std::vector<Vec2i> openTiles; /// TODO: use these for vertices method, might not even need it and could just use visited
-        std::stack<Vec2i> tileStack;
-        std::vector<std::vector<bool>> visited(viewSize.x / m_cellSizePixels.x + 1, std::vector<bool>(viewSize.y / m_cellSizePixels.y + 1)); /// TODO: could add a visited property to each tile instead but this is good for now
+    // find open air tiles method for visible tiles
+    std::vector<Vec2i> openTiles; /// TODO: use these for vertices method, might not even need it and could just use visited
+    std::stack<Vec2i> tileStack;
+    std::vector<std::vector<bool>> visited(mainViewSize.x / m_cellSizePixels + 1, std::vector<bool>(mainViewSize.y / m_cellSizePixels + 1)); // + 1 because including min and max values /// TODO: could add a visited property to each tile instead but this is good for now
 
-        findOpenTiles(playerGridPosX, playerGridPosY, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
+    findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
 
-        // gonna render everything we visited and nothing else (background and all that that isn't covered by a tile)
-        for (int x = minX; x <= maxX; ++x)
+    // gonna render tiles visited
+    m_tileTexture.clear();
+    for (int x = minX; x <= maxX; ++x)
+    {
+        for (int y = minY; y <= maxY; ++y)
         {
-            for (int y = minY; y <= maxY; ++y)
+            if (visited[x - minX][y - minY])
             {
-                if (visited[x - minX][y - minY])
+                if (tileMatrix[x][y].isActive())
                 {
-                    if (tileMatrix[x][y].isActive())
-                    {
-                        sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
-                        CColor& color = tileMatrix[x][y].getComponent<CColor>();
-                        block.setFillColor(sf::Color(color.r, color.g, color.b));
-                        block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
-                        window.draw(block);
+                    sf::RectangleShape block = sf::RectangleShape({ 1, 1 }); // 1 pixel
+                    CColor& color = tileMatrix[x][y].getComponent<CColor>();
+                    block.setFillColor(sf::Color(color.r, color.g, color.b));
+                    block.setPosition({ static_cast<float>(x - minX), static_cast<float>(y - minY) });
+                    m_tileTexture.draw(block);
 
-                        /// TODO: draw neighbors with less lighting
-                        // if (x >= minX && tileMatrix[x - 1][y].isActive() && tileMatrix[x - 1][y].light < 1.0f)
-                        // {
-                        //     color = tileMatrix[x - 1][y].getComponent<CColor>();
-                        //     block.setFillColor(sf::Color(color.r, color.g, color.b, 0.5f));
-                        //     block.setPosition({ static_cast<float>((x - 1) * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
-                        //     window.draw(block);
-                        //     if (check this one's neighbors for light < 0.5f)
-                        //     {
+                    /// TODO: draw neighbors with less lighting
+                    // if (x >= minX && tileMatrix[x - 1][y].isActive() && tileMatrix[x - 1][y].light < 1.0f)
+                    // {
+                    //     color = tileMatrix[x - 1][y].getComponent<CColor>();
+                    //     block.setFillColor(sf::Color(color.r, color.g, color.b, 0.5f));
+                    //     block.setPosition({ static_cast<float>((x - 1) * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
+                    //     window.draw(block);
+                    //     if (check this one's neighbors for light < 0.5f)
+                    //     {
 
-                        //     }
-                        // }
-                        // if (x <= maxX && tileMatrix[x + 1][y].isActive() && tileMatrix[x - 1][y].light < 1.0f)
-                        // {
+                    //     }
+                    // }
+                    // if (x <= maxX && tileMatrix[x + 1][y].isActive() && tileMatrix[x - 1][y].light < 1.0f)
+                    // {
 
-                        // }
-                        // if (y >= minY && tileMatrix[x][y - 1].isActive() && tileMatrix[x - 1][y].light < 1.0f)
-                        // {
+                    // }
+                    // if (y >= minY && tileMatrix[x][y - 1].isActive() && tileMatrix[x - 1][y].light < 1.0f)
+                    // {
 
-                        // }
-                        // if (y <= maxY && tileMatrix[x][y + 1].isActive() && tileMatrix[x - 1][y].light < 1.0f)
-                        // {
+                    // }
+                    // if (y <= maxY && tileMatrix[x][y + 1].isActive() && tileMatrix[x - 1][y].light < 1.0f)
+                    // {
 
-                        // }
-                    }
-                    else
-                    {
-                        sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
-                        block.setFillColor(sf::Color(100, 100, 100));
-                        block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
-                        window.draw(block);
-                    }
+                    // }
                 }
+                /// TODO: render visited backgrounds and decoration and such differently if they arent 10x10 sized pixels only (static background blocks can be I suppose, but not the main parallax background)
+                // else
+                // {
+                //     sf::RectangleShape block = sf::RectangleShape({ static_cast<float>(m_cellSizePixels), static_cast<float>(m_cellSizePixels) });
+                //     block.setFillColor(sf::Color(100, 100, 100));
+                //     block.setPosition({ static_cast<float>(x * m_cellSizePixels), static_cast<float>(y * m_cellSizePixels) });
+                //     window.draw(block);
+                // }
             }
         }
+    }
+    m_tileTexture.display();
+    sf::Sprite scaledTiles(m_tileTexture.getTexture()); /// TODO: consider another approach if sprite creation is long
+    scaledTiles.setScale({ static_cast<float>(m_cellSizePixels), static_cast<float>(m_cellSizePixels) });
+    scaledTiles.setPosition({ static_cast<float>(minX * m_cellSizePixels), static_cast<float>(minY * m_cellSizePixels) });
+    window.draw(scaledTiles);
 
-        // player
+    // players
+    if (m_player.isActive()) /// TODO: maybe change this to for all players or something
+    {
+        // player 
         sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
         playerSprite.setPosition(playerTrans.pos);
         playerSprite.setScale(playerTrans.scale);
         window.draw(playerSprite);
 
-        // weapons
-        CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
-        sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
-        weaponSprite.setPosition(weaponTrans.pos);
-        weaponSprite.setScale(weaponTrans.scale);
-        weaponSprite.setRotation(sf::radians(weaponTrans.rotAngle));
-        window.draw(weaponSprite);
+        // health bar
+        sf::RectangleShape healthBarOutline({ 30, 5 });
+        CBoundingBox& playerBox = m_player.getComponent<CBoundingBox>();
+        healthBarOutline.setPosition({ playerTrans.pos.x - 15, playerTrans.pos.y - playerBox.halfSize.y - 15 });
+        healthBarOutline.setOutlineColor(sf::Color::White);
+        healthBarOutline.setOutlineThickness(1);
+        healthBarOutline.setFillColor(sf::Color::Transparent);
+        CHealth& playerHealth = m_player.getComponent<CHealth>();
+        sf::RectangleShape healthBar({ static_cast<float>(playerHealth.current) / static_cast<float>(playerHealth.max) * 30, 5 });
+        healthBar.setPosition({ playerTrans.pos.x - 15, playerTrans.pos.y - playerBox.halfSize.y - 15 });
+        healthBar.setFillColor(sf::Color::Red);
+        window.draw(healthBarOutline);
+        window.draw(healthBar);
+    }
 
-        // bullets
-        std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
-        for (Entity& bullet : bullets)
+    // ragdolls
+    for (Entity& rag : m_entityManager.getEntities("ragdoll"))
+    {
+        const CTransform& trans = rag.getComponent<CTransform>();
+        sf::Sprite& sprite = rag.getComponent<CAnimation>().animation.getSprite();
+        sprite.setPosition(trans.pos);
+        sprite.setRotation(sf::radians(trans.angle));
+        window.draw(sprite);
+    }
+
+    // weapons
+    const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
+    sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
+    weaponSprite.setPosition(weaponTrans.pos);
+    weaponSprite.setScale(weaponTrans.scale);
+    weaponSprite.setRotation(sf::radians(weaponTrans.angle));
+    window.draw(weaponSprite);
+
+    // bullets
+    for (Entity& bullet : m_entityManager.getEntities("bullet"))
+    {
+        const CTransform& transform = bullet.getComponent<CTransform>();
+
+        sf::Sprite& sprite = bullet.getComponent<CAnimation>().animation.getSprite();
+        sprite.setRotation(sf::radians(transform.angle));
+        sprite.setPosition(transform.pos);
+        sprite.setScale(transform.scale);
+
+        window.draw(sprite);
+    }
+
+    // use open-air tiles with ray casting 
+    std::vector<Vec2f> vertices; // in pixels
+    std::unordered_set<Vec2f> vertexSet; // use unordered set to collect unique vertices and put only unique ones in vector
+
+    // four corners of the screen
+    /// TODO: see if the + 1 is necessary now that they're floats
+    vertices.emplace_back(window.getView().getCenter().x - mainViewSize.x / 2.0f, window.getView().getCenter().y - mainViewSize.y / 2.0f);
+    vertices.emplace_back(window.getView().getCenter().x + mainViewSize.x / 2.0f, window.getView().getCenter().y - mainViewSize.y / 2.0f);
+    vertices.emplace_back(window.getView().getCenter().x - mainViewSize.x / 2.0f, window.getView().getCenter().y + mainViewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
+    vertices.emplace_back(window.getView().getCenter().x + mainViewSize.x / 2.0f, window.getView().getCenter().y + mainViewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
+
+    // add open tile corners 
+    for (const Vec2i& tileCoords : openTiles)
+    {
+        Vec2i corners[4] = { tileCoords,
+                           { tileCoords.x, tileCoords.y + 1 },
+                           { tileCoords.x + 1, tileCoords.y },
+                           { tileCoords.x + 1, tileCoords.y + 1 } };
+
+        for (const Vec2i& v : corners)
         {
-            CTransform& transform = bullet.getComponent<CTransform>();
-
-            sf::Sprite& sprite = bullet.getComponent<CAnimation>().animation.getSprite();
-            sprite.setRotation(sf::radians(transform.rotAngle));
-            sprite.setPosition(transform.pos);
-            sprite.setScale(transform.scale);
-
-            window.draw(sprite);
-        }
-
-        // use open-air tiles with ray casting 
-        std::vector<Vec2f> vertices; // in pixels
-        std::unordered_set<Vec2f> vertexSet; // use unordered set to collect unique vertices and put only unique ones in vector
-
-        // four corners of the screen
-        /// TODO: see if the + 1 is necessary now that they're floats
-        vertices.emplace_back(window.getView().getCenter().x - viewSize.x / 2.0f, window.getView().getCenter().y - viewSize.y / 2.0f);
-        vertices.emplace_back(window.getView().getCenter().x + viewSize.x / 2.0f + 1, window.getView().getCenter().y - viewSize.y / 2.0f);
-        vertices.emplace_back(window.getView().getCenter().x - viewSize.x / 2.0f, window.getView().getCenter().y + viewSize.y / 2.0f + 1); /// TODO: these may not be necessary of players will never reach bottom of world
-        vertices.emplace_back(window.getView().getCenter().x + viewSize.x / 2.0f + 1, window.getView().getCenter().y + viewSize.y / 2.0f + 1); /// TODO: these may not be necessary of players will never reach bottom of world
-
-        for (const Vec2i& tileCoords : openTiles)
-        {
-            Vec2i corners[4] = { tileCoords,
-                               { tileCoords.x, tileCoords.y + 1 },
-                               { tileCoords.x + 1, tileCoords.y },
-                               { tileCoords.x + 1, tileCoords.y + 1 } };
-
-            for (const Vec2i& v : corners)
+            if (vertexSet.insert((v * m_cellSizePixels).to<float>()).second) // insert() returns {iterator, bool}, bool is true if inserted
             {
-                if (vertexSet.insert((v * m_cellSizePixels.x).to<float>()).second) // insert() returns {iterator, bool}, bool is true if inserted /// TODO: if x and y cell sizes differ, this gets fucked
-                {
-                    vertices.push_back((v * m_cellSizePixels.x).to<float>()); /// TODO: if x and y cell sizes differ, this gets fucked
-                }
+                vertices.push_back((v * m_cellSizePixels).to<float>());
             }
         }
+    }
 
-        const Vec2f playerPos = playerTrans.pos;
-        std::vector<Vec2f> verticesToAdd;
-        for (int i = 0; i < vertices.size(); ++i)
+    // filter visible vertices and add new points behind them
+    const Vec2f playerPos = playerTrans.pos;
+    std::vector<Vec2f> verticesToAdd;
+    for (int i = 0; i < vertices.size(); ++i)
+    {
+        Vec2f& vertex = vertices[i];
+        float rayAngle = vertex.angleFrom(playerPos);
+
+        /// for this method: if it's middle ray and reaches vertex, remove it; if it's side ray, let it go until it hits something and add a vertex there
+        // for (int dTheta = -1; dTheta < 2; ++dTheta)
+        // {
+            // float angle = rayAngle + dTheta * 0.0001f;
+        float angle = rayAngle;
+        Vec2f rayUnitVec(cosf(angle), sinf(angle));
+        float slope = tanf(angle);
+        float reciprocalSlope = 1.0f / slope;
+        float xMoveHypDist = sqrtf(1 + slope * slope); // in grid coords
+        float yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope); // in grid coords
+
+        // coordinates of grid cell the traveling ray is in
+        /// TODO: test edge cases: if hitting right side of tile, I want this coord to truncate to the left side of the tile (since tiles positioned with top-left), this could be wrong, subtly
+        int xCoord = playerGridPos.x;
+        int yCoord = playerGridPos.y;
+
+        // way we step in x or y when traveling the ray
+        Vec2i rayStep;
+
+        // accumulated distances (pixels) in the direction of the hypoteneuse caused by a change in x/y from the start of the ray (player position), starting with initial pixel offset from grid coord (top-left)
+        float xTravel, yTravel;
+
+        if (rayUnitVec.x < 0)
         {
-            Vec2f& vertex = vertices[i];
-            float rayAngle = vertex.angleFrom(playerPos);
+            rayStep.x = -1;
+            xTravel = (playerPos.x - (xCoord * m_cellSizePixels)) * xMoveHypDist;
+        }
+        else
+        {
+            rayStep.x = 1;
+            xTravel = (m_cellSizePixels - (playerPos.x - (xCoord * m_cellSizePixels))) * xMoveHypDist;
+        }
 
-            /// for this method: if it's middle ray and reaches vertex, remove it; if it's side ray, let it go until it hits something and add a vertex there
-            // for (int dTheta = -1; dTheta < 2; ++dTheta)
-            // {
-                // float angle = rayAngle + dTheta * 0.0001f;
-            float angle = rayAngle;
-            Vec2f rayUnitVec(cosf(angle), sinf(angle));
-            float slope = tanf(angle);
-            float reciprocalSlope = 1.0f / slope;
-            float xMoveHypDist = sqrtf(1 + slope * slope); // in grid coords
-            float yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope); // in grid coords
+        if (rayUnitVec.y < 0)
+        {
+            rayStep.y = -1;
+            yTravel = (playerPos.y - (yCoord * m_cellSizePixels)) * yMoveHypDist;
+        }
+        else
+        {
+            rayStep.y = 1;
+            yTravel = (m_cellSizePixels - (playerPos.y - (yCoord * m_cellSizePixels))) * yMoveHypDist;
+        }
 
-            // coordinates of grid cell the traveling ray is in
-            /// TODO: test edge cases: if hitting right side of tile, I want this coord to truncate to the left side of the tile (since tiles positioned with top-left), this could be wrong, subtly
-            int xCoord = playerGridPosX;
-            int yCoord = playerGridPosY;
-
-            // way we step in x or y when traveling the ray
-            Vec2i rayStep;
-
-            // accumulated distances (pixels) in the direction of the hypoteneuse caused by a change in x/y from the start of the ray (player position), starting with initial pixel offset from grid coord (top-left)
-            float xTravel, yTravel;
-
-            if (rayUnitVec.x < 0)
+        bool tileHit = false;
+        bool vertexReached = false;
+        // bool topLeft, topRight, bottomLeft, bottomRight;
+        while (!tileHit && !vertexReached) /// TODO: alternatively, add a xTravel < rayLength - 0.001f or something instead of vertexReached
+        {
+            if (xTravel < yTravel)
             {
-                rayStep.x = -1;
-                xTravel = (playerPos.x - (xCoord * m_cellSizePixels.x)) * xMoveHypDist;
+                xCoord += rayStep.x;
+
+                // at this point, the endpoint of the line formed by playerPos + xTravel * rayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
+
+                xTravel += xMoveHypDist * m_cellSizePixels;
             }
             else
             {
-                rayStep.x = 1;
-                xTravel = (m_cellSizePixels.x - (playerPos.x - (xCoord * m_cellSizePixels.x))) * xMoveHypDist;
+                yCoord += rayStep.y;
+                yTravel += yMoveHypDist * m_cellSizePixels;
             }
 
-            if (rayUnitVec.y < 0)
+            if (tileMatrix[xCoord][yCoord].isActive()) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
             {
-                rayStep.y = -1;
-                yTravel = (playerPos.y - (yCoord * m_cellSizePixels.y)) * yMoveHypDist;
+                tileHit = true;
+
+                // remove vertex from vertices
+                vertex = vertices.back();
+                vertices.pop_back();
+                --i;
             }
-            else
+
+            // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
+            /// TODO: keep repeats? given this thought above ^
+            if (!tileMatrix[xCoord][yCoord].isActive() && (vertex.x >= xCoord * m_cellSizePixels && vertex.x <= (xCoord + 1) * m_cellSizePixels && vertex.y >= yCoord * m_cellSizePixels && vertex.y <= (yCoord + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
             {
-                rayStep.y = 1;
-                yTravel = (m_cellSizePixels.y - (playerPos.y - (yCoord * m_cellSizePixels.y))) * yMoveHypDist;
+                vertexReached = true;
             }
+        }
+        // }
 
-            bool tileHit = false;
-            bool vertexReached = false;
-            // bool topLeft, topRight, bottomLeft, bottomRight;
-            while (!tileHit && !vertexReached) /// TODO: alternatively, add a xTravel < rayLength - 0.001f or something instead of vertexReached
+        /// find vertex and divert angle method, less rays, but possibly still more work
+        // note that the top two corners of the screen are reached as well as actual vertices
+        if (vertexReached)
+        {
+            /// if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
+
+            // check for tile just passed the vertex in the direction of the ray
+            Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels).to<int>();
+
+            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tileMatrix[checkCoord.x][checkCoord.y].isActive()))
             {
-                if (xTravel < yTravel)
+                /// add small angle to ray 
+                /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
+                /// TODO: is this more expensive than just adding two more rays at slight angle offsets for each ray?
+                /// TODO: handle pure vertical and horizontal rays case
+
+                float dTheta = 0.0001f;
+                float newAngle;
+                if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
                 {
-                    xCoord += rayStep.x;
+                    if (tileMatrix[xCoord - 1][yCoord].isActive() && tileMatrix[xCoord][yCoord - 1].isActive()) // shared vertex
+                        continue; // don't want ray shining through diagonal lines of tiles
 
-                    // at this point, the endpoint of the line formed by playerPos + xTravel * rayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
-
-                    xTravel += xMoveHypDist * m_cellSizePixels.x;
+                    if (tileMatrix[xCoord - 1][yCoord].isActive()) // tile to the left active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile above active
+                        newAngle = rayAngle - dTheta; // CCW
                 }
-                else
+                else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
                 {
-                    yCoord += rayStep.y;
-                    yTravel += yMoveHypDist * m_cellSizePixels.y;
+                    if (tileMatrix[xCoord][yCoord - 1].isActive() && tileMatrix[xCoord + 1][yCoord].isActive())
+                        continue;
+
+                    if (tileMatrix[xCoord][yCoord - 1].isActive()) // tile above active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile to the right active
+                        newAngle = rayAngle - dTheta;; // CCW
+                }
+                else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
+                {
+                    if (tileMatrix[xCoord + 1][yCoord].isActive() && tileMatrix[xCoord][yCoord + 1].isActive())
+                        continue;
+
+                    if (tileMatrix[xCoord + 1][yCoord].isActive()) // tile to the right
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile below is active
+                        newAngle = rayAngle - dTheta; // CCW
+                }
+                else // came from top right or /// TODO: a horizontal/vertical ray case
+                {
+                    if (tileMatrix[xCoord][yCoord + 1].isActive() && tileMatrix[xCoord - 1][yCoord].isActive())
+                        continue;
+
+                    if (tileMatrix[xCoord][yCoord + 1].isActive()) // tile below is active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile to the left is active
+                        newAngle = rayAngle - dTheta; // CCW
                 }
 
-                if (tileMatrix[xCoord][yCoord].isActive()) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
+                Vec2f newRayUnitVec = { cosf(newAngle), sinf(newAngle) };
+                slope = tanf(newAngle);
+                reciprocalSlope = 1.0f / slope;
+                xMoveHypDist = sqrtf(1 + slope * slope);
+                yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope);
+
+                float xTravelNew = xMoveHypDist * m_cellSizePixels;
+                float yTravelNew = yMoveHypDist * m_cellSizePixels;
+                xCoord = checkCoord.x;
+                yCoord = checkCoord.y;
+
+                while (!tileHit)
                 {
-                    tileHit = true;
-
-                    // remove vertex from vertices
-                    vertex = vertices.back();
-                    vertices.pop_back();
-                    --i;
-                }
-
-                // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
-                /// TODO: keep repeats? given this thought above ^
-                if (!tileMatrix[xCoord][yCoord].isActive() && (vertex.x >= xCoord * m_cellSizePixels.x && vertex.x <= (xCoord + 1) * m_cellSizePixels.x && vertex.y >= yCoord * m_cellSizePixels.y && vertex.y <= (yCoord + 1) * m_cellSizePixels.y)) // vertex reached since in cell with no tile but with this vertex
-                {
-                    vertexReached = true;
-                }
-            }
-            // }
-
-            /// find vertex and divert angle method, less rays, but possibly still more work
-            // note that the top two corners of the screen are reached as well as actual vertices
-            if (vertexReached)
-            {
-                /// if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
-
-                // check for tile just passed the vertex in the direction of the ray
-                Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels.x).to<int>(); /// TODO: if cell size in x and y differs we're done
-
-                if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tileMatrix[checkCoord.x][checkCoord.y].isActive()))
-                {
-                    /// add small angle to ray 
-                    /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
-                    /// TODO: is this more expensive than just adding two more rays at slight angle offsets for each ray?
-                    /// TODO: handle pure vertical and horizontal rays case
-
-                    float dTheta = 0.0001f;
-                    float newAngle;
-                    if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
+                    if (xTravelNew < yTravelNew)
                     {
-                        if (tileMatrix[xCoord - 1][yCoord].isActive() && tileMatrix[xCoord][yCoord - 1].isActive()) // shared vertex
-                            continue; // don't want ray shining through diagonal lines of tiles
+                        xCoord += rayStep.x;
 
-                        if (tileMatrix[xCoord - 1][yCoord].isActive()) // tile to the left active
-                            newAngle = rayAngle + dTheta; // CW
-                        else // tile above active
-                            newAngle = rayAngle - dTheta; // CCW
-                    }
-                    else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
-                    {
-                        if (tileMatrix[xCoord][yCoord - 1].isActive() && tileMatrix[xCoord + 1][yCoord].isActive())
-                            continue;
+                        // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
 
-                        if (tileMatrix[xCoord][yCoord - 1].isActive()) // tile above active
-                            newAngle = rayAngle + dTheta; // CW
-                        else // tile to the right active
-                            newAngle = rayAngle - dTheta;; // CCW
-                    }
-                    else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
-                    {
-                        if (tileMatrix[xCoord + 1][yCoord].isActive() && tileMatrix[xCoord][yCoord + 1].isActive())
-                            continue;
-
-                        if (tileMatrix[xCoord + 1][yCoord].isActive()) // tile to the right
-                            newAngle = rayAngle + dTheta; // CW
-                        else // tile below is active
-                            newAngle = rayAngle - dTheta; // CCW
-                    }
-                    else // came from top right or /// TODO: a horizontal/vertical ray case
-                    {
-                        if (tileMatrix[xCoord][yCoord + 1].isActive() && tileMatrix[xCoord - 1][yCoord].isActive())
-                            continue;
-
-                        if (tileMatrix[xCoord][yCoord + 1].isActive()) // tile below is active
-                            newAngle = rayAngle + dTheta; // CW
-                        else // tile to the left is active
-                            newAngle = rayAngle - dTheta; // CCW
-                    }
-
-                    Vec2f newRayUnitVec = { cosf(newAngle), sinf(newAngle) };
-                    slope = tanf(newAngle);
-                    reciprocalSlope = 1.0f / slope;
-                    xMoveHypDist = sqrtf(1 + slope * slope);
-                    yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope);
-
-                    float xTravelNew = xMoveHypDist * m_cellSizePixels.x;
-                    float yTravelNew = yMoveHypDist * m_cellSizePixels.y;
-                    xCoord = checkCoord.x;
-                    yCoord = checkCoord.y;
-
-                    while (!tileHit)
-                    {
-                        if (xTravelNew < yTravelNew)
+                        if (xCoord < minX || xCoord > maxX || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==? 
                         {
-                            xCoord += rayStep.x;
-
-                            // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
-
-                            if (xCoord < minX || xCoord > maxX || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==? 
-                            {
-                                tileHit = true;
-                                verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
-                            }
-                            else
-                            {
-                                xTravelNew += xMoveHypDist * m_cellSizePixels.x;
-                            }
+                            tileHit = true;
+                            verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
                         }
                         else
                         {
-                            yCoord += rayStep.y;
+                            xTravelNew += xMoveHypDist * m_cellSizePixels;
+                        }
+                    }
+                    else
+                    {
+                        yCoord += rayStep.y;
 
-                            if (yCoord < minY || yCoord > maxY || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==?
-                            {
-                                tileHit = true;
-                                verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);
-                            }
-                            else
-                            {
-                                yTravelNew += yMoveHypDist * m_cellSizePixels.y;
-                            }
+                        if (yCoord < minY || yCoord > maxY || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==?
+                        {
+                            tileHit = true;
+                            verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);
+                        }
+                        else
+                        {
+                            yTravelNew += yMoveHypDist * m_cellSizePixels;
                         }
                     }
                 }
             }
         }
-
-        // for (const auto& v : verticesToAdd)
-        // {
-        //     sf::CircleShape dot(2);
-        //     dot.setPosition({ v.x - 2, v.y - 2 });
-        //     dot.setFillColor(sf::Color::Red);
-        //     window.draw(dot);
-        // }
-        vertices.insert(vertices.end(), verticesToAdd.begin(), verticesToAdd.end());
-
-        // sort the reachable vertices in CCW order 
-        /// TODO: consider storing angle for each vertex in the vector, faster probably
-        std::sort(vertices.begin(), vertices.end(), [&playerPos](const Vec2f& a, const Vec2f& b) { return a.angleFrom(playerPos) < b.angleFrom(playerPos); });
-
-        // create triangle fan of vertices (pixels)
-        std::vector<Vec2f> triangleFan;
-        triangleFan.push_back(playerPos);
-        triangleFan.insert(triangleFan.end(), vertices.begin(), vertices.end());
-        triangleFan.push_back(vertices.front());
-
-        // render things inside triangle fan
-        sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
-        for (int i = 0; i < triangleFan.size(); ++i)
-        {
-            fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
-            fan[i].color = sf::Color(255, 255, 255, 100);
-
-            // sf::CircleShape dot(2);
-            // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
-            // dot.setFillColor(sf::Color(0, 0, 255, 100));
-            // window.draw(dot);
-        }
-        window.draw(fan);
-
-        /// normal rendering without vision lighting:
-        // for (int x = minX; x <= maxX; ++x)
-        // {
-        //     for (int y = minY; y <= maxY; ++y)
-        //     {
-        //         const Entity& tile = tileMatrix[x][y];
-
-        //         if (tile.isActive())
-        //         {
-        //             sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
-
-        //             CColor& color = tile.getComponent<CColor>();
-
-        //             block.setFillColor(sf::Color(color.r, color.g, color.b));
-        //             block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
-        //             window.draw(block);
-
-        //             // CTransform& trans = tile.getComponent<CTransform>();
-        //             // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
-        //             // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
-        //             // sprite.setPosition(trans.pos);
-        //             // sprite.setScale(trans.scale); /// TODO: will I even use scale?
-
-        //             // window.draw(sprite);
-        //         }
-        //     }
-        // }
     }
 
-    /// draw all entity collision bounding boxes with a rectangle
-
-    // if (m_drawCollision)
+    // for (const auto& v : verticesToAdd)
     // {
-    //     sf::CircleShape dot(4);
-    //     dot.setFillColor(sf::Color::Black);
-    //     for (int x = 0; x < m_worldMaxCells.x; ++x)
+    //     sf::CircleShape dot(2);
+    //     dot.setPosition({ v.x - 2, v.y - 2 });
+    //     dot.setFillColor(sf::Color::Red);
+    //     window.draw(dot);
+    // }
+    vertices.insert(vertices.end(), verticesToAdd.begin(), verticesToAdd.end());
+
+    // sort the reachable vertices by angle 
+    /// TODO: consider storing angle for each vertex in the vector, faster probably
+    std::sort(vertices.begin(), vertices.end(), [&playerPos](const Vec2f& a, const Vec2f& b) { return a.angleFrom(playerPos) < b.angleFrom(playerPos); });
+
+    // create triangle fan of vertices (pixels)
+    std::vector<Vec2f> triangleFan;
+    triangleFan.push_back(playerPos);
+    triangleFan.insert(triangleFan.end(), vertices.begin(), vertices.end());
+    triangleFan.push_back(vertices.front());
+
+    // render things inside triangle fan
+    sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
+    for (int i = 0; i < triangleFan.size(); ++i)
+    {
+        fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
+        fan[i].color = sf::Color(255, 255, 255, 100);
+
+        // sf::CircleShape dot(2);
+        // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
+        // dot.setFillColor(sf::Color(0, 0, 255, 100));
+        // window.draw(dot);
+    }
+    window.draw(fan);
+
+
+
+    /// normal rendering without vision lighting:
+    // for (int x = minX; x <= maxX; ++x)
+    // {
+    //     for (int y = minY; y <= maxY; ++y)
     //     {
-    //         for (int y = 0; y < m_worldMaxCells.y; ++y)
+    //         const Entity& tile = tileMatrix[x][y];
+
+    //         if (tile.isActive())
     //         {
-    //             const Entity& tile = tileMatrix[x][y];
-    //             CBoundingBox& box = tile.getComponent<CBoundingBox>();
-    //             CTransform& transform = tile.getComponent<CTransform>();
-    //             sf::RectangleShape rect;
-    //             rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
-    //             rect.setOrigin(box.halfSize);
-    //             rect.setPosition(transform.pos);
-    //             rect.setFillColor(sf::Color(0, 0, 0, 0));
-    //             rect.setOutlineColor(sf::Color(255, 255, 255, 255));
-    //             // if (box.blockMove && box.blockVision)
-    //             // {
-    //             //     rect.setOutlineColor(sf::Color::Black);
-    //             // }
-    //             // if (box.blockMove && !box.blockVision)
-    //             // {
-    //             //     rect.setOutlineColor(sf::Color::Blue);
-    //             // }
-    //             // if (!box.blockMove && box.blockVision)
-    //             // {
-    //             //     rect.setOutlineColor(sf::Color::Red);
-    //             // }
-    //             // if (!box.blockMove && !box.blockVision)
-    //             // {
-    //             //     rect.setOutlineColor(sf::Color::White);
-    //             // }
-    //             rect.setOutlineThickness(1);
-    //             window.draw(rect);
+    //             sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
+
+    //             CColor& color = tile.getComponent<CColor>();
+
+    //             block.setFillColor(sf::Color(color.r, color.g, color.b));
+    //             block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
+    //             window.draw(block);
+
+    //             // CTransform& trans = tile.getComponent<CTransform>();
+    //             // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
+    //             // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
+    //             // sprite.setPosition(trans.pos);
+    //             // sprite.setScale(trans.scale); /// TODO: will I even use scale?
+
+    //             // window.draw(sprite);
     //         }
-    //         // if (e.hasComponent<CPatrol>())
-    //         // {
-    //         //     auto& patrol = e.getComponent<CPatrol>().positions;
-    //         //     for (int p = 0; p < patrol.size(); p++)
-    //         //     {
-    //         //         dot.setPosition(patrol[p]);
-    //         //         window.draw(dot);
-    //         //     }
-    //         // }
-    //         // if (e.hasComponent<CFollowPlayer>())
-    //         // {
-    //         //     sf::VertexArray lines(sf::PrimitiveType::LineStrip, 2);
-    //         //     lines[0].position.x = e.getComponent<CTransform>().pos.x;
-    //         //     lines[0].position.y = e.getComponent<CTransform>().pos.y;
-    //         //     lines[0].color = sf::Color::Black;
-    //         //     lines[1].position.x = m_player.getComponent<CTransform>().pos.x;
-    //         //     lines[1].position.y = m_player.getComponent<CTransform>().pos.y;
-    //         //     lines[1].color = sf::Color::Black;
-    //         //     window.draw(lines);
-    //         //     dot.setPosition(e.getComponent<CFollowPlayer>().home);
-    //         //     window.draw(dot);
-    //         // }
     //     }
     // }
 
-    /// fps counter
+
+/// draw all entity collision bounding boxes with a rectangle
+
+// if (m_drawCollision)
+// {
+//     sf::CircleShape dot(4);
+//     dot.setFillColor(sf::Color::Black);
+//     for (int x = 0; x < m_worldMaxCells.x; ++x)
+//     {
+//         for (int y = 0; y < m_worldMaxCells.y; ++y)
+//         {
+//             const Entity& tile = tileMatrix[x][y];
+//             CBoundingBox& box = tile.getComponent<CBoundingBox>();
+//             CTransform& transform = tile.getComponent<CTransform>();
+//             sf::RectangleShape rect;
+//             rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
+//             rect.setOrigin(box.halfSize);
+//             rect.setPosition(transform.pos);
+//             rect.setFillColor(sf::Color(0, 0, 0, 0));
+//             rect.setOutlineColor(sf::Color(255, 255, 255, 255));
+//             // if (box.blockMove && box.blockVision)
+//             // {
+//             //     rect.setOutlineColor(sf::Color::Black);
+//             // }
+//             // if (box.blockMove && !box.blockVision)
+//             // {
+//             //     rect.setOutlineColor(sf::Color::Blue);
+//             // }
+//             // if (!box.blockMove && box.blockVision)
+//             // {
+//             //     rect.setOutlineColor(sf::Color::Red);
+//             // }
+//             // if (!box.blockMove && !box.blockVision)
+//             // {
+//             //     rect.setOutlineColor(sf::Color::White);
+//             // }
+//             rect.setOutlineThickness(1);
+//             window.draw(rect);
+//         }
+//         // if (e.hasComponent<CPatrol>())
+//         // {
+//         //     auto& patrol = e.getComponent<CPatrol>().positions;
+//         //     for (int p = 0; p < patrol.size(); p++)
+//         //     {
+//         //         dot.setPosition(patrol[p]);
+//         //         window.draw(dot);
+//         //     }
+//         // }
+//         // if (e.hasComponent<CFollowPlayer>())
+//         // {
+//         //     sf::VertexArray lines(sf::PrimitiveType::LineStrip, 2);
+//         //     lines[0].position.x = e.getComponent<CTransform>().pos.x;
+//         //     lines[0].position.y = e.getComponent<CTransform>().pos.y;
+//         //     lines[0].color = sf::Color::Black;
+//         //     lines[1].position.x = m_player.getComponent<CTransform>().pos.x;
+//         //     lines[1].position.y = m_player.getComponent<CTransform>().pos.y;
+//         //     lines[1].color = sf::Color::Black;
+//         //     window.draw(lines);
+//         //     dot.setPosition(e.getComponent<CFollowPlayer>().home);
+//         //     window.draw(dot);
+//         // }
+//     }
+// }
+
+/// fps counter
 
     float elapsedTime = m_fpsClock.restart().asSeconds();
     float fps = 1.0f / elapsedTime;
@@ -1192,8 +1330,8 @@ Vec2f ScenePlay::gridToMidPixel(const float gridX, const float gridY, const Enti
 
     const Vec2f& bBoxHalfSize = entity.getComponent<CBoundingBox>().halfSize;
 
-    float xPos = gridX * m_cellSizePixels.x + bBoxHalfSize.x;
-    float yPos = gridY * m_cellSizePixels.y + bBoxHalfSize.y;
+    float xPos = gridX * m_cellSizePixels + bBoxHalfSize.x;
+    float yPos = gridY * m_cellSizePixels + bBoxHalfSize.y;
 
     return Vec2f(xPos, yPos);
 }
@@ -1210,22 +1348,17 @@ void ScenePlay::spawnPlayer()
 {
     PROFILE_FUNCTION();
 
-    // when respawning in same map, must delete previous player
-    std::vector<Entity>& entities = m_entityManager.getEntities("player");
-    if (!entities.empty())
-    {
-        entities.front().destroy();
-    }
-
+    /// TODO: make sure players and weapons are deleted before new ones are created
     // set player components
     m_player = m_entityManager.addEntity("player");
-    m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), true);
-    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 8, m_player)); /// TODO: make spawning in dynamic
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
+    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 8, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
+    m_player.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), false);
     m_player.addComponent<CState>("air");
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
-    // m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
+    m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
+    m_player.addComponent<CHealth>(100);
 
     // spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
@@ -1244,20 +1377,14 @@ void ScenePlay::spawnBullet(Entity entity)
 
     CTransform& entityTrans = entity.getComponent<CTransform>();
     CBoundingBox& entityBox = entity.getComponent<CBoundingBox>();
-    Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.rotAngle), sinf(entityTrans.rotAngle)) * entityBox.halfSize.x;
+    Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.angle), sinf(entityTrans.angle)) * entityBox.halfSize.x;
     float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
 
     const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
     const Vec2f bulletVec = worldTarget - entityTrans.pos;
 
     Entity bullet = m_entityManager.addEntity("bullet");
-    bullet.addComponent<CTransform>
-        (
-            spawnPos,
-            bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos),
-            Vec2f(2.0f, 2.0f),
-            entityTrans.rotAngle
-        );
+    bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), entityTrans.angle, 0.0f);
     bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
     bullet.addComponent<CLifespan>(300, m_currentFrame);
     bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
@@ -1277,17 +1404,13 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
 
     bool collision = false;
 
-    // check player-tile collisions within a box of size 4 x 4 grid cells around player
-    /// TODO: make this box as small as possible for less calculations
-    int playerGridPosX = playerTrans.pos.x / m_cellSizePixels.x; // must be signed as subtraction below 0 is happening
-    int playerGridPosY = playerTrans.pos.y / m_cellSizePixels.y;
-    int horizontalCheckLength = playerBounds.halfSize.x / m_cellSizePixels.x + 1;
-    int verticalCheckLength = playerBounds.halfSize.y / m_cellSizePixels.y + 1;
+    Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // must be signed as subtraction below 0 is happening
+    Vec2i checkLength(playerBounds.halfSize.x / m_cellSizePixels + 1, playerBounds.halfSize.y / m_cellSizePixels + 1);
 
-    int minX = std::max(0, playerGridPosX - horizontalCheckLength);
-    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPosX + horizontalCheckLength); // ensure m_worldMaxCells != 0 ever or we get wrap around
-    int minY = std::max(0, playerGridPosY - verticalCheckLength);
-    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPosY + verticalCheckLength);
+    int minX = std::max(0, playerGridPos.x - checkLength.x);
+    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
+    int minY = std::max(0, playerGridPos.y - checkLength.y);
+    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
 
     for (int x = minX; x <= maxX; ++x)
     {
@@ -1296,12 +1419,10 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
             if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
             {
                 // finding overlap (without tile bounding boxes)
-                float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels.x);
-                float yDiff = abs(playerTrans.pos.y - (y + 0.5f) * m_cellSizePixels.y);
-                float xOverlap = playerBounds.halfSize.x + m_cellSizePixels.x * 0.5f - xDiff;
-                float yOverlap = playerBounds.halfSize.y + m_cellSizePixels.y * 0.5f - yDiff;
-
-                // Vec2f overlap = Physics::GetOverlap(m_player, tileMatrix[x][y]);
+                float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels);
+                float yDiff = abs(playerTrans.pos.y - (y + 0.5f) * m_cellSizePixels);
+                float xOverlap = playerBounds.halfSize.x + m_cellSizePixels * 0.5f - xDiff;
+                float yOverlap = playerBounds.halfSize.y + m_cellSizePixels * 0.5f - yDiff;
 
                 // there is a collision
                 if (xOverlap > 0 && yOverlap > 0)
@@ -1309,12 +1430,10 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
                     collision = true;
 
                     // finding previous overlap (without tile bounding boxes)
-                    float xPrevDiff = abs(playerTrans.prevPos.x - (x + 0.5f) * m_cellSizePixels.x);
-                    float yPrevDiff = abs(playerTrans.prevPos.y - (y + 0.5f) * m_cellSizePixels.y);
-                    float xPrevOverlap = playerBounds.halfSize.x + m_cellSizePixels.x * 0.5f - xPrevDiff;
-                    float yPrevOverlap = playerBounds.halfSize.y + m_cellSizePixels.y * 0.5f - yPrevDiff;
-
-                    // Vec2f prevOverlap = Physics::GetPreviousOverlap(m_player, tileMatrix[x][y]);
+                    float xPrevDiff = abs(playerTrans.prevPos.x - (x + 0.5f) * m_cellSizePixels);
+                    float yPrevDiff = abs(playerTrans.prevPos.y - (y + 0.5f) * m_cellSizePixels);
+                    float xPrevOverlap = playerBounds.halfSize.x + m_cellSizePixels * 0.5f - xPrevDiff;
+                    float yPrevOverlap = playerBounds.halfSize.y + m_cellSizePixels * 0.5f - yPrevDiff;
 
                     // we are colliding in y-direction this frame since previous frame already had x-direction overlap
                     if (xPrevOverlap > 0)
@@ -1404,20 +1523,19 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
     {
         CTransform& bulletTrans = bullet.getComponent<CTransform>();
 
-        int bulletGridPosX = bulletTrans.pos.x / m_cellSizePixels.x;
-        int bulletGridPosY = bulletTrans.pos.y / m_cellSizePixels.y;
+        Vec2i bulletGridPos = (bulletTrans.pos / m_cellSizePixels).to<int>();
 
         /// TODO: consider adding a bounding box check for bullets (or just leave them as one pixel at the tip of the bullet so I never have to check), depends on what I want with bullet variety (would just have to copy whats in player tiles with bullets)
         // int horizontalCheckLength = bulletBounds.halfSize.x / m_cellSizePixels.x + 1;
         // int verticalCheckLenght = bulletBounds.halfSize.y / m_cellSizePixels.y + 1;
         /// TODO: if no bounding box, don't even need any internal loop, can just get bullet pos (pixels), see if tile active at grid coord, then say there's a collision and handle it, no isInside or overlap or anything either (already done below)
 
-        if (bulletGridPosX < 0 || bulletGridPosX >= m_worldMaxCells.x || bulletGridPosY < 0 || bulletGridPosY >= m_worldMaxCells.y)
+        if (bulletGridPos.x < 0 || bulletGridPos.x >= m_worldMaxCells.x || bulletGridPos.y < 0 || bulletGridPos.y >= m_worldMaxCells.y)
         {
             continue;
         }
 
-        const Entity& tile = tileMatrix[bulletGridPosX][bulletGridPosY];
+        const Entity& tile = tileMatrix[bulletGridPos.x][bulletGridPos.y];
 
         if (tile.isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this, batch operation, if not store tile components (some or all) in the tile matrix
         {
@@ -1438,7 +1556,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
                 {
                     /// TODO: this favors horizontal ricochets a little bit (prevPos is 1.5 pixels behind pos) since horizontal is checked first, could either have more bullet updates to make prvPos and pos closer or use velocity and neighbors and things to make it perfect, but it prolly isn't necessary, or maybe check both and then decide randomly if both work (with x components as below and with y components instead of just an else)
 
-                    if (bulletTrans.prevPos.x > (bulletGridPosX + 1) * m_cellSizePixels.x || bulletTrans.prevPos.x < bulletGridPosX * m_cellSizePixels.x) // colliding from a side
+                    if (bulletTrans.prevPos.x > (bulletGridPos.x + 1) * m_cellSizePixels || bulletTrans.prevPos.x < bulletGridPos.x * m_cellSizePixels) // colliding from a side
                     {
                         bulletTrans.velocity.x = -bulletTrans.velocity.x;
                     }
@@ -1447,7 +1565,7 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
                         bulletTrans.velocity.y = -bulletTrans.velocity.y;
                     }
 
-                    bulletTrans.rotAngle = -bulletTrans.rotAngle;
+                    bulletTrans.angle = -bulletTrans.angle;
 
                     /// TODO: no richochets after entering solid material, only on surfaces
                     // bullet.canRocichet = false;
@@ -1511,6 +1629,52 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
     }
 }
 
+void ScenePlay::projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets)
+{
+    for (Entity& player : players)
+    {
+        for (Entity& bullet : bullets)
+        {
+            int& playerInvincibilityTime = player.getComponent<CInvincibility>().timeRemaining;
+            if (playerInvincibilityTime <= 0 && Physics::IsInside(bullet.getComponent<CTransform>().pos, player))
+            {
+                playerInvincibilityTime = 10; /// TODO: maybe use another way to keep track of bullets that have already hit the player, make them unable to hit again until leaving the player, could even make no invincibility time and have that be a part of the game, where bullets do more damage the longer they're in the player or a tile, so hitting a leg isn't much compared to hitting a chest (and add a head multiplier), could be a unique aspect to the game
+                int& bulletDamage = bullet.getComponent<CDamage>().damage;
+                int& playerHealth = player.getComponent<CHealth>().current;
+                playerHealth -= bulletDamage;
+                bulletDamage /= 2; /// TODO: tweak later
+
+                if (bulletDamage <= 0)
+                {
+                    bullet.destroy();
+                }
+
+                if (playerHealth <= 0)
+                {
+                    spawnRagdoll(player, bullet);
+
+                    player.destroy();
+                }
+            }
+        }
+    }
+}
+
+void ScenePlay::spawnRagdoll(Entity& player, Entity& bullet)
+{
+    const CTransform& playerTrans = player.getComponent<CTransform>();
+    const CBoundingBox& playerBox = player.getComponent<CBoundingBox>();
+    const CTransform& bulletTrans = bullet.getComponent<CTransform>();
+
+    Entity ragdoll = m_entityManager.addEntity("ragdoll");
+    ragdoll.addComponent<CTransform>(playerTrans.pos);
+    ragdoll.addComponent<CGravity>(m_playerConfig.GRAVITY);
+    ragdoll.addComponent<CBoundingBox>(playerBox.size);
+    ragdoll.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), false);
+
+    Physics::ForceEntity(ragdoll, bulletTrans.velocity, bulletTrans.pos); // arbitrary choice of applied force
+}
+
 /// @brief move all projectiles and check for collisions
 void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
 {
@@ -1548,6 +1712,8 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
         // }
     }
 
+    std::vector<Entity>& players = m_entityManager.getEntities("player");
+
     // move other existing projectiles (like bombs, affected by gravity)
     /// TODO: remember to group these checks so that it's fast, might want to use "projectile" tag in entity manager and use an if (hasComponent(<CGravity>)) or whatever to find the bombs vs bullets vs whatever, all in one loop
     /// TODO: be more ECS-like, put all manip of CTrans in the sMovement system or something
@@ -1555,6 +1721,7 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
     // check for collisions with tiles
     std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
     projectileTileCollisions(tileMatrix, projectiles);
+    projectilePlayerCollisions(players, projectiles);
 }
 
 float ScenePlay::generateRandomFloat(float min, float max)

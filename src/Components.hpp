@@ -16,15 +16,17 @@ public:
 class CTransform : public Component
 {
 public:
-    Vec2f pos = { 0.0f, 0.0f }; // top-left corner of entity
-    Vec2f prevPos = { 0.0f, 0.0f }; // pos last frame
+    Vec2f pos = { 0.0f, 0.0f }; // center of entity, pixels
+    Vec2f prevPos = { 0.0f, 0.0f }; // pos last frame, pixels
     Vec2f scale = { 1.0f, 1.0f }; // can use to change direction entity is facing with a negative x
-    Vec2f velocity = { 0.0f, 0.0f };
-    float rotAngle = 0.0f; // rotation angle from x-axis in radians
+    Vec2f velocity = { 0.0f, 0.0f }; // pixels/s
+    float angle = 0.0f; // rotation angle from x-axis, rad
+    float prevAngle = 0.0f; // prev rotation angle from x-axis, rad
+    float angularVelocity = 0.0f; // rad/s
 
     CTransform() = default;
     CTransform(const Vec2f& p) : pos(p), prevPos(p) {}
-    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float a) : pos(p), prevPos(p), velocity(v), scale(sc), rotAngle(a) {}
+    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float angle, float angVel) : pos(p), prevPos(p), velocity(v), scale(sc), angle(angle), prevAngle(angle), angularVelocity(angVel) {}
 };
 
 class CColor : public Component
@@ -127,11 +129,20 @@ public:
 class CGravity : public Component
 {
 public:
-    float gravity = 0;
+    float gravity = 0.0f;
 
     CGravity() = default;
     CGravity(float g) : gravity(g) {}
 };
+
+// class CMass : public Component
+// {
+// public:
+//     float mass = 0.0f; // kg
+
+//     CMass() = default;
+//     CMass(float m) : mass(m) {}
+// };
 
 /// TODO: change this to be more efficient using numbers instead of strings, maybe enum, something else
 class CState : public Component

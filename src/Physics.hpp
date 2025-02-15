@@ -18,7 +18,7 @@ namespace Physics
 {
     /// @brief calculates overlap rectangle size of the bounding boxes of entity a and entity b
     /// @return a Vec2f of (x overlap, y overlap)
-    Vec2f GetOverlap(Entity a, Entity b)
+    Vec2f OverlapAABB(Entity a, Entity b)
     {
         PROFILE_FUNCTION();
 
@@ -41,7 +41,7 @@ namespace Physics
 
     /// @brief calculate previous overlap rectangle size of the bounding boxes of entity a and b
     /// @return a Vec2f of (previous x overlap, previous y overlap)
-    Vec2f GetPreviousOverlap(Entity a, Entity b)
+    Vec2f PrevOverlapAABB(Entity a, Entity b)
     {
         PROFILE_FUNCTION();
 
@@ -58,7 +58,9 @@ namespace Physics
         return Vec2f(xOverlap, yOverlap); // if xOverlap > 0, AABB overlap of xOverlap in the x-direction
     }
 
-    /// @brief check if a pixel position pos in the game world is inside of entity e's bounding box
+
+
+    /// @brief check if a pixel position pos in the game world is inside of entity e's bounding box (for axis-aligned only)
     bool IsInside(const Vec2f& pos, Entity e)
     {
         const Vec2f& entityPos = e.getComponent<CTransform>().pos;
@@ -71,7 +73,6 @@ namespace Physics
     }
 
     /// @brief determine if line AB intersects with line CD
-    /// @return an Intersect object
     Intersect LineIntersect(const Vec2f& a, const Vec2f& b, const Vec2f& c, const Vec2f& d)
     {
         Vec2f r = b - a;
@@ -94,5 +95,25 @@ namespace Physics
     bool EntityIntersect(const Vec2f& a, const Vec2f& b, std::shared_ptr<Entity> e)
     {
         return false;
+    }
+
+    /// @brief check for overlap among two convex polygons
+    // bool OverlapSAT()
+
+    /// @brief apply force at pos to rectangular entity and update entity's velocity and angular acceleration
+    void ForceEntity(Entity& entity, const Vec2f& force, const Vec2f& pos)
+    {
+        CTransform& trans = entity.getComponent<CTransform>();
+        CBoundingBox& box = entity.getComponent<CBoundingBox>();
+
+        /// TODO: expand to real physics with mass components and such if needed or easier or smoother
+
+        Vec2f r = pos - trans.pos; // center of mass (centroid here) of ragdoll to bullet location
+        float torque = r.cross(force);
+        float I = 1.0f / 12.0f * (box.size.x * box.size.x + box.size.y * box.size.y); // moment of inertia for a rectangle /// TODO: should include factor of player mass too if doing real physics
+        float alpha = torque / I; // angular acceleration, same as angular velocity if force is impulse (which it is)
+
+        trans.velocity += force; // arbitrary choice
+        trans.angularVelocity += alpha;
     }
 }
