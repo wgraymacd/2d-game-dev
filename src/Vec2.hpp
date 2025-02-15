@@ -113,6 +113,11 @@ public:
         return x * vec.y - vec.x * y;
     }
 
+    float dot(const Vec2& vec) const
+    {
+        return x * vec.x + y * vec.y;
+    }
+
     /// TODO: change this, it's a lil confusing naming, maybe just use angle
     /// @brief return the angle of the vector formed by vec - this from the +x-axis, [-π, π]
     float angleFrom(const Vec2& vec) const
@@ -150,6 +155,12 @@ public:
         float length = this->length();
         if (length == 0) return Vec2(0, 0);
         return Vec2(x / length, y / length);
+    }
+
+    /// @brief return a rotated version of this vector about center by angle
+    Vec2 rotate(const Vec2& center, const float angle)
+    {
+        return Vec2(center.x + (x - center.x) * cosf(angle) - (y - center.y) * sinf(angle), center.y + (x - center.x) * sinf(angle) + (y - center.y) * cosf(angle));
     }
 };
 

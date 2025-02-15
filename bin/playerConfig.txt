@@ -1,1 +1,1 @@
-Player 22 46 0.15 3.5 3.5 0.1 Bullet
+Player 22 68 0.15 3.5 3.5 0.1 Bullet

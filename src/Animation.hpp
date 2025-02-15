@@ -43,7 +43,7 @@ public:
     Animation(const std::string& name, const sf::Texture& texture, const Vec2i& atlasPosition, const Vec2i& size)
         : m_name(name), m_atlasPosition(atlasPosition), m_size(size), m_texture(texture)
     {
-        m_sprite.setOrigin(m_size.to<float>() / 2.0f);
+        m_sprite.setOrigin(size.to<float>() / 2.0f);
         m_sprite.setTexture(texture);
         m_sprite.setTextureRect(sf::IntRect(atlasPosition, size));
     }

@@ -169,7 +169,7 @@ void ScenePlay::generateWorld()
             TileType tileType = tileMatrix[x][y];
             if (tileType)
             {
-                std::cout << "adding tile " << x << ", " << y << std::endl;
+                // std::cout << "adding tile " << x << ", " << y << std::endl;
 
                 Entity tile = m_entityManager.addEntity("tile");
 
@@ -436,34 +436,33 @@ void ScenePlay::sObjectCollision()
 
     /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
 
-    // ragdoll-tile collisions
+    // ragdoll-tile collisions /// TODO: could just do two vertices on a stick and call it a day (or give the vertices a circular distance for collisions)
     for (Entity& rag : m_entityManager.getEntities("ragdoll"))
     {
         CTransform& trans = rag.getComponent<CTransform>();
         CBoundingBox& box = rag.getComponent<CBoundingBox>();
 
-        // check entity vertices inside tiles
         std::array<Vec2f, 4> vertices;
         float halfDiag = sqrtf(box.size.x * box.size.x + box.size.y * box.size.y) / 2.0f;
-        float angleToVertex0 = sinf(box.halfSize.y / halfDiag) + trans.angle; // bottom-right (without trans.angle)
+        float angleToVertex0 = asinf(box.halfSize.y / halfDiag); // bottom-right (without trans.angle)
         float angleToVertex1 = M_PI - angleToVertex0; // bottom-left (without trans.angle)
         float angleToVertex2 = M_PI + angleToVertex0;
         float angleToVertex3 = 2.0f * M_PI - angleToVertex0;
-        vertices[0] = trans.pos + Vec2f(cosf(angleToVertex0) * halfDiag, sinf(angleToVertex0) * halfDiag);
-        vertices[1] = trans.pos + Vec2f(cosf(angleToVertex1) * halfDiag, sinf(angleToVertex1) * halfDiag);
-        vertices[2] = trans.pos + Vec2f(cosf(angleToVertex2) * halfDiag, sinf(angleToVertex2) * halfDiag);
-        vertices[3] = trans.pos + Vec2f(cosf(angleToVertex3) * halfDiag, sinf(angleToVertex3) * halfDiag);
+        vertices[0] = trans.pos + Vec2f(cosf(angleToVertex0 + trans.angle) * halfDiag, sinf(angleToVertex0 + trans.angle) * halfDiag);
+        vertices[1] = trans.pos + Vec2f(cosf(angleToVertex1 + trans.angle) * halfDiag, sinf(angleToVertex1 + trans.angle) * halfDiag);
+        vertices[2] = trans.pos + Vec2f(cosf(angleToVertex2 + trans.angle) * halfDiag, sinf(angleToVertex2 + trans.angle) * halfDiag);
+        vertices[3] = trans.pos + Vec2f(cosf(angleToVertex3 + trans.angle) * halfDiag, sinf(angleToVertex3 + trans.angle) * halfDiag);
 
-        /// TODO: improve this with actual previous angle (this assumes previous angular velocity is the same as current) or change entirely
+        /// TODO: change entirely maybe, if too slow down the line
         std::array<Vec2f, 4> prevVertices;
-        angleToVertex0 = sinf(box.halfSize.y / halfDiag) + trans.prevAngle;
+        angleToVertex0 = asinf(box.halfSize.y / halfDiag);
         angleToVertex1 = M_PI - angleToVertex0;
         angleToVertex2 = M_PI + angleToVertex0;
         angleToVertex3 = 2.0f * M_PI - angleToVertex0;
-        prevVertices[0] = trans.prevPos + Vec2f(cosf(angleToVertex0) * halfDiag, sinf(angleToVertex0) * halfDiag);
-        prevVertices[1] = trans.prevPos + Vec2f(cosf(angleToVertex1) * halfDiag, sinf(angleToVertex1) * halfDiag);
-        prevVertices[2] = trans.prevPos + Vec2f(cosf(angleToVertex2) * halfDiag, sinf(angleToVertex2) * halfDiag);
-        prevVertices[3] = trans.prevPos + Vec2f(cosf(angleToVertex3) * halfDiag, sinf(angleToVertex3) * halfDiag);
+        prevVertices[0] = trans.prevPos + Vec2f(cosf(angleToVertex0 + trans.prevAngle) * halfDiag, sinf(angleToVertex0 + trans.prevAngle) * halfDiag);
+        prevVertices[1] = trans.prevPos + Vec2f(cosf(angleToVertex1 + trans.prevAngle) * halfDiag, sinf(angleToVertex1 + trans.prevAngle) * halfDiag);
+        prevVertices[2] = trans.prevPos + Vec2f(cosf(angleToVertex2 + trans.prevAngle) * halfDiag, sinf(angleToVertex2 + trans.prevAngle) * halfDiag);
+        prevVertices[3] = trans.prevPos + Vec2f(cosf(angleToVertex3 + trans.prevAngle) * halfDiag, sinf(angleToVertex3 + trans.prevAngle) * halfDiag);
 
         // std::cout << "halfDiag: " << halfDiag << std::endl;
         // for (int i = 0; i < 4; ++i)
@@ -477,32 +476,185 @@ void ScenePlay::sObjectCollision()
             Vec2f vert = vertices[i];
             Vec2f prevVert = prevVertices[i];
             Vec2i gridPos = vert.to<int>() / m_cellSizePixels;
-            Vec2i prevGridPos = prevVert.to<int>() / m_cellSizePixels;
 
-            if (tileMatrix[gridPos.x][gridPos.y].isActive()) // vertex inside tile
+            std::cout << "vertex " << i << ": " << vert.x << " " << vert.y << std::endl;
+
+            /// TODO: edge case: vert x = 1300 so grid pos = 130, but no resolutions needs to happen
+            /// TODO: maybe check multiple times per frame for more accuracy
+            if (tileMatrix[gridPos.x][gridPos.y].isActive()) // vertex inside tile /// TODO: possible seg faults
             {
-                std::cout << "collision with vertex " << vert.x << " " << vert.y << " at grid pos " << gridPos.x << " " << gridPos.y << std::endl;
+                // std::cout << "collision with tile" << std::endl;
 
-                if (prevGridPos.x < gridPos.x) // collided from the left
+                float bounce = 0.7f;
+                float friction = 0.4f; /// TODO: set based on tile type?
+                float threshold = 0.00f;
+                Vec2f travel = vert - prevVert;
+
+                float xOverlap = m_cellSizePixels * 0.5f - abs(vert.x - (gridPos.x + 0.5f) * m_cellSizePixels);
+                float yOverlap = m_cellSizePixels * 0.5f - abs(vert.y - (gridPos.y + 0.5f) * m_cellSizePixels);
+                float xPrevOverlap = m_cellSizePixels * 0.5f - abs(prevVert.x - (gridPos.x + 0.5f) * m_cellSizePixels);
+                float yPrevOverlap = m_cellSizePixels * 0.5f - abs(prevVert.y - (gridPos.y + 0.5f) * m_cellSizePixels);
+
+                // if (xOverlap < yOverlap) // handle smallest overlap collisions first
+                // {
+                //     if (yPrevOverlap > 0) // collided from left or right
+                //     {
+                //         if (travel.x > 0) // collided from the left
+                //         {
+                //             trans.pos.x -= xOverlap * 0.5f;
+                //             float normalForce = -travel.x * bounce;
+                //             float frictionForce = -travel.y * friction;
+                //             std::cout << "collided from left: " << normalForce << " " << frictionForce << "\n";
+                //             if (abs(normalForce) >= threshold || abs(frictionForce) >= threshold)
+                //                 Physics::ForceEntity(rag, Vec2f(normalForce, frictionForce), vert); /// TODO: add some sort of if force less than certain amount just make velocity zero so that is doesn't infinitely bounce at tiny bounce amounts
+                //             // else
+                //             // {
+                //             //     std::cout << "skipping force" << std::endl;
+                //             //     trans.velocity.x = 0;
+                //             //     trans.velocity.y = 0;
+                //             //     trans.angularVelocity = 0;
+                //             // }
+                //         }
+                //         else if (travel.x < 0) // collided from the right
+                //         {
+                //             trans.pos.x += xOverlap * 0.5f;
+                //             float normalForce = -travel.x * bounce;
+                //             float frictionForce = -travel.y * friction;
+                //             std::cout << "collided from right: " << normalForce << " " << frictionForce << "\n";
+                //             if (abs(normalForce) >= threshold || abs(frictionForce) >= threshold)
+                //                 Physics::ForceEntity(rag, Vec2f(normalForce, frictionForce), vert);
+                //             // else
+                //             // {
+                //             //     std::cout << "skipping force" << std::endl;
+                //             //     trans.velocity.x = 0;
+                //             //     trans.velocity.y = 0;
+                //             //     trans.angularVelocity = 0;
+                //             // }
+                //         }
+                //         /// TODO: travel.x == 0?
+                //     }
+                //     else if (xPrevOverlap > 0) // collided from top or bottom
+                //     {
+                //         if (travel.y > 0) // collided from the top
+                //         {
+                //             trans.pos.y -= yOverlap * 0.5f; // dampening
+                //             float normalForce = -travel.y * bounce;
+                //             float frictionForce = -travel.x * friction;
+                //             std::cout << "collided from top: " << normalForce << " " << frictionForce << "\n";
+                //             if (abs(normalForce) >= threshold || abs(frictionForce) >= threshold)
+                //                 Physics::ForceEntity(rag, Vec2f(frictionForce, normalForce), vert);
+                //             // else
+                //             // {
+                //             //     std::cout << "skipping force" << std::endl;
+                //             //     trans.velocity.x = 0;
+                //             //     trans.velocity.y = 0;
+                //             //     trans.angularVelocity = 0;
+                //             // }
+                //         }
+                //         else if (travel.y < 0) // collided from the bottom
+                //         {
+                //             trans.pos.y += yOverlap * 0.5f;
+                //             float normalForce = -travel.y * bounce;
+                //             float frictionForce = -travel.x * friction;
+                //             std::cout << "collided from bottom: " << normalForce << " " << frictionForce << "\n";
+                //             if (abs(normalForce) >= threshold || abs(frictionForce) >= threshold)
+                //                 Physics::ForceEntity(rag, Vec2f(frictionForce, normalForce), vert);
+                //             // else
+                //             // {
+                //             //     std::cout << "skipping force" << std::endl;
+                //             //     trans.velocity.x = 0;
+                //             //     trans.velocity.y = 0;
+                //             //     trans.angularVelocity = 0;
+                //             // }
+                //         }
+                //         /// TODO: travel.y == 0?
+                //     }
+                // }
+                // else
+                // {
+                if (yPrevOverlap <= 0) // collided from top or bottom
                 {
-                    trans.pos.x -= vert.x - m_cellSizePixels * gridPos.x; // push entity out of tile
-                    Physics::ForceEntity(rag, Vec2f((prevVert.x - vert.x), 0.0f) * 0.1f, vert);
+                    if (travel.y > 0) // collided from the top
+                    {
+                        trans.pos.y -= yOverlap; /// TODO: could add dampening like * 0.5f
+
+                        float normalForceMag = travel.y * bounce;
+                        float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.x));
+                        std::cout << "collided from top: " << normalForceMag << " " << frictionForceMag << "\n";
+                        if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
+                            Physics::ForceEntity(rag, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, -normalForceMag), vert);
+                        else
+                        {
+                            std::cout << "skipping force" << std::endl;
+                            // trans.velocity.x = 0;
+                            // trans.velocity.y = 0;
+                            // trans.angularVelocity = 0;
+                        }
+                    }
+                    else if (travel.y < 0) // collided from the bottom
+                    {
+                        trans.pos.y += yOverlap;
+
+                        float normalForceMag = -travel.y * bounce;
+                        float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.x));
+                        std::cout << "collided from bottom: " << normalForceMag << " " << frictionForceMag << "\n";
+                        if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
+                            Physics::ForceEntity(rag, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, normalForceMag), vert);
+                        // else
+                        // {
+                        //     std::cout << "skipping force" << std::endl;
+                        //     trans.velocity.x = 0;
+                        //     trans.velocity.y = 0;
+                        //     trans.angularVelocity = 0;
+                        // }
+                    }
+                    /// TODO: travel.y == 0?
                 }
-                else if (prevGridPos.x > gridPos.x) // collided from the right
+                else if (xPrevOverlap <= 0) // collided from left or right
                 {
-                    trans.pos.x += m_cellSizePixels - (vert.x - m_cellSizePixels * gridPos.x);
-                    Physics::ForceEntity(rag, Vec2f((prevVert.x - vert.x), 0.0f) * 0.1f, vert);
+                    if (travel.x > 0) // collided from the left
+                    {
+                        trans.pos.x -= xOverlap;
+
+                        float normalForceMag = travel.x * bounce;
+                        float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.y));
+                        std::cout << "collided from left: " << normalForceMag << " " << frictionForceMag << "\n";
+                        if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
+                            Physics::ForceEntity(rag, Vec2f(-normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert); /// TODO: add some sort of if force less than certain amount just make velocity zero so that is doesn't infinitely bounce at tiny bounce amounts
+                        // else
+                        // {
+                        //     std::cout << "skipping force" << std::endl;
+                        //     trans.velocity.x = 0;
+                        //     trans.velocity.y = 0;
+                        //     trans.angularVelocity = 0;
+                        // }
+                    }
+                    else if (travel.x < 0) // collided from the right
+                    {
+                        trans.pos.x += xOverlap;
+
+                        float normalForceMag = -travel.x * bounce;
+                        float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.y));
+                        std::cout << "collided from right: " << normalForceMag << " " << frictionForceMag << "\n";
+                        if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
+                            Physics::ForceEntity(rag, Vec2f(normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert);
+                        // else
+                        // {
+                        //     std::cout << "skipping force" << std::endl;
+                        //     trans.velocity.x = 0;
+                        //     trans.velocity.y = 0;
+                        //     trans.angularVelocity = 0;
+                        // }
+                    }
+                    /// TODO: travel.x == 0?
                 }
-                else if (prevGridPos.y > gridPos.y) //  collided from the bottom
+                else
                 {
-                    trans.pos.y += m_cellSizePixels - (vert.y - m_cellSizePixels * gridPos.y);
-                    Physics::ForceEntity(rag, Vec2f(0.0f, (prevVert.y - vert.y)) * 0.1f, vert);
+                    std::cout << "no previous overlap, skipping\n";
                 }
-                else // collided from the top
-                {
-                    trans.pos.y -= vert.y - m_cellSizePixels * gridPos.y;
-                    Physics::ForceEntity(rag, Vec2f(0.0f, (prevVert.y - vert.y)) * 0.1f, vert);
-                }
+                // }
+                /// TODO: no previous overlap?
+                /// TODO: trans.pos close enough to trans.prevPos, then don't make a physics update, just freeze it until there is no collision again
             }
         }
     }
@@ -839,12 +991,12 @@ void ScenePlay::sRender()
     }
 
     // weapons
-    const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
-    sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
-    weaponSprite.setPosition(weaponTrans.pos);
-    weaponSprite.setScale(weaponTrans.scale);
-    weaponSprite.setRotation(sf::radians(weaponTrans.angle));
-    window.draw(weaponSprite);
+    // const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
+    // sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
+    // weaponSprite.setPosition(weaponTrans.pos);
+    // weaponSprite.setScale(weaponTrans.scale);
+    // weaponSprite.setRotation(sf::radians(weaponTrans.angle));
+    // window.draw(weaponSprite);
 
     // bullets
     for (Entity& bullet : m_entityManager.getEntities("bullet"))
@@ -1458,9 +1610,8 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
                         }
                         playerTrans.velocity.y = 0;
                     }
-
                     // colliding in x-direction this frame
-                    if (yPrevOverlap > 0)
+                    else if (yPrevOverlap > 0)
                     {
                         // player moving right
                         if (playerTrans.velocity.x > 0)
@@ -1474,6 +1625,8 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
                         }
                         playerTrans.velocity.x = 0;
                     }
+
+                    /// TODO: what is neither?
 
                     break; // found a collision and corrected, no need to do extra work
                 }
@@ -1672,7 +1825,7 @@ void ScenePlay::spawnRagdoll(Entity& player, Entity& bullet)
     ragdoll.addComponent<CBoundingBox>(playerBox.size);
     ragdoll.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), false);
 
-    Physics::ForceEntity(ragdoll, bulletTrans.velocity, bulletTrans.pos); // arbitrary choice of applied force
+    Physics::ForceEntity(ragdoll, bulletTrans.velocity * 5.0f, bulletTrans.pos); // arbitrary choice of applied force
 }
 
 /// @brief move all projectiles and check for collisions

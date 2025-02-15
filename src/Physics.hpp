@@ -100,7 +100,7 @@ namespace Physics
     /// @brief check for overlap among two convex polygons
     // bool OverlapSAT()
 
-    /// @brief apply force at pos to rectangular entity and update entity's velocity and angular acceleration
+    /// @brief apply force at pos to rectangular ecntity and update entity's velocity and angular acceleration
     void ForceEntity(Entity& entity, const Vec2f& force, const Vec2f& pos)
     {
         CTransform& trans = entity.getComponent<CTransform>();
@@ -110,10 +110,11 @@ namespace Physics
 
         Vec2f r = pos - trans.pos; // center of mass (centroid here) of ragdoll to bullet location
         float torque = r.cross(force);
-        float I = 1.0f / 12.0f * (box.size.x * box.size.x + box.size.y * box.size.y); // moment of inertia for a rectangle /// TODO: should include factor of player mass too if doing real physics
+        /// TODO: make sure this is right and makes sense ^ std::cout << sqrtf(tangentialForce^2 + linearForce^2) == 1 << std::endl;
+        float I = 1.0f / 12.0f * (box.size.x * box.size.x + box.size.y * box.size.y) * 2.0f; // moment of inertia for a rectangle /// TODO: should include factor of player mass too if doing real physics
         float alpha = torque / I; // angular acceleration, same as angular velocity if force is impulse (which it is)
 
-        trans.velocity += force; // arbitrary choice
+        trans.velocity += force; // arbitrary choice, change in velocity (acceleration) should be F / mass
         trans.angularVelocity += alpha;
     }
 }

@@ -20,7 +20,7 @@ public:
     Vec2f prevPos = { 0.0f, 0.0f }; // pos last frame, pixels
     Vec2f scale = { 1.0f, 1.0f }; // can use to change direction entity is facing with a negative x
     Vec2f velocity = { 0.0f, 0.0f }; // pixels/s
-    float angle = 0.0f; // rotation angle from x-axis, rad
+    float angle = 0.0f; // rotation angle from x-axis, rad /// NOTE: CW rotation since +y is downward
     float prevAngle = 0.0f; // prev rotation angle from x-axis, rad
     float angularVelocity = 0.0f; // rad/s
 
