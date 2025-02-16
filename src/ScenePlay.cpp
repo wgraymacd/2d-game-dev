@@ -384,7 +384,7 @@ void ScenePlay::sObjectMovement()
             CTransform& weaponTrans = weapon.getComponent<CTransform>();
             CBoundingBox& weaponBox = weapon.getComponent<CBoundingBox>();
 
-            weaponTrans.pos = playerTrans.pos + aimVec.norm() * weaponBox.halfSize.x;
+            weaponTrans.pos = playerTrans.pos + aimVec.norm() * weaponBox.halfSize.x / 2.0f;
             weaponTrans.angle = aimVec.angle();
 
             // set scale based on mouse position
@@ -485,7 +485,7 @@ void ScenePlay::sObjectCollision()
             {
                 // std::cout << "collision with tile" << std::endl;
 
-                float bounce = 0.7f;
+                float bounce = 0.6f;
                 float friction = 0.4f; /// TODO: set based on tile type?
                 float threshold = 0.00f;
                 Vec2f travel = vert - prevVert;
@@ -877,10 +877,6 @@ void ScenePlay::sRender()
     // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
     Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
 
-    if (m_drawTextures)
-
-        PROFILE_SCOPE("rendering textures");
-
     const Vec2f& mainViewSize = m_mainView.getSize(); //  window size is the view size now
 
     Vec2i checkLength = (mainViewSize / m_cellSizePixels / 2.0f).to<int>();
@@ -898,7 +894,7 @@ void ScenePlay::sRender()
 
     findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
 
-    // gonna render tiles visited
+    // render tiles visited, 1 pixel each and then expanded
     m_tileTexture.clear();
     for (int x = minX; x <= maxX; ++x)
     {
@@ -988,15 +984,30 @@ void ScenePlay::sRender()
         sprite.setPosition(trans.pos);
         sprite.setRotation(sf::radians(trans.angle));
         window.draw(sprite);
+
+        // draw bounding box
+        const CBoundingBox& box = rag.getComponent<CBoundingBox>();
+        sf::RectangleShape rect;
+        rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
+        rect.setOrigin(box.halfSize);
+        rect.setPosition(trans.pos);
+        rect.setRotation(sf::radians(trans.angle));
+        rect.setFillColor(sf::Color::Transparent);
+        rect.setOutlineColor(sf::Color::White);
+        rect.setOutlineThickness(1);
+        window.draw(rect);
     }
 
     // weapons
-    // const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
-    // sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
-    // weaponSprite.setPosition(weaponTrans.pos);
-    // weaponSprite.setScale(weaponTrans.scale);
-    // weaponSprite.setRotation(sf::radians(weaponTrans.angle));
-    // window.draw(weaponSprite);
+    if (m_weapon.isActive())
+    {
+        const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
+        sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
+        weaponSprite.setPosition(weaponTrans.pos);
+        weaponSprite.setScale(weaponTrans.scale);
+        weaponSprite.setRotation(sf::radians(weaponTrans.angle));
+        window.draw(weaponSprite);
+    }
 
     // bullets
     for (Entity& bullet : m_entityManager.getEntities("bullet"))
@@ -1011,251 +1022,8 @@ void ScenePlay::sRender()
         window.draw(sprite);
     }
 
-    // use open-air tiles with ray casting 
-    std::vector<Vec2f> vertices; // in pixels
-    std::unordered_set<Vec2f> vertexSet; // use unordered set to collect unique vertices and put only unique ones in vector
-
-    // four corners of the screen
-    /// TODO: see if the + 1 is necessary now that they're floats
-    vertices.emplace_back(window.getView().getCenter().x - mainViewSize.x / 2.0f, window.getView().getCenter().y - mainViewSize.y / 2.0f);
-    vertices.emplace_back(window.getView().getCenter().x + mainViewSize.x / 2.0f, window.getView().getCenter().y - mainViewSize.y / 2.0f);
-    vertices.emplace_back(window.getView().getCenter().x - mainViewSize.x / 2.0f, window.getView().getCenter().y + mainViewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
-    vertices.emplace_back(window.getView().getCenter().x + mainViewSize.x / 2.0f, window.getView().getCenter().y + mainViewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
-
-    // add open tile corners 
-    for (const Vec2i& tileCoords : openTiles)
-    {
-        Vec2i corners[4] = { tileCoords,
-                           { tileCoords.x, tileCoords.y + 1 },
-                           { tileCoords.x + 1, tileCoords.y },
-                           { tileCoords.x + 1, tileCoords.y + 1 } };
-
-        for (const Vec2i& v : corners)
-        {
-            if (vertexSet.insert((v * m_cellSizePixels).to<float>()).second) // insert() returns {iterator, bool}, bool is true if inserted
-            {
-                vertices.push_back((v * m_cellSizePixels).to<float>());
-            }
-        }
-    }
-
-    // filter visible vertices and add new points behind them
-    const Vec2f playerPos = playerTrans.pos;
-    std::vector<Vec2f> verticesToAdd;
-    for (int i = 0; i < vertices.size(); ++i)
-    {
-        Vec2f& vertex = vertices[i];
-        float rayAngle = vertex.angleFrom(playerPos);
-
-        /// for this method: if it's middle ray and reaches vertex, remove it; if it's side ray, let it go until it hits something and add a vertex there
-        // for (int dTheta = -1; dTheta < 2; ++dTheta)
-        // {
-            // float angle = rayAngle + dTheta * 0.0001f;
-        float angle = rayAngle;
-        Vec2f rayUnitVec(cosf(angle), sinf(angle));
-        float slope = tanf(angle);
-        float reciprocalSlope = 1.0f / slope;
-        float xMoveHypDist = sqrtf(1 + slope * slope); // in grid coords
-        float yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope); // in grid coords
-
-        // coordinates of grid cell the traveling ray is in
-        /// TODO: test edge cases: if hitting right side of tile, I want this coord to truncate to the left side of the tile (since tiles positioned with top-left), this could be wrong, subtly
-        int xCoord = playerGridPos.x;
-        int yCoord = playerGridPos.y;
-
-        // way we step in x or y when traveling the ray
-        Vec2i rayStep;
-
-        // accumulated distances (pixels) in the direction of the hypoteneuse caused by a change in x/y from the start of the ray (player position), starting with initial pixel offset from grid coord (top-left)
-        float xTravel, yTravel;
-
-        if (rayUnitVec.x < 0)
-        {
-            rayStep.x = -1;
-            xTravel = (playerPos.x - (xCoord * m_cellSizePixels)) * xMoveHypDist;
-        }
-        else
-        {
-            rayStep.x = 1;
-            xTravel = (m_cellSizePixels - (playerPos.x - (xCoord * m_cellSizePixels))) * xMoveHypDist;
-        }
-
-        if (rayUnitVec.y < 0)
-        {
-            rayStep.y = -1;
-            yTravel = (playerPos.y - (yCoord * m_cellSizePixels)) * yMoveHypDist;
-        }
-        else
-        {
-            rayStep.y = 1;
-            yTravel = (m_cellSizePixels - (playerPos.y - (yCoord * m_cellSizePixels))) * yMoveHypDist;
-        }
-
-        bool tileHit = false;
-        bool vertexReached = false;
-        // bool topLeft, topRight, bottomLeft, bottomRight;
-        while (!tileHit && !vertexReached) /// TODO: alternatively, add a xTravel < rayLength - 0.001f or something instead of vertexReached
-        {
-            if (xTravel < yTravel)
-            {
-                xCoord += rayStep.x;
-
-                // at this point, the endpoint of the line formed by playerPos + xTravel * rayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
-
-                xTravel += xMoveHypDist * m_cellSizePixels;
-            }
-            else
-            {
-                yCoord += rayStep.y;
-                yTravel += yMoveHypDist * m_cellSizePixels;
-            }
-
-            if (tileMatrix[xCoord][yCoord].isActive()) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
-            {
-                tileHit = true;
-
-                // remove vertex from vertices
-                vertex = vertices.back();
-                vertices.pop_back();
-                --i;
-            }
-
-            // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
-            /// TODO: keep repeats? given this thought above ^
-            if (!tileMatrix[xCoord][yCoord].isActive() && (vertex.x >= xCoord * m_cellSizePixels && vertex.x <= (xCoord + 1) * m_cellSizePixels && vertex.y >= yCoord * m_cellSizePixels && vertex.y <= (yCoord + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
-            {
-                vertexReached = true;
-            }
-        }
-        // }
-
-        /// find vertex and divert angle method, less rays, but possibly still more work
-        // note that the top two corners of the screen are reached as well as actual vertices
-        if (vertexReached)
-        {
-            /// if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
-
-            // check for tile just passed the vertex in the direction of the ray
-            Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels).to<int>();
-
-            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tileMatrix[checkCoord.x][checkCoord.y].isActive()))
-            {
-                /// add small angle to ray 
-                /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
-                /// TODO: is this more expensive than just adding two more rays at slight angle offsets for each ray?
-                /// TODO: handle pure vertical and horizontal rays case
-
-                float dTheta = 0.0001f;
-                float newAngle;
-                if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
-                {
-                    if (tileMatrix[xCoord - 1][yCoord].isActive() && tileMatrix[xCoord][yCoord - 1].isActive()) // shared vertex
-                        continue; // don't want ray shining through diagonal lines of tiles
-
-                    if (tileMatrix[xCoord - 1][yCoord].isActive()) // tile to the left active
-                        newAngle = rayAngle + dTheta; // CW
-                    else // tile above active
-                        newAngle = rayAngle - dTheta; // CCW
-                }
-                else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
-                {
-                    if (tileMatrix[xCoord][yCoord - 1].isActive() && tileMatrix[xCoord + 1][yCoord].isActive())
-                        continue;
-
-                    if (tileMatrix[xCoord][yCoord - 1].isActive()) // tile above active
-                        newAngle = rayAngle + dTheta; // CW
-                    else // tile to the right active
-                        newAngle = rayAngle - dTheta;; // CCW
-                }
-                else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
-                {
-                    if (tileMatrix[xCoord + 1][yCoord].isActive() && tileMatrix[xCoord][yCoord + 1].isActive())
-                        continue;
-
-                    if (tileMatrix[xCoord + 1][yCoord].isActive()) // tile to the right
-                        newAngle = rayAngle + dTheta; // CW
-                    else // tile below is active
-                        newAngle = rayAngle - dTheta; // CCW
-                }
-                else // came from top right or /// TODO: a horizontal/vertical ray case
-                {
-                    if (tileMatrix[xCoord][yCoord + 1].isActive() && tileMatrix[xCoord - 1][yCoord].isActive())
-                        continue;
-
-                    if (tileMatrix[xCoord][yCoord + 1].isActive()) // tile below is active
-                        newAngle = rayAngle + dTheta; // CW
-                    else // tile to the left is active
-                        newAngle = rayAngle - dTheta; // CCW
-                }
-
-                Vec2f newRayUnitVec = { cosf(newAngle), sinf(newAngle) };
-                slope = tanf(newAngle);
-                reciprocalSlope = 1.0f / slope;
-                xMoveHypDist = sqrtf(1 + slope * slope);
-                yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope);
-
-                float xTravelNew = xMoveHypDist * m_cellSizePixels;
-                float yTravelNew = yMoveHypDist * m_cellSizePixels;
-                xCoord = checkCoord.x;
-                yCoord = checkCoord.y;
-
-                while (!tileHit)
-                {
-                    if (xTravelNew < yTravelNew)
-                    {
-                        xCoord += rayStep.x;
-
-                        // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (xCoord, yCoord) if tile is active there
-
-                        if (xCoord < minX || xCoord > maxX || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==? 
-                        {
-                            tileHit = true;
-                            verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
-                        }
-                        else
-                        {
-                            xTravelNew += xMoveHypDist * m_cellSizePixels;
-                        }
-                    }
-                    else
-                    {
-                        yCoord += rayStep.y;
-
-                        if (yCoord < minY || yCoord > maxY || tileMatrix[xCoord][yCoord].isActive()) /// TODO: use ==?
-                        {
-                            tileHit = true;
-                            verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);
-                        }
-                        else
-                        {
-                            yTravelNew += yMoveHypDist * m_cellSizePixels;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // for (const auto& v : verticesToAdd)
-    // {
-    //     sf::CircleShape dot(2);
-    //     dot.setPosition({ v.x - 2, v.y - 2 });
-    //     dot.setFillColor(sf::Color::Red);
-    //     window.draw(dot);
-    // }
-    vertices.insert(vertices.end(), verticesToAdd.begin(), verticesToAdd.end());
-
-    // sort the reachable vertices by angle 
-    /// TODO: consider storing angle for each vertex in the vector, faster probably
-    std::sort(vertices.begin(), vertices.end(), [&playerPos](const Vec2f& a, const Vec2f& b) { return a.angleFrom(playerPos) < b.angleFrom(playerPos); });
-
-    // create triangle fan of vertices (pixels)
-    std::vector<Vec2f> triangleFan;
-    triangleFan.push_back(playerPos);
-    triangleFan.insert(triangleFan.end(), vertices.begin(), vertices.end());
-    triangleFan.push_back(vertices.front());
-
-    // render things inside triangle fan
+    // ray casting
+    std::vector<Vec2f> triangleFan = rayCast(m_mainView.getCenter(), m_mainView.getSize(), openTiles, playerTrans.pos, tileMatrix, minX, maxX, minY, maxY);
     sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
     for (int i = 0; i < triangleFan.size(); ++i)
     {
@@ -1517,7 +1285,7 @@ void ScenePlay::spawnPlayer()
     m_weapon.addComponent<CFireRate>(12);
     m_weapon.addComponent<CDamage>(50);
     m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos); /// TODO: make this a lil infront of player
-    m_weapon.addComponent<CBoundingBox>(Vec2i(40, 10), false, false); /// TODO: make this dynamic for each weapon
+    m_weapon.addComponent<CBoundingBox>(Vec2i(96, 30), false, false); /// TODO: make this dynamic for each weapon
     m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
     /// TODO: add animation, gravity, bounding box, transform, state, etc. since weapons will drop from player on death
 }
@@ -1805,27 +1573,46 @@ void ScenePlay::projectilePlayerCollisions(std::vector<Entity>& players, std::ve
                 if (playerHealth <= 0)
                 {
                     spawnRagdoll(player, bullet);
-
                     player.destroy();
+
+                    spawnRagdoll(m_weapon, bullet); /// TODO: don't use m_weapon, use something else maybe
+                    m_weapon.destroy();
                 }
             }
         }
     }
 }
 
-void ScenePlay::spawnRagdoll(Entity& player, Entity& bullet)
+/// @brief replace entity with regdoll version created when cause kills entity
+/// @param entity 
+/// @param cause 
+void ScenePlay::spawnRagdoll(Entity& entity, Entity& cause)
 {
-    const CTransform& playerTrans = player.getComponent<CTransform>();
-    const CBoundingBox& playerBox = player.getComponent<CBoundingBox>();
-    const CTransform& bulletTrans = bullet.getComponent<CTransform>();
+    const CTransform& entityTrans = entity.getComponent<CTransform>();
+    const CBoundingBox& entityBox = entity.getComponent<CBoundingBox>();
+    const CTransform& causeTrans = cause.getComponent<CTransform>();
 
     Entity ragdoll = m_entityManager.addEntity("ragdoll");
-    ragdoll.addComponent<CTransform>(playerTrans.pos);
+    ragdoll.addComponent<CTransform>(entityTrans.pos);
     ragdoll.addComponent<CGravity>(m_playerConfig.GRAVITY);
-    ragdoll.addComponent<CBoundingBox>(playerBox.size);
-    ragdoll.addComponent<CAnimation>(m_game.assets().getAnimation("woodTall"), false);
+    ragdoll.addComponent<CBoundingBox>(entityBox.size);
+    ragdoll.addComponent<CAnimation>(entity.getComponent<CAnimation>().animation, false);
 
-    Physics::ForceEntity(ragdoll, bulletTrans.velocity * 5.0f, bulletTrans.pos); // arbitrary choice of applied force
+    if (entity.hasComponent<CFireRate>()) // if entity is a weapon
+    {
+        Vec2f force;
+        Vec2f pos;
+        force.x = (causeTrans.velocity.x + generateRandomFloat(0.0f, causeTrans.velocity.length())) * 2.0f;
+        force.y = (causeTrans.velocity.y + generateRandomFloat(0.0f, causeTrans.velocity.length())) * 2.0f;
+        pos.x = entityTrans.pos.x + generateRandomFloat(0.0f, entityBox.halfSize.x);
+        pos.y = entityTrans.pos.y + generateRandomFloat(0.0f, entityBox.halfSize.y);
+
+        Physics::ForceEntity(ragdoll, force, pos);
+    }
+    else // entity is a player
+    {
+        Physics::ForceEntity(ragdoll, causeTrans.velocity * 3.0f, causeTrans.pos); // arbitrary choice of applied force
+    }
 }
 
 /// @brief move all projectiles and check for collisions
@@ -1879,9 +1666,8 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
 
 float ScenePlay::generateRandomFloat(float min, float max)
 {
-    static std::random_device rd; // Seed
-    static std::mt19937 gen(rd()); // Mersenne Twister RNG
-    std::uniform_real_distribution<float> dis(min, max); // Range [min, max]
+    static std::minstd_rand gen(std::time(nullptr));
+    std::uniform_real_distribution<float> dis(min, max);
 
     return dis(gen);
 }
@@ -1933,3 +1719,249 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
     }
 }
 
+std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<std::vector<Entity>>& tileMatrix, int minX, int maxX, int minY, int maxY)
+{
+    // use open-air tiles with ray casting 
+    std::vector<Vec2f> vertices; // in pixels
+    std::unordered_set<Vec2f> vertexSet; // use unordered set to collect unique vertices and put only unique ones in vector
+
+    // four corners of the screen
+    /// TODO: see if the + 1 is necessary now that they're floats
+    vertices.emplace_back(viewCenter.x - viewSize.x / 2.0f, viewCenter.y - viewSize.y / 2.0f);
+    vertices.emplace_back(viewCenter.x + viewSize.x / 2.0f, viewCenter.y - viewSize.y / 2.0f);
+    vertices.emplace_back(viewCenter.x - viewSize.x / 2.0f, viewCenter.y + viewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
+    vertices.emplace_back(viewCenter.x + viewSize.x / 2.0f, viewCenter.y + viewSize.y / 2.0f); /// TODO: these may not be necessary of players will never reach bottom of world
+
+    // add open tile corners 
+    for (const Vec2i& tileCoords : openTiles)
+    {
+        Vec2i corners[4] = { tileCoords,
+                           { tileCoords.x, tileCoords.y + 1 },
+                           { tileCoords.x + 1, tileCoords.y },
+                           { tileCoords.x + 1, tileCoords.y + 1 } };
+
+        for (const Vec2i& v : corners)
+        {
+            if (vertexSet.insert((v * m_cellSizePixels).to<float>()).second) // insert() returns {iterator, bool}, bool is true if inserted
+            {
+                vertices.push_back((v * m_cellSizePixels).to<float>());
+            }
+        }
+    }
+
+    // filter visible vertices and add new points behind them
+    std::vector<Vec2f> verticesToAdd;
+    for (int i = 0; i < vertices.size(); ++i)
+    {
+        Vec2f& vertex = vertices[i];
+        float rayAngle = vertex.angleFrom(origin);
+
+        /// for this method: if it's middle ray and reaches vertex, remove it; if it's side ray, let it go until it hits something and add a vertex there
+        // for (int dTheta = -1; dTheta < 2; ++dTheta)
+        // {
+            // float angle = rayAngle + dTheta * 0.0001f;
+        float angle = rayAngle;
+        Vec2f rayUnitVec(cosf(angle), sinf(angle));
+        float slope = tanf(angle);
+        float reciprocalSlope = 1.0f / slope;
+        float xMoveHypDist = sqrtf(1 + slope * slope); // in grid coords
+        float yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope); // in grid coords
+
+        // coordinates of grid cell the traveling ray is in
+        /// TODO: test edge cases: if hitting right side of tile, I want this coord to truncate to the left side of the tile (since tiles positioned with top-left), this could be wrong, subtly
+        Vec2i gridCoord = origin.to<int>() / m_cellSizePixels;
+
+        // way we step in x or y when traveling the ray
+        Vec2i rayStep;
+
+        // accumulated distances (pixels) in the direction of the hypoteneuse caused by a change in x/y from the start of the ray (player position), starting with initial pixel offset from grid coord (top-left)
+        float xTravel, yTravel;
+
+        if (rayUnitVec.x < 0)
+        {
+            rayStep.x = -1;
+            xTravel = (origin.x - (gridCoord.x * m_cellSizePixels)) * xMoveHypDist;
+        }
+        else
+        {
+            rayStep.x = 1;
+            xTravel = (m_cellSizePixels - (origin.x - (gridCoord.x * m_cellSizePixels))) * xMoveHypDist;
+        }
+
+        if (rayUnitVec.y < 0)
+        {
+            rayStep.y = -1;
+            yTravel = (origin.y - (gridCoord.y * m_cellSizePixels)) * yMoveHypDist;
+        }
+        else
+        {
+            rayStep.y = 1;
+            yTravel = (m_cellSizePixels - (origin.y - (gridCoord.y * m_cellSizePixels))) * yMoveHypDist;
+        }
+
+        bool tileHit = false;
+        bool vertexReached = false;
+        // bool topLeft, topRight, bottomLeft, bottomRight;
+        while (!tileHit && !vertexReached) /// TODO: alternatively, add a xTravel < rayLength - 0.001f or something instead of vertexReached
+        {
+            if (xTravel < yTravel)
+            {
+                gridCoord.x += rayStep.x;
+
+                // at this point, the endpoint of the line formed by origin + xTravel * rayUnitVec is the collision point on tile (gridCoord.x, gridCoord.y) if tile is active there
+
+                xTravel += xMoveHypDist * m_cellSizePixels;
+            }
+            else
+            {
+                gridCoord.y += rayStep.y;
+                yTravel += yMoveHypDist * m_cellSizePixels;
+            }
+
+            if (tileMatrix[gridCoord.x][gridCoord.y].isActive()) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
+            {
+                tileHit = true;
+
+                // remove vertex from vertices
+                vertex = vertices.back();
+                vertices.pop_back();
+                --i;
+            }
+
+            // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
+            /// TODO: keep repeats? given this thought above ^
+            if (!tileMatrix[gridCoord.x][gridCoord.y].isActive() && (vertex.x >= gridCoord.x * m_cellSizePixels && vertex.x <= (gridCoord.x + 1) * m_cellSizePixels && vertex.y >= gridCoord.y * m_cellSizePixels && vertex.y <= (gridCoord.y + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
+            {
+                vertexReached = true;
+            }
+        }
+        // }
+
+        /// find vertex and divert angle method, less rays, but possibly still more work
+        // note that the top two corners of the screen are reached as well as actual vertices
+        if (vertexReached)
+        {
+            /// if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
+
+            // check for tile just passed the vertex in the direction of the ray
+            Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels).to<int>();
+
+            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tileMatrix[checkCoord.x][checkCoord.y].isActive()))
+            {
+                /// add small angle to ray 
+                /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
+                /// TODO: is this more expensive than just adding two more rays at slight angle offsets for each ray?
+                /// TODO: handle pure vertical and horizontal rays case
+
+                float dTheta = 0.0001f;
+                float newAngle;
+                if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
+                {
+                    if (tileMatrix[gridCoord.x - 1][gridCoord.y].isActive() && tileMatrix[gridCoord.x][gridCoord.y - 1].isActive()) // shared vertex
+                        continue; // don't want ray shining through diagonal lines of tiles
+
+                    if (tileMatrix[gridCoord.x - 1][gridCoord.y].isActive()) // tile to the left active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile above active
+                        newAngle = rayAngle - dTheta; // CCW
+                }
+                else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
+                {
+                    if (tileMatrix[gridCoord.x][gridCoord.y - 1].isActive() && tileMatrix[gridCoord.x + 1][gridCoord.y].isActive())
+                        continue;
+
+                    if (tileMatrix[gridCoord.x][gridCoord.y - 1].isActive()) // tile above active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile to the right active
+                        newAngle = rayAngle - dTheta;; // CCW
+                }
+                else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
+                {
+                    if (tileMatrix[gridCoord.x + 1][gridCoord.y].isActive() && tileMatrix[gridCoord.x][gridCoord.y + 1].isActive())
+                        continue;
+
+                    if (tileMatrix[gridCoord.x + 1][gridCoord.y].isActive()) // tile to the right
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile below is active
+                        newAngle = rayAngle - dTheta; // CCW
+                }
+                else // came from top right or /// TODO: a horizontal/vertical ray case
+                {
+                    if (tileMatrix[gridCoord.x][gridCoord.y + 1].isActive() && tileMatrix[gridCoord.x - 1][gridCoord.y].isActive())
+                        continue;
+
+                    if (tileMatrix[gridCoord.x][gridCoord.y + 1].isActive()) // tile below is active
+                        newAngle = rayAngle + dTheta; // CW
+                    else // tile to the left is active
+                        newAngle = rayAngle - dTheta; // CCW
+                }
+
+                Vec2f newRayUnitVec = { cosf(newAngle), sinf(newAngle) };
+                slope = tanf(newAngle);
+                reciprocalSlope = 1.0f / slope;
+                xMoveHypDist = sqrtf(1 + slope * slope);
+                yMoveHypDist = sqrtf(1 + reciprocalSlope * reciprocalSlope);
+
+                float xTravelNew = xMoveHypDist * m_cellSizePixels;
+                float yTravelNew = yMoveHypDist * m_cellSizePixels;
+                gridCoord.x = checkCoord.x;
+                gridCoord.y = checkCoord.y;
+
+                while (!tileHit)
+                {
+                    if (xTravelNew < yTravelNew)
+                    {
+                        gridCoord.x += rayStep.x;
+
+                        // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (gridCoord.x, gridCoord.y) if tile is active there
+
+                        if (gridCoord.x < minX || gridCoord.x > maxX || tileMatrix[gridCoord.x][gridCoord.y].isActive()) /// TODO: use ==? 
+                        {
+                            tileHit = true;
+                            verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
+                        }
+                        else
+                        {
+                            xTravelNew += xMoveHypDist * m_cellSizePixels;
+                        }
+                    }
+                    else
+                    {
+                        gridCoord.y += rayStep.y;
+
+                        if (gridCoord.y < minY || gridCoord.y > maxY || tileMatrix[gridCoord.x][gridCoord.y].isActive()) /// TODO: use ==?
+                        {
+                            tileHit = true;
+                            verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);
+                        }
+                        else
+                        {
+                            yTravelNew += yMoveHypDist * m_cellSizePixels;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // for (const auto& v : verticesToAdd)
+    // {
+    //     sf::CircleShape dot(2);
+    //     dot.setPosition({ v.x - 2, v.y - 2 });
+    //     dot.setFillColor(sf::Color::Red);
+    //     window.draw(dot);
+    // }
+    vertices.insert(vertices.end(), verticesToAdd.begin(), verticesToAdd.end());
+
+    // sort the reachable vertices by angle 
+    /// TODO: consider storing angle for each vertex in the vector, faster probably
+    std::sort(vertices.begin(), vertices.end(), [&origin](const Vec2f& a, const Vec2f& b) { return a.angleFrom(origin) < b.angleFrom(origin); });
+
+    // create triangle fan of vertices (pixels)
+    std::vector<Vec2f> triangleFan;
+    triangleFan.push_back(origin);
+    triangleFan.insert(triangleFan.end(), vertices.begin(), vertices.end());
+    triangleFan.push_back(vertices.front());
+
+    return triangleFan;
+}

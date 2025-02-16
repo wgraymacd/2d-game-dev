@@ -58,6 +58,7 @@ protected:
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
     float generateRandomFloat(float min, float max);
     void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
+    std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<std::vector<Entity>>& tileMatrix, int minX, int maxX, int minY, int maxY);
 
     void updateState(std::chrono::duration<long long, std::nano>& lag) override;
     void onEnd() override;
