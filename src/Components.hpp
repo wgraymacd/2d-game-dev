@@ -1,16 +1,23 @@
 #pragma once
 
-#include "Animation.hpp"
 #include "Vec2.hpp"
+#include "Animation.hpp"
+#include "TileType.hpp"
+#include "Globals.hpp"
+
 #include <string>
-#include <vector>
+#include <array>
 #include <chrono>
+
+class Entity;
 
 class Component
 {
 public:
     bool exists = false;
 };
+
+/// NOTE: no const qualifiers for any members since components will be reused when a new entity is created in place of an inactive but previously active one
 
 /// TODO: consider dividing this into mult components for memory efficiency if needed
 class CTransform : public Component
@@ -25,45 +32,46 @@ public:
     float angularVelocity = 0.0f; // rad/s
 
     CTransform() = default;
-    CTransform(const Vec2f& p) : pos(p), prevPos(p) {}
-    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float angle, float angVel) : pos(p), prevPos(p), velocity(v), scale(sc), angle(angle), prevAngle(angle), angularVelocity(angVel) {}
+    CTransform(const Vec2f& p);
+    CTransform(const Vec2f& p, const float a);
+    CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float angle, float angVel);
 };
 
 class CColor : public Component
 {
 public:
     uint8_t r, g, b;
+    uint8_t light;
 
     CColor() = default;
-    CColor(const uint8_t r, const uint8_t g, const uint8_t b) : r(r), g(g), b(b) {}
+    CColor(const uint8_t r, const uint8_t g, const uint8_t b);
 };
 
 class CType : public Component
 {
 public:
-    int type = 0;
+    TileType type = NONE;
 
     CType() = default;
-    CType(const int type) : type(type) {}
+    CType(const TileType type);
 };
 
 class CLifespan : public Component
 {
 public:
     int lifespan = 0;
-    int frameCreated = 0;
 
     CLifespan() = default;
-    CLifespan(const int duration, const int frame) : lifespan(duration), frameCreated(frame) {}
+    CLifespan(const int duration);
 };
 
 class CDamage : public Component
 {
 public:
-    int damage = 1;
+    int damage = 0;
 
     CDamage() = default;
-    CDamage(int d) : damage(d) {}
+    CDamage(int d);
 };
 
 class CInvincibility : public Component
@@ -72,7 +80,7 @@ public:
     int timeRemaining = 0;
 
     CInvincibility() = default;
-    CInvincibility(int t) : timeRemaining(t) {}
+    CInvincibility(int t);
 };
 
 class CHealth : public Component
@@ -82,22 +90,19 @@ public:
     int current = 1;
 
     CHealth() = default;
-    CHealth(int m) : max(m), current(m) {}
-    CHealth(int m, int c) : max(m), current(c) {}
+    CHealth(int m);
+    CHealth(int m, int c);
 };
 
 /// TODO: consider splitting into keyboard, mouse, controller, touch, etc.
 class CInput : public Component
 {
 public:
-    // movement
     bool left = false;
     bool right = false;
     bool up = false;
     bool down = false;
     bool canJump = false;
-
-    // shooting
     bool shoot = false;
 
     CInput() = default;
@@ -112,8 +117,8 @@ public:
     bool blockVision = false;
 
     CBoundingBox() = default;
-    CBoundingBox(const Vec2i& s) : size(s), halfSize(s.x / 2, s.y / 2) {}
-    CBoundingBox(const Vec2i& s, bool m, bool v) : size(s), blockMove(m), blockVision(v), halfSize(s.x / 2.0f, s.y / 2.0f) {}
+    CBoundingBox(const Vec2i& s);
+    CBoundingBox(const Vec2i& s, bool m, bool v);
 };
 
 class CAnimation : public Component
@@ -123,16 +128,16 @@ public:
     bool repeat = false; // looping animation
 
     CAnimation() = default;
-    CAnimation(const Animation& animation, bool r) : animation(animation), repeat(r) {}
+    CAnimation(const Animation& animation, bool r);
 };
 
 class CGravity : public Component
 {
 public:
-    float gravity = 0.0f;
+    float gravity = 0.0f; /// TODO: may want to make it not const if I want to change gravity and stuff
 
     CGravity() = default;
-    CGravity(float g) : gravity(g) {}
+    CGravity(float g);
 };
 
 // class CMass : public Component
@@ -148,20 +153,39 @@ public:
 class CState : public Component
 {
 public:
-    std::string state = "none"; // values: "stand", "run", "air"
+    std::string state = ""; // values: "stand", "run", "air"
 
     CState() = default;
-    CState(const std::string& s) : state(s) {}
+    CState(const std::string& s);
 };
 
 class CFireRate : public Component
 {
 public:
-    int fireRate = 0; // bullets per second
+    int fireRate = 0; // bullets per second, /// TODO: may want to make this not const if I want some sort of power up
     std::chrono::steady_clock::time_point lastShotTime = std::chrono::high_resolution_clock::now();
 
     CFireRate() = default;
-    CFireRate(int fr) : fireRate(fr) {}
+    CFireRate(const int fr);
+};
+
+class CJointRelation : public Component
+{
+public:
+    EntityID entityID; // cannot use pointer to entity, must then change the way add entity returns copies, and entity map stores copies; cannot use entity cuz of circular dependency; cannot use entity reference because cannot be default initialized
+    float minAngle, maxAngle; // angles defined for when player dies facing right
+
+    CJointRelation() = default;
+    CJointRelation(const Entity& e, const float minA, const float maxA);
+};
+
+class CJointInfo : public Component
+{
+public:
+    std::array<float, 3> initJointOffsets; // y offset only, 4-element array of positions, match indices to determine which joint matches with which entities; 4 is minimum size since thighs and upper arms will have 1 joint with limb and 1 of 2 possible joints positions (left and right the same) with torso and head with have another
+
+    CJointInfo() = default;
+    CJointInfo(const std::array<float, 3>& positions);
 };
 
 // class CFollowPlayer : public Component
@@ -171,9 +195,7 @@ public:
 //     float speed = 0;
 
 //     CFollowPlayer() = default;
-//     CFollowPlayer(Vec2f& p, float s)
-//         : home(p), speed(s) {
-//     }
+//     CFollowPlayer(Vec2f& p, float s);
 // };
 
 // class CPatrol : public Component
@@ -184,7 +206,5 @@ public:
 //     float speed = 0;
 
 //     CPatrol() = default;
-//     CPatrol(std::vector<Vec2f>& pos, float s)
-//         : positions(pos), speed(s) {
-//     }
+//     CPatrol(const std::vector<Vec2f>& pos, const float s);
 // };

@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE Debug)
 
 # executable
-add_executable(Game src/main.cpp src/GameEngine.cpp src/SceneMenu.cpp src/ScenePlay.cpp src/Scene.cpp src/EntityMemoryPool.cpp src/SceneLoad.cpp)
+add_executable(Game src/main.cpp src/GameEngine.cpp src/SceneMenu.cpp src/ScenePlay.cpp src/Scene.cpp src/EntityMemoryPool.cpp src/SceneLoad.cpp src/Entity.cpp src/Components.cpp)
 
 # link SFML libs
 find_package(SFML 3.0.0 REQUIRED COMPONENTS Graphics Window System Audio)

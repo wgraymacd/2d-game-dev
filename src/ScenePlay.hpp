@@ -27,12 +27,12 @@ protected:
 
     // views and textures
     sf::View m_mainView = sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()); // center, size
-    sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
-    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, { m_cellSizePixels * 250.0f, m_cellSizePixels * 250.0f }); // center, size
+    // sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
+    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, m_worldMaxCells.to<float>() * 2.0f); // center, size
 
     // entities
     EntityManager m_entityManager = EntityManager(m_worldMaxCells, m_cellSizePixels);
-    Entity m_player, m_weapon; // commonly used
+    Entity m_player, m_playerArmFront, m_playerArmBack, m_playerHead, m_weapon; // commonly used
     PlayerConfig m_playerConfig;
 
     // rendering
@@ -54,11 +54,14 @@ protected:
     void playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix);
     void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
     void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
-    void spawnRagdoll(Entity& player, Entity& bullet);
+    Entity spawnRagdollElement(const Vec2f& pos, const float angle, const Vec2i& boxSize, const Animation& animation);
+    void createRagdoll(const Entity& entity, const Entity& cause);
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
     float generateRandomFloat(float min, float max);
     void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
     std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<std::vector<Entity>>& tileMatrix, int minX, int maxX, int minY, int maxY);
+    void propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY);
+    void addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c);
 
     void updateState(std::chrono::duration<long long, std::nano>& lag) override;
     void onEnd() override;

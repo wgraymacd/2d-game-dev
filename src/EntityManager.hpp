@@ -114,6 +114,12 @@ public:
         return m_entityMap[tag];
     }
 
+    /// @brief get a single entity from its ID, for use only when entity ID must be used over entity, only use when attempting to access components of a known, existing entity with entityID id
+    Entity getEntity(const EntityID id) const
+    {
+        return Entity(id);
+    }
+
     /// TODO: implement the new version of this if needed
     /// @brief gets the map of entity tags to entities
     /// @return m_entityMap, the map of std::string tags to std::vector<Entity> entity vectors

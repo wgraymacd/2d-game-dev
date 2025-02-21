@@ -1,3 +1,6 @@
+/// TODO: to make world gen and general game logic and maintenence easier, remove all entity-related stuff from tiles, just put all data in tile matrix (still have to store it all and fetch it from the memory pool anyway, waste to have tile matrix and pool, just separate it from ECS, can then have vision block info, yada, etc.); do this for background and decor as well if needed (or have some var or something that determines if, upon destorying a tile, a background should spawn in it's place, then still keep only one matrix and less data)
+
+
 #pragma once
 
 #include <string>
@@ -23,6 +26,8 @@ class WorldGenerator
 {
     int m_worldTilesX;
     int m_worldTilesY;
+    int m_dirtToStone = 2;
+    int m_seed = std::time(0);
 
     /// TODO: change from string to int for tile types
     std::vector<std::vector<TileType>> m_tileMatrix;
@@ -44,7 +49,7 @@ class WorldGenerator
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
-                if (y <= m_worldTilesY / 3)
+                if (y <= m_worldTilesY / m_dirtToStone)
                 {
                     m_tileMatrix[x][y] = DIRT;
                 }
@@ -63,19 +68,19 @@ class WorldGenerator
 
         std::cout << "creating block patches..." << std::endl;
 
-        float patchScale = 0.5f;    // controls dirt/stone patch frequency
-        float dirtThreshold = 0.4f;  // threshold for creating dirt vein
+        float patchScale = 3.0f; // controls dirt/stone patch frequency
+        float dirtThreshold = 0.1f; // threshold for creating dirt vein
         float stoneThreshold = 0.2f; // threshold for creating stone patch
         for (int y = 0; y < m_worldTilesY; ++y)
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
                 float patchNoise = m_noise.GetNoise(static_cast<float>(x) * patchScale, static_cast<float>(y) * patchScale); // returns val in range [-1, 1]
-                if (patchNoise > stoneThreshold && y <= m_worldTilesY / 3)
+                if (patchNoise > stoneThreshold && y <= m_worldTilesY / m_dirtToStone)
                 {
                     m_tileMatrix[x][y] = STONE;
                 }
-                else if (patchNoise > dirtThreshold && y > m_worldTilesY / 3)
+                else if (patchNoise > dirtThreshold && y > m_worldTilesY / m_dirtToStone)
                 {
                     m_tileMatrix[x][y] = DIRT;
                 }
@@ -101,14 +106,16 @@ class WorldGenerator
 
         std::cout << "adding caves..." << std::endl;
 
-        float caveScale = 0.5f;    // controls cave frequency
-        float caveThreshold = 0.3f; // threshold for creating caves
+        m_noise.SetSeed(m_seed + 1);
+
+        float caveScale = 6.0f; // controls cave frequency
+        float caveThreshold = 0.2f; // threshold for creating caves
         for (int y = 0; y < m_worldTilesY; ++y)
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
                 float caveNoise = m_noise.GetNoise(static_cast<float>(x) * caveScale, static_cast<float>(y) * caveScale);
-                if (caveNoise > caveThreshold)
+                if (caveNoise * (1 + 5.0f * y / m_worldTilesY) > caveThreshold)
                 {
                     m_tileMatrix[x][y] = NONE; // no tile in the tile layer, but still may have unique background on background layer matrix (in front of actual parallax background, like Terraria)
                 }
@@ -126,30 +133,63 @@ class WorldGenerator
         std::cout << "creating skyline..." << std::endl;
 
         // 1D noise for skyline along x-axis
-        std::vector<int> terrainHeights(m_worldTilesX);
-        float terrainDelta = 20.0f; // controls max deviation from sea level
-        float noiseScale = 0.5f;
+        std::vector<int> terrainHeight(m_worldTilesX);
+        float terrainDelta = 50.0f; // controls max deviation from sea level
+        float noiseScale = 1.0f;
         float seaLevel = m_worldTilesY / 5; // number of tiles below the top of the screen
         for (int x = 0; x < m_worldTilesX; ++x)
         {
             float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
-            terrainHeights[x] = noiseVal * terrainDelta + seaLevel;  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
-        }
+            float extraNoise = m_noise.GetNoise(0.0f, static_cast<float>(x) * noiseScale);
+            noiseVal += extraNoise;
+            terrainHeight[x] = noiseVal * terrainDelta + seaLevel;  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
 
-        /// TODO: another 1d noise sweep but moving tiles left and right to get some overhangs and things like that, Perlin best for this
-        /// TODO: can do tons of passes, tweaks, whatever to make surface look like almost anything, look into it, this video gives the non-technical taste: https://www.youtube.com/watch?v=-POwgollFeY&ab_channel=DigiDigger, can do biomes like this by only applying some stuff to some areas 
-
-        // remove tiles above terrain heights
-        for (int x = 0; x < m_worldTilesX; ++x)
-        {
             for (int y = 0; y < m_worldTilesY; ++y)
             {
-                if (y < terrainHeights[x])
+                if (y < terrainHeight[x])
                 {
                     m_tileMatrix[x][y] = NONE;
                 }
             }
         }
+
+        /// TODO: another 1d noise sweep but moving tiles left and right to get some overhangs and things like that, Perlin best for this
+        /// TODO: can do tons of passes, tweaks, whatever to make surface look like almost anything, look into it, this video gives the non-technical taste: https://www.youtube.com/watch?v=-POwgollFeY&ab_channel=DigiDigger, can do biomes like this by only applying some stuff to some areas
+        /// TODO: do I need to do one to the left and then one to the right, shifting right and then left respectively so I don't get weird shit?
+        // noiseScale = 5.0f;
+        // for (int x = 0; x < m_worldTilesX; ++x)
+        // {
+        //     float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
+        //     int shift = noiseVal * terrainDelta;
+        //     int y = terrainHeight[x];
+
+        //     // if (shift > 0)
+        //     // {
+        //     //     int iMax = std::max(x + shift, m_worldTilesX - 2);
+        //     //     for (int i = x; i < iMax; ++i)
+        //     //     {
+        //     //         // move tile to the right by one
+        //     //         if (m_tileMatrix[i + 1][y])
+        //     //         {
+        //     //             m_tileMatrix[i + 1][y] = m_tileMatrix[i][y];
+        //     //             m_tileMatrix[i][y] = NONE;
+        //     //         }
+        //     //         else
+        //     //         {
+        //     //             m_tileMatrix[i + 1][y] = m_tileMatrix[i][y];
+        //     //             m_tileMatrix[i][y] = NONE;
+        //     //         }
+        //     //     }
+        //     // }
+        //     // else if (shift < 0)
+        //     // {
+        //     //     int iMin = std::min(x + shift, 1);
+        //     //     for (int i = x; i > iMin; ++i)
+        //     //     {
+
+        //     //     }
+        //     // }
+        // }
     }
 
 public:
@@ -160,6 +200,7 @@ public:
         : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY)
     {
         m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        m_noise.SetSeed(m_seed);
         m_tileMatrix = std::vector<std::vector<TileType>>(m_worldTilesX, std::vector<TileType>(m_worldTilesY));
     }
 
@@ -171,7 +212,8 @@ public:
         createBlockPatches();
         addBedrock();
         addCaves();
-        createSkyline();
+        // createSkyline();
+        // addBuildings();
     }
 
     std::vector<std::vector<TileType>> getTileMatrix()

@@ -101,7 +101,7 @@ namespace Physics
     // bool OverlapSAT()
 
     /// @brief apply force at pos to rectangular ecntity and update entity's velocity and angular acceleration
-    void ForceEntity(Entity& entity, const Vec2f& force, const Vec2f& pos)
+    void ForceEntity(const Entity& entity, const Vec2f& force, const Vec2f& pos)
     {
         CTransform& trans = entity.getComponent<CTransform>();
         CBoundingBox& box = entity.getComponent<CBoundingBox>();

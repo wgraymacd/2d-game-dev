@@ -43,7 +43,9 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
         std::vector<CState>(maxOtherEntities),
         std::vector<CFireRate>(maxOtherEntities),
         std::vector<CType>(maxOtherEntities),
-        std::vector<CColor>(maxOtherEntities)
+        std::vector<CColor>(maxOtherEntities),
+        std::vector<CJointRelation>(maxOtherEntities),
+        std::vector<CJointInfo>(maxOtherEntities)
     );
 
     // m_pool = std::make_tuple(
@@ -119,9 +121,15 @@ Entity EntityMemoryPool::addEntity(const std::string& tag)
         }
 
         // reset tile at index
+        // std::apply([index](auto &...args)
+        //     {
+        //         ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
+        //     }, m_tilePool);
+
+        // just set exists flag to false at index, no need to create default constructed values
         std::apply([index](auto &...args)
             {
-                ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
+                ((args[index].exists = false), ...);  // reset "exists" flag for each component
             }, m_tilePool);
 
         // set active status
@@ -144,9 +152,15 @@ Entity EntityMemoryPool::addEntity(const std::string& tag)
         }
 
         // reset entity at index
+        // std::apply([index](auto &...args)
+        //     {
+        //         ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
+        //     }, m_otherEntityPool);
+
+        // just set exists flag to false at index, no need to create default constructed values
         std::apply([index](auto &...args)
             {
-                ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
+                ((args[index].exists = false), ...);  // reset "exists" flag for each component
             }, m_otherEntityPool);
 
         // set active status

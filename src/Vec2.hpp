@@ -36,6 +36,11 @@ public:
 
     // use of const: const Vec2& rhs ensures that the original object rhs is not modified and const at the end guarantees that this func does not modify the object it is called on
 
+    Vec2 operator - () const
+    {
+        return Vec2(-x, -y);
+    }
+
     Vec2 operator + (const Vec2& rhs) const
     {
         return Vec2(x + rhs.x, y + rhs.y);
@@ -157,10 +162,10 @@ public:
         return Vec2(x / length, y / length);
     }
 
-    /// @brief return a rotated version of this vector about center by angle
-    Vec2 rotate(const Vec2& center, const float angle)
+    /// @brief return a rotated version of this vector by angle
+    Vec2 rotate(const float angle)
     {
-        return Vec2(center.x + (x - center.x) * cosf(angle) - (y - center.y) * sinf(angle), center.y + (x - center.x) * sinf(angle) + (y - center.y) * cosf(angle));
+        return Vec2(cosf(angle) * x - sinf(angle) * y, sinf(angle) * x + cosf(angle) * y);
     }
 };
 

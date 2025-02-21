@@ -1,24 +1,15 @@
-Texture Tiles ../bin/images/tiles.png
-Texture Blocks ../bin/images/blocks.png
 Texture Bullets ../bin/images/bullets.png
-Texture Weapons ../bin/images/riflesSmall.png
-Static BlockClay Blocks 0 0 10 10 
-Static dirt Blocks 20 0 10 10 
-Static Grass Blocks 40 0 10 10 
-Static woodTall Blocks 10 10 22 68
-Static stone Blocks 0 20 10 10 
-Static BlockStone2 Blocks 20 20 10 10 
-Static Grass2 Blocks 40 20 10 10
-Static BlockWood2 Blocks 60 20 10 10
-Static BlockStoneRound1 Blocks 0 40 10 10 
-Static BlockStoneRound2 Blocks 20 40 10 10 
-Static BlockGrassRound1 Blocks 40 40 10 10 
-Static BlockGrassRound2 Blocks 60 40 10 10 
-Static BlockStoneGrass Blocks 0 60 10 10 
-Static BlockWood3 Blocks 20 60 10 10 
-Static BlockGrass1 Blocks 40 60 10 10 
-Static BlockGrass2 Blocks 60 60 10 10 
+Texture Rifles ../bin/images/riflesSmall.png
+Texture RunAnim ../bin/images/runAnimNoHeadNoArmSmall.png
+Texture ArmFront ../bin/images/armFront.png
+Texture ArmBack ../bin/images/armBack.png
+Texture Head ../bin/images/head.png
 Static Bullet Bullets 290 151 13 3
-Static Weapon Weapons 0 0 96 32
+Static Weapon Rifles 0 0 205 69
+Static ArmFront ArmFront 0 0 96 76
+Static ArmBack ArmBack 0 0 135 42
+Static Head Head 0 0 48 70
+Static Test Head 26 2 6 12
+Animation Run RunAnim 21 3
 Sound Bullet ../bin/sounds/AR.wav
 Font font ../bin/fonts/font.ttf
