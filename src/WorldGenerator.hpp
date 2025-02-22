@@ -5,10 +5,10 @@
 
 #include <string>
 #include <vector>
-#include <cstdint> // best practice for fixed bit width integers on all platforms like int16_t or uint32_t
 
 #include "FastNoiseLite.h"
 #include "TileType.hpp"
+#include "StructureTypes.hpp"
 
 /// define a Tile struct to store positions and types of blocks/tiles/whatever in the game grid
 /// TODO: will want to change type to int and create a big map (not in code) of word to number
@@ -68,14 +68,24 @@ class WorldGenerator
 
         std::cout << "creating block patches..." << std::endl;
 
-        float patchScale = 3.0f; // controls dirt/stone patch frequency
-        float dirtThreshold = 0.1f; // threshold for creating dirt vein
-        float stoneThreshold = 0.2f; // threshold for creating stone patch
+        m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        m_noise.SetFrequency(0.02f);
+        m_noise.SetFractalType(FastNoiseLite::FractalType_Ridged);
+        m_noise.SetFractalOctaves(3);
+        m_noise.SetFractalLacunarity(1.29f);
+        m_noise.SetFractalGain(1.03f);
+        m_noise.SetFractalWeightedStrength(-0.45f);
+        m_noise.SetDomainWarpType(FastNoiseLite::DomainWarpType_OpenSimplex2Reduced);
+        m_noise.SetDomainWarpAmp(12.5f);
+
+        float dirtThreshold = 0.6f; // threshold for creating dirt vein
+        float stoneThreshold = 0.8f; // threshold for creating stone patch
+
         for (int y = 0; y < m_worldTilesY; ++y)
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
-                float patchNoise = m_noise.GetNoise(static_cast<float>(x) * patchScale, static_cast<float>(y) * patchScale); // returns val in range [-1, 1]
+                float patchNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y));
                 if (patchNoise > stoneThreshold && y <= m_worldTilesY / m_dirtToStone)
                 {
                     m_tileMatrix[x][y] = STONE;
@@ -106,16 +116,25 @@ class WorldGenerator
 
         std::cout << "adding caves..." << std::endl;
 
-        m_noise.SetSeed(m_seed + 1);
+        // could do same as block patches but with m_noise.SetFrequency(0.01f) and m_noise.SetSeed(m_seed + 1)
 
-        float caveScale = 6.0f; // controls cave frequency
-        float caveThreshold = 0.2f; // threshold for creating caves
+        // or could do this
+        m_noise = FastNoiseLite();
+        m_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+        m_noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+        m_noise.SetSeed(m_seed);
+        m_noise.SetFractalGain(0.55f);
+        // m_noise.SetFractalLacunarity(2.2f);
+        // m_noise.SetFractalWeightedStrength(-0.3f);
+        m_noise.SetFractalOctaves(4);
+
+        float caveThreshold = 0.05f; // threshold for creating caves
         for (int y = 0; y < m_worldTilesY; ++y)
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
-                float caveNoise = m_noise.GetNoise(static_cast<float>(x) * caveScale, static_cast<float>(y) * caveScale);
-                if (caveNoise * (1 + 5.0f * y / m_worldTilesY) > caveThreshold)
+                float caveNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y * 1.5)); // TODO: mess with multiplying x or y by scalar to stretch or squish noise along an axis
+                if (caveNoise * (1 + 0.5f * y / m_worldTilesY) > caveThreshold)
                 {
                     m_tileMatrix[x][y] = NONE; // no tile in the tile layer, but still may have unique background on background layer matrix (in front of actual parallax background, like Terraria)
                 }
@@ -123,6 +142,35 @@ class WorldGenerator
         }
 
         /// TODO: can look into different type of noise for this like rigid multifractal noise, can change thresholds for when a cave is made based on world y coord
+    }
+
+    void addBuildings()
+    {
+        StructureTypes structures;
+        int numberOfBuildings = (m_worldTilesX * m_worldTilesY) / 100000;
+        for (int i = 0; i < numberOfBuildings; ++i)
+        {
+            // int structType = rand() % numberOfBuildings;
+            int xPos = rand() % m_worldTilesX; // left
+            int yPos = rand() % m_worldTilesY; // top
+
+            int structSizeX = structures.hallway.size();
+            int structSizeY = structures.hallway[0].size();
+
+            for (int x = xPos; x < xPos + structSizeX; ++x)
+            {
+                if (x >= 0 && x < m_worldTilesX)
+                {
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
+                    {
+                        if (y >= 0 && y < m_worldTilesY)
+                        {
+                            m_tileMatrix[x][y] = structures.hallway[x - xPos][y - yPos];
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// TODO: could improve it by incorporating some horizontal variation and adding more diversity in terms of terrain features above the sea level
@@ -139,10 +187,10 @@ class WorldGenerator
         float seaLevel = m_worldTilesY / 5; // number of tiles below the top of the screen
         for (int x = 0; x < m_worldTilesX; ++x)
         {
-            float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
+            float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f);
             float extraNoise = m_noise.GetNoise(0.0f, static_cast<float>(x) * noiseScale);
             noiseVal += extraNoise;
-            terrainHeight[x] = noiseVal * terrainDelta + seaLevel;  // [seaLevel - terrainDelta, seaLevel + terrainDelta]
+            terrainHeight[x] = noiseVal * terrainDelta + seaLevel;
 
             for (int y = 0; y < m_worldTilesY; ++y)
             {
@@ -159,7 +207,7 @@ class WorldGenerator
         // noiseScale = 5.0f;
         // for (int x = 0; x < m_worldTilesX; ++x)
         // {
-        //     float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f); // [-1, 1]
+        //     float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f);
         //     int shift = noiseVal * terrainDelta;
         //     int y = terrainHeight[x];
 
@@ -199,7 +247,6 @@ public:
     WorldGenerator(int numTilesX, int numTilesY)
         : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY)
     {
-        m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
         m_noise.SetSeed(m_seed);
         m_tileMatrix = std::vector<std::vector<TileType>>(m_worldTilesX, std::vector<TileType>(m_worldTilesY));
     }
@@ -210,10 +257,10 @@ public:
 
         generateBaseLayer();
         createBlockPatches();
-        addBedrock();
+        // addBedrock();
         addCaves();
+        addBuildings();
         // createSkyline();
-        // addBuildings();
     }
 
     std::vector<std::vector<TileType>> getTileMatrix()

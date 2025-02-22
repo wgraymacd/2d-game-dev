@@ -2,7 +2,7 @@
 // singleton class insures that only one instance of the class can be created  
 // typical use case is for global functionality, like this case
 
-#define PROFILING
+// #define PROFILING
 #ifdef PROFILING
 #define PROFILE_SCOPE(name) \
         ProfileTimer timer##__LINE__(name)

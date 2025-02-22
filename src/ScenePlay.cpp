@@ -94,26 +94,7 @@ void ScenePlay::loadGame()
     while (file >> type)
     {
         /// TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
-        if (type == "Tile")
-        {
-            // std::shared_ptr<Entity> tile = m_entityManager.addEntity("tile");
-
-            // // add CAnimation component first so that gridToMidPixel works
-            // std::string animation;
-            // file >> animation;
-            // tile->add<CAnimation>(m_game.assets().getAnimation(animation), true);
-
-            // float gridX, gridY;
-            // file >> gridX >> gridY;
-            // tile->add<CTransform>(gridToMidPixel(gridX, gridY, tile));
-
-            // tile->add<CBoundingBox>(m_game.assets().getAnimation(animation).getSize());
-        }
-        else if (type == "Dec")
-        {
-
-        }
-        else if (type == "Player")
+        if (type == "Player")
         {
             file >> m_playerConfig.CW >> m_playerConfig.CH >> m_playerConfig.SX >> m_playerConfig.SY >> m_playerConfig.SM >> m_playerConfig.GRAVITY >> m_playerConfig.BA;
         }
@@ -191,9 +172,19 @@ void ScenePlay::generateWorld()
                     tile.addComponent<CHealth>(60);
                     tile.addComponent<CColor>(145.0f * randomNumber, 145.0f * randomNumber, 145.0f * randomNumber);
                 }
+                else if (tileType == BRICK)
+                {
+                    tile.addComponent<CHealth>(100);
+                    tile.addComponent<CColor>(100.0f * randomNumber, 0.0f * randomNumber, 0.0f * randomNumber);
+                }
+                else if (tileType == BRICKWALL) /// TODO: make non-destructible by bullets after changing tile matrix to hold data directly, indep of ECS
+                {
+                    tile.addComponent<CHealth>(10);
+                    tile.addComponent<CColor>(50.0f * randomNumber, 0.0f * randomNumber, 0.0f * randomNumber);
+                }
                 else
                 {
-                    std::cerr << "invalid tile type\n";
+                    std::cerr << "invalid tile type: " << tileType << "\n";
                     exit(-1);
                 }
 
@@ -1591,7 +1582,7 @@ void ScenePlay::spawnPlayer()
     // set player components
     m_player = m_entityManager.addEntity("player");
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
-    CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 8, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
+    CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     playerTrans.scale = Vec2f(0.5f, 0.5f);
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("Run"), false);
     m_player.addComponent<CState>("air");
