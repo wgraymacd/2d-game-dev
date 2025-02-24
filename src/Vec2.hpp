@@ -1,10 +1,10 @@
 #pragma once 
 
-#include <SFML/Graphics.hpp>
 #include <math.h>
 #include <limits>
+#include <functional>
 
-template <typename T> // if hardcoded to be floats, might want to use doubles later, just make a template
+template <typename T>
 class Vec2
 {
 public:
@@ -17,17 +17,15 @@ public:
 
     /// @brief constructor to convert from sf::Vector2
     /// @param vec a reference to an sf::Vector2 object
-    Vec2(const sf::Vector2<T>& vec) : x(vec.x), y(vec.y) {}
+    // Vec2(const sf::Vector2<T>& vec) : x(vec.x), y(vec.y) {}
 
     /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
-    operator sf::Vector2<T>() const
-    {
-        return sf::Vector2<T>(x, y);
-    }
+    // operator sf::Vector2<T>() const
+    // {
+    //     return sf::Vector2<T>(x, y);
+    // }
 
     /// @brief convert from Vec2<T> to Vec2<U>
-    /// @tparam U any type (int, float, etc.)
-    /// @return a Vec2<U> with the same values as the original Vec2<T> if a static cast is available from T to U
     template <typename U>
     Vec2<U> to() const
     {
@@ -162,7 +160,7 @@ public:
         return Vec2(x / length, y / length);
     }
 
-    /// @brief return a rotated version of this vector by angle
+    /// @brief return a rotated version of this vector by angle, where angle is given from [-π, π]
     Vec2 rotate(const float angle)
     {
         return Vec2(cosf(angle) * x - sinf(angle) * y, sinf(angle) * x + cosf(angle) * y);
@@ -181,7 +179,7 @@ using Vec2i = Vec2<int>;
 // using Vec2ui32 = Vec2<uint32_t>;
 
 
-/// hash function for Vec2i
+/// hash functions
 
 namespace std
 {

@@ -153,20 +153,21 @@ public:
 class CState : public Component
 {
 public:
-    std::string state = ""; // values: "stand", "run", "air"
+    std::string state; // values: "stand", "run", "air"
 
     CState() = default;
     CState(const std::string& s);
 };
 
-class CFireRate : public Component
+class CFire : public Component
 {
 public:
-    int fireRate = 0; // bullets per second, /// TODO: may want to make this not const if I want some sort of power up
+    int fireRate; // bullets/s
+    float minAccuracy, accuracy, maxAccuracy; // affects bullet spread, increased with time, decreases with shots fired, 1 is max (perfect line), 0 in min (completely random angle)
     std::chrono::steady_clock::time_point lastShotTime = std::chrono::high_resolution_clock::now();
 
-    CFireRate() = default;
-    CFireRate(const int fr);
+    CFire() = default;
+    CFire(const int fr, const float minAcc, const float maxAcc);
 };
 
 class CJointRelation : public Component

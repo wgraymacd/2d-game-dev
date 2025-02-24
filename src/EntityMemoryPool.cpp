@@ -9,43 +9,30 @@
 #include <iostream>
 
 /// @brief construct the entity memory pools (under one EntityMemoryPool object) and associated member variables
-EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
-    : m_maxTiles(maxTiles),
-    m_maxOtherEntities(maxOtherEntities),
-    m_active(std::vector<bool>(maxTiles + maxOtherEntities))
+EntityMemoryPool::EntityMemoryPool(EntityID maxEntities)
+    : m_maxEntities(maxEntities),
+    m_active(std::vector<bool>(maxEntities))
 {
-    for (EntityID i = 0; i < maxTiles; ++i)
+
+    for (EntityID i = 0; i < maxEntities; ++i)
     {
-        m_tileFreeList.push(i);
+        m_entityFreeList.push(i);
     }
 
-    for (EntityID i = 0; i < maxOtherEntities; ++i)
-    {
-        m_otherEntityFreeList.push(i);
-    }
-
-    m_tilePool = std::make_tuple(
-        std::vector<CType>(maxTiles),
-        std::vector<CHealth>(maxTiles),
-        std::vector<CColor>(maxTiles)
-    );
-
-    m_otherEntityPool = std::make_tuple(
-        std::vector<CAnimation>(maxOtherEntities),
-        std::vector<CTransform>(maxOtherEntities),
-        std::vector<CBoundingBox>(maxOtherEntities),
-        std::vector<CHealth>(maxOtherEntities),
-        std::vector<CLifespan>(maxOtherEntities),
-        std::vector<CDamage>(maxOtherEntities),
-        std::vector<CInvincibility>(maxOtherEntities),
-        std::vector<CInput>(maxOtherEntities),
-        std::vector<CGravity>(maxOtherEntities),
-        std::vector<CState>(maxOtherEntities),
-        std::vector<CFireRate>(maxOtherEntities),
-        std::vector<CType>(maxOtherEntities),
-        std::vector<CColor>(maxOtherEntities),
-        std::vector<CJointRelation>(maxOtherEntities),
-        std::vector<CJointInfo>(maxOtherEntities)
+    m_pool = std::make_tuple(
+        std::vector<CAnimation>(maxEntities),
+        std::vector<CTransform>(maxEntities),
+        std::vector<CBoundingBox>(maxEntities),
+        std::vector<CHealth>(maxEntities),
+        std::vector<CLifespan>(maxEntities),
+        std::vector<CDamage>(maxEntities),
+        std::vector<CInvincibility>(maxEntities),
+        std::vector<CInput>(maxEntities),
+        std::vector<CGravity>(maxEntities),
+        std::vector<CState>(maxEntities),
+        std::vector<CFire>(maxEntities),
+        std::vector<CJointRelation>(maxEntities),
+        std::vector<CJointInfo>(maxEntities)
     );
 
     // m_pool = std::make_tuple(
@@ -63,22 +50,6 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
     //     std::unordered_map<EntityID, CFollowPlayer>(),
     //     std::unordered_map<EntityID, CPatrol>()
     // );
-
-    // m_pool = std::make_tuple(
-    //     std::vector<CTransform>(maxEntities),
-    //     std::vector<CAnimation>(maxEntities),
-    //     std::vector<CBoundingBox>(maxEntities),
-    //     std::vector<CHealth>(maxEntities),
-    //     std::vector<CLifespan>(maxEntities),
-    //     std::vector<CDamage>(maxEntities),
-    //     std::vector<CInvincibility>(maxEntities),
-    //     std::vector<CInput>(maxEntities),
-    //     std::vector<CGravity>(maxEntities),
-    //     std::vector<CState>(maxEntities),
-    //     std::vector<CFireRate>(maxEntities),
-    //     std::vector<CFollowPlayer>(maxEntities),
-    //     std::vector<CPatrol>(maxEntities)
-    // );
 }
 
 /// vector and unordered map in same pool method
@@ -95,7 +66,8 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxTiles, EntityID maxOtherEntities)
 /// @return same, persistent instance of the class
 EntityMemoryPool& EntityMemoryPool::Instance()
 {
-    static EntityMemoryPool pool(GlobalSettings::worldMaxCells.x * GlobalSettings::worldMaxCells.y, GlobalSettings::worldMaxEntities);
+    static EntityMemoryPool pool(GlobalSettings::worldMaxEntities);
+    // static EntityMemoryPool pool(GlobalSettings::worldMaxCells.x * GlobalSettings::worldMaxCells.y, GlobalSettings::worldMaxEntities);
     return pool;
 } // a singleton, globally acces in safe way, only one instance ever
 
@@ -106,68 +78,28 @@ Entity EntityMemoryPool::addEntity(const std::string& tag)
 {
     EntityID index;
 
-    if (tag == "tile")
+    // find index
+    if (!m_entityFreeList.empty())
     {
-        // find index
-        if (!m_tileFreeList.empty())
-        {
-            index = m_tileFreeList.front();
-            m_tileFreeList.pop();
-        }
-        else
-        {
-            std::cerr << "Tile memory pool full" << std::endl;
-            exit(-1);
-        }
-
-        // reset tile at index
-        // std::apply([index](auto &...args)
-        //     {
-        //         ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
-        //     }, m_tilePool);
-
-        // just set exists flag to false at index, no need to create default constructed values
-        std::apply([index](auto &...args)
-            {
-                ((args[index].exists = false), ...);  // reset "exists" flag for each component
-            }, m_tilePool);
-
-        // set active status
-        m_active[index] = true;
-
-        return Entity(index);
+        index = m_entityFreeList.front();
+        m_entityFreeList.pop();
     }
     else
     {
-        // find index
-        if (!m_otherEntityFreeList.empty())
-        {
-            index = m_otherEntityFreeList.front();
-            m_otherEntityFreeList.pop();
-        }
-        else
-        {
-            std::cerr << "Other entities memory pool full" << std::endl;
-            exit(-1);
-        }
-
-        // reset entity at index
-        // std::apply([index](auto &...args)
-        //     {
-        //         ((args[index] = typename std::decay_t<decltype(args)>::value_type{}), ...);
-        //     }, m_otherEntityPool);
-
-        // just set exists flag to false at index, no need to create default constructed values
-        std::apply([index](auto &...args)
-            {
-                ((args[index].exists = false), ...);  // reset "exists" flag for each component
-            }, m_otherEntityPool);
-
-        // set active status
-        m_active[index + m_maxTiles] = true; // must add offset equal to max possible entity id for tiles
-
-        return Entity(index + m_maxTiles); // must add offset equal to max possible entity id for tiles
+        std::cerr << "Other entities memory pool full" << std::endl;
+        exit(-1);
     }
+
+    // just set exists flag to false at index, no need to create default constructed values
+    std::apply([index](auto &...args)
+        {
+            ((args[index].exists = false), ...);  // reset "exists" flag for each component
+        }, m_pool);
+
+    // set active status
+    m_active[index] = true;
+
+    return Entity(index);
 }
 
 /// @brief remove an entity from its pool
@@ -175,14 +107,7 @@ void EntityMemoryPool::removeEntity(EntityID entityID)
 {
     m_active[entityID] = false;
 
-    if (entityID >= m_maxTiles)
-    {
-        m_otherEntityFreeList.push(entityID - m_maxTiles);
-    }
-    else
-    {
-        m_tileFreeList.push(entityID);
-    }
+    m_entityFreeList.push(entityID);
 }
 
 /// @brief check to see if an entity is active

@@ -60,11 +60,11 @@ class Entity; // forward declaration
 
 class EntityMemoryPool
 {
-    EntityID m_maxTiles;
-    EntityID m_maxOtherEntities;
+    // EntityID m_maxTiles;
+    EntityID m_maxEntities;
 
-    std::queue<EntityID> m_tileFreeList; // stores indices of inactive tiles to accelerate searching
-    std::queue<EntityID> m_otherEntityFreeList; // stores indices of inactive entities to accelerate searching
+    // std::queue<EntityID> m_tileFreeList; // stores indices of inactive tiles to accelerate searching
+    std::queue<EntityID> m_entityFreeList; // stores indices of inactive entities to accelerate searching
 
     // using vectors for frequently needed components and unordered maps for sparse ones
     // tuple stored on stack, vector istelf on stack but elements they hold allocated dynamically on heap
@@ -85,14 +85,14 @@ class EntityMemoryPool
     // > m_pool;
 
     // tiles (and other things that take up one space in the tileMatrix) (layer 0)
-    std::tuple<
-        std::vector<CType>,
-        // std::vector<CPosition>,
-        // std::vector<CBoundingBox>, /// TODO: could change this and health to their own versions for tiles, would simplify the get, has, and add component functions, could even just create a single CTileData component, but that introduce unnecessary accessing for physics vs rendering...
-        std::vector<CHealth>,
-        std::vector<CColor>
-        // std::vector<CGravity> /// TODO: will need this if tiles are falling, and will have to add back CTransform or new CVelocity and CRotation stuff
-    > m_tilePool;
+    // std::tuple<
+    //     std::vector<CType>,
+    //     // std::vector<CPosition>,
+    //     // std::vector<CBoundingBox>, /// TODO: could change this and health to their own versions for tiles, would simplify the get, has, and add component functions, could even just create a single CTileData component, but that introduce unnecessary accessing for physics vs rendering...
+    //     std::vector<CHealth>,
+    //     std::vector<CColor>
+    //     // std::vector<CGravity> /// TODO: will need this if tiles are falling, and will have to add back CTransform or new CVelocity and CRotation stuff
+    // > m_tilePool;
 
     // all entities but tiles (layer 0) and decorations (layer 1) /// TODO: maybe use unordered_map here instead of vectors if entities are hella spread out component-wise and there are lots of them, wasting memory
     std::tuple<
@@ -106,20 +106,19 @@ class EntityMemoryPool
         std::vector<CInput>, // for player only (for now...)
         std::vector<CGravity>,
         std::vector<CState>, // "air", "stand", "run"
-        std::vector<CFireRate>,
-        std::vector<CType>,
-        std::vector<CColor>,
+        std::vector<CFire>,
         std::vector<CJointRelation>,
         std::vector<CJointInfo>
         // std::vector<CFollowPlayer>, // NPC behavior
         // std::vector<CPatrol> // NPC behavior
-    > m_otherEntityPool;
+    > m_pool;
 
     std::vector<bool> m_active;
 
     // decorations (layer 1) /// TODO: think of where to include these or if use new memory pool
 
-    EntityMemoryPool(EntityID maxTiles, EntityID maxEntities);
+    EntityMemoryPool(EntityID maxEntities);
+    // EntityMemoryPool(EntityID maxTiles, EntityID maxEntities);
 
     // void resetEntityAtIndex(EntityID index);
 
@@ -159,13 +158,13 @@ class EntityMemoryPool
     // }
 
     /// @brief helper for static assertions on vector retrievals in memory pools, compile time
-    template <typename T>
-    static constexpr bool isTileComponent()
-    {
-        return std::is_same_v<T, CType> ||
-            std::is_same_v<T, CHealth> ||
-            std::is_same_v<T, CColor>;
-    }
+    // template <typename T>
+    // static constexpr bool isTileComponent()
+    // {
+    //     return std::is_same_v<T, CType> ||
+    //         std::is_same_v<T, CHealth> ||
+    //         std::is_same_v<T, CColor>;
+    // }
 
 public:
     static EntityMemoryPool& Instance();
@@ -175,35 +174,36 @@ public:
     template <typename T>
     T& getComponent(EntityID entityID)
     {
-        if constexpr (!isTileComponent<T>())
-        {
-            return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
-        }
-        else
-        {
-            if (entityID < m_maxTiles) // entity is a tile
-            {
-                return std::get<std::vector<T>>(m_tilePool)[entityID];
-            }
-            else // entity is something else
-            {
-                return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
-            }
-        }
-
-        /// runtime check for vector vs map
-        // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
+        // if constexpr (!isTileComponent<T>())
         // {
-        //     return std::get<std::vector<T>>(m_pool)[entityID];
-        // }
-        // else
-        // {
-        //     return std::get<std::unordered_map<EntityID, T>>(m_pool)[entityID]; /// TODO: these are what causes the error, just the line being here
-        // }
+        return std::get<std::vector<T>>(m_pool)[entityID];
+        // return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
+    // }
+    // else
+    // {
+    //     if (entityID < m_maxTiles) // entity is a tile
+    //     {
+    //         return std::get<std::vector<T>>(m_tilePool)[entityID];
+    //     }
+    //     else // entity is something else
+    //     {
+    //         return std::get<std::vector<T>>(m_otherEntityPool)[entityID - m_maxTiles];
+    //     }
+    // }
 
-        /// container typename method
-        // auto& container = std::get<ContainerType<T>>(m_pool);
-        // return container[entityID];
+    /// runtime check for vector vs map
+    // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
+    // {
+    //     return std::get<std::vector<T>>(m_pool)[entityID];
+    // }
+    // else
+    // {
+    //     return std::get<std::unordered_map<EntityID, T>>(m_pool)[entityID]; /// TODO: these are what causes the error, just the line being here
+    // }
+
+    /// container typename method
+    // auto& container = std::get<ContainerType<T>>(m_pool);
+    // return container[entityID];
     }
 
     /// @brief check to see if entity entityID has a component of type T
@@ -211,27 +211,28 @@ public:
     template <typename T>
     bool hasComponent(EntityID entityID)
     {
-        if constexpr (!isTileComponent<T>())
-        {
-            std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
-            T& component = componentVector[entityID - m_maxTiles];
-            return component.exists;
-        }
-        else
-        {
-            if (entityID < m_maxTiles) // entity is a tile
-            {
-                std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
-                T& component = componentVector[entityID];
-                return component.exists;
-            }
-            else // entity is something else
-            {
-                std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
-                T& component = componentVector[entityID - m_maxTiles];
-                return component.exists;
-            }
-        }
+        // if constexpr (!isTileComponent<T>())
+        // {
+        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        T& component = componentVector[entityID];
+        // T& component = componentVector[entityID - m_maxTiles];
+        return component.exists;
+        // }
+        // else
+        // {
+        //     if (entityID < m_maxTiles) // entity is a tile
+        //     {
+        //         std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
+        //         T& component = componentVector[entityID];
+        //         return component.exists;
+        //     }
+        //     else // entity is something else
+        //     {
+        //         std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+        //         T& component = componentVector[entityID - m_maxTiles];
+        //         return component.exists;
+        //     }
+        // }
 
         /// runtime check for vector vs map
         // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)
@@ -259,33 +260,34 @@ public:
     T& addComponent(EntityID entityID, TArgs &&...mArgs)
     {
         // std::cout << "adding component to entity " << entityID << std::endl;
-        if constexpr (!isTileComponent<T>()) // not a tile component
-        {
-            std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
-            T& component = componentVector[entityID - m_maxTiles];
-            component = T(std::forward<TArgs>(mArgs)...);
-            component.exists = true;
-            return component;
-        }
-        else // could be tile or other entity
-        {
-            if (entityID < m_maxTiles) // entity is a tile
-            {
-                std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
-                T& component = componentVector[entityID];
-                component = T(std::forward<TArgs>(mArgs)...);
-                component.exists = true;
-                return component;
-            }
-            else // entity is something else
-            {
-                std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
-                T& component = componentVector[entityID - m_maxTiles];
-                component = T(std::forward<TArgs>(mArgs)...);
-                component.exists = true;
-                return component;
-            }
-        }
+        // if constexpr (!isTileComponent<T>()) // not a tile component
+        // {
+        std::vector<T>& componentVector = std::get<std::vector<T>>(m_pool);
+        T& component = componentVector[entityID];
+        // T& component = componentVector[entityID - m_maxTiles];
+        component = T(std::forward<TArgs>(mArgs)...);
+        component.exists = true;
+        return component;
+        // }
+        // else // could be tile or other entity
+        // {
+        //     if (entityID < m_maxTiles) // entity is a tile
+        //     {
+        //         std::vector<T>& componentVector = std::get<std::vector<T>>(m_tilePool);
+        //         T& component = componentVector[entityID];
+        //         component = T(std::forward<TArgs>(mArgs)...);
+        //         component.exists = true;
+        //         return component;
+        //     }
+        //     else // entity is something else
+        //     {
+        //         std::vector<T>& componentVector = std::get<std::vector<T>>(m_otherEntityPool);
+        //         T& component = componentVector[entityID - m_maxTiles];
+        //         component = T(std::forward<TArgs>(mArgs)...);
+        //         component.exists = true;
+        //         return component;
+        //     }
+        // }
 
         /// runtime check for vector vs map
         // if (std::is_same_v<T, CTransform> || std::is_same_v<T, CAnimation> || std::is_same_v<T, CBoundingBox> || std::is_same_v<T, CHealth>)

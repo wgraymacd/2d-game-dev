@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 // #include "GameEngine.hpp"
 
+#include <SFML/Graphics.hpp>
 #include <string>
 #include <map>
 

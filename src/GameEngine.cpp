@@ -122,7 +122,7 @@ void GameEngine::sUserInput()
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>() * scaleFactor));
 
             GlobalSettings::windowSize = { static_cast<int>(resizedEvent->size.x), static_cast<int>(resizedEvent->size.y) };
-            m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>())));
+            m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, { static_cast<float>(GlobalSettings::windowSize.x), static_cast<float>(GlobalSettings::windowSize.y) })));
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()));
 
             /// TODO: think about performing an action to resize view according to specific scene

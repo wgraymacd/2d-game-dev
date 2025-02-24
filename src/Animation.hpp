@@ -30,9 +30,9 @@ public:
         : m_name(name), m_frameCount(frameCount), m_frameDuration(frameDuration), m_texture(texture)
     {
         m_size = Vec2i(m_texture.getSize().x / frameCount, m_texture.getSize().y);
-        m_sprite.setOrigin(m_size.to<float>() / 2.0f);
+        m_sprite.setOrigin({ m_size.x / 2.0f, m_size.y / 2.0f });
         m_sprite.setTexture(texture);
-        m_sprite.setTextureRect(sf::IntRect({ m_currentFrame * m_size.x, 0 }, m_size));
+        m_sprite.setTextureRect(sf::IntRect({ m_currentFrame * m_size.x, 0 }, { m_size.x, m_size.y }));
     }
 
     /// @brief construct a "static" animation with only 1 frame from a region in a texture atlas
@@ -43,9 +43,9 @@ public:
     Animation(const std::string& name, const sf::Texture& texture, const Vec2i& atlasPosition, const Vec2i& size)
         : m_name(name), m_atlasPosition(atlasPosition), m_size(size), m_texture(texture)
     {
-        m_sprite.setOrigin(size.to<float>() / 2.0f);
+        m_sprite.setOrigin({ size.x / 2.0f, size.y / 2.0f });
         m_sprite.setTexture(texture);
-        m_sprite.setTextureRect(sf::IntRect(atlasPosition, size));
+        m_sprite.setTextureRect(sf::IntRect({ atlasPosition.x, atlasPosition.y }, { size.x, size.y }));
     }
 
     /// @brief advances an animation by one frame

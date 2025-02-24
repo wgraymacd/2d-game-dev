@@ -14,9 +14,6 @@ class EntityManager
     // tile map
     Vec2i m_worldSizeCells; // size of the world in grid units
     int m_cellSizePixels; // side length of one cell in pixels
-    std::vector<std::vector<Entity>> m_tileMatrix; // matrix[x][y] = tile at grid pos (x, y), initialized in constructor
-    /// TODO: could change tileMatrix to 1D array for even better chache performance when iterating over all tiles
-    /// TODO: also consider chunk-based (map of pairs to chunks and chunks are 1d flat arrays of tiles) or quadtree storage, both are more efficient memory usage for more sparse worlds, efficient neighbor access, dynamic world size, and can still check neighbors with the indices regrdless
 
     std::vector<std::pair<std::string, Entity>> m_entitiesToAdd;
 
@@ -45,7 +42,7 @@ class EntityManager
     }
 
 public:
-    EntityManager(const Vec2i& worldSize, const int cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels), m_tileMatrix(m_worldSizeCells.x, std::vector<Entity>(m_worldSizeCells.y)) {}
+    EntityManager(const Vec2i& worldSize, const int cellSizePixels) : m_worldSizeCells(worldSize), m_cellSizePixels(cellSizePixels) {}
 
     /// TODO: implement new version of this if needed
     /// @brief adds entities to be added and removes entities to be destroyed
@@ -70,32 +67,8 @@ public:
         // PROFILE_FUNCTION();
 
         Entity e = EntityMemoryPool::Instance().addEntity(tag);
-        if (!(tag == "tile"))
-        {
-            m_entitiesToAdd.push_back(std::pair<std::string, Entity>(tag, e));
-        }
+        m_entitiesToAdd.push_back(std::pair<std::string, Entity>(tag, e));
         return e;
-    }
-
-    /// TODO: implement the new version of this if needed
-    /// @brief gets all entities in the active EntityManager
-    /// @return m_liveEntities, the std::vector<Entity> (std::vector<std::shared_ptr<Entity>>) of all entities
-    // std::vector<Entity>& getEntities()
-    // {
-    //     return m_liveEntities;
-    // }
-
-    std::vector<std::vector<Entity>>& getTileMatrix()
-    {
-        return m_tileMatrix;
-    }
-
-    /// TODO: this may not be the best way, but I'm testing, it's getting messy
-    void addTileToMatrix(Entity& tile, const int x, const int y)
-    {
-        // PROFILE_FUNCTION();
-
-        m_tileMatrix[x][y] = tile;
     }
 
     /// TODO: implement the new version of this if needed, also could change this to return only entity IDs to not have to create a bunch of new entities (but consider how that affects usage in ScenePlay and so on), make this return a reference with data stored in memory if needed
@@ -104,9 +77,8 @@ public:
     /// @return an std::vector<Entity> of entities with the specified tag
     std::vector<Entity>& getEntities(const std::string& tag)
     {
-        PROFILE_FUNCTION();
+        // PROFILE_FUNCTION();
 
-        // implementation with entity map
         if (m_entityMap.find(tag) == m_entityMap.end())
         {
             m_entityMap[tag] = std::vector<Entity>();

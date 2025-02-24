@@ -29,10 +29,9 @@ class WorldGenerator
     int m_dirtToStone = 2;
     int m_seed = std::time(0);
 
-    /// TODO: change from string to int for tile types
-    std::vector<std::vector<TileType>> m_tileMatrix;
-
     FastNoiseLite m_noise;
+
+    std::vector<TileType> m_tileTypes;
 
     /// TODO: try chunk-based storage for rendering and everything, but will use vector of pairs instead for now
     // std::unordered_map<std::pair<int, int>, std::vector<std::vector<std::string>>> chunks;
@@ -51,11 +50,11 @@ class WorldGenerator
             {
                 if (y <= m_worldTilesY / m_dirtToStone)
                 {
-                    m_tileMatrix[x][y] = DIRT;
+                    m_tileTypes[x * m_worldTilesY + y] = DIRT;
                 }
                 else
                 {
-                    m_tileMatrix[x][y] = STONE;
+                    m_tileTypes[x * m_worldTilesY + y] = STONE;
                 }
             }
         }
@@ -88,11 +87,11 @@ class WorldGenerator
                 float patchNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y));
                 if (patchNoise > stoneThreshold && y <= m_worldTilesY / m_dirtToStone)
                 {
-                    m_tileMatrix[x][y] = STONE;
+                    m_tileTypes[x * m_worldTilesY + y] = STONE;
                 }
                 else if (patchNoise > dirtThreshold && y > m_worldTilesY / m_dirtToStone)
                 {
-                    m_tileMatrix[x][y] = DIRT;
+                    m_tileTypes[x * m_worldTilesY + y] = DIRT;
                 }
             }
         }
@@ -136,7 +135,7 @@ class WorldGenerator
                 float caveNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y * 1.5)); // TODO: mess with multiplying x or y by scalar to stretch or squish noise along an axis
                 if (caveNoise * (1 + 0.5f * y / m_worldTilesY) > caveThreshold)
                 {
-                    m_tileMatrix[x][y] = NONE; // no tile in the tile layer, but still may have unique background on background layer matrix (in front of actual parallax background, like Terraria)
+                    m_tileTypes[x * m_worldTilesY + y] = NONE; // no tile in the tile layer, but still may have unique background on background layer matrix (in front of actual parallax background, like Terraria)
                 }
             }
         }
@@ -165,7 +164,7 @@ class WorldGenerator
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileMatrix[x][y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
                         }
                     }
                 }
@@ -196,7 +195,7 @@ class WorldGenerator
             {
                 if (y < terrainHeight[x])
                 {
-                    m_tileMatrix[x][y] = NONE;
+                    m_tileTypes[x * m_worldTilesY + y] = NONE;
                 }
             }
         }
@@ -217,15 +216,15 @@ class WorldGenerator
         //     //     for (int i = x; i < iMax; ++i)
         //     //     {
         //     //         // move tile to the right by one
-        //     //         if (m_tileMatrix[i + 1][y])
+        //     //         if (m_tileTypes[i + 1][y])
         //     //         {
-        //     //             m_tileMatrix[i + 1][y] = m_tileMatrix[i][y];
-        //     //             m_tileMatrix[i][y] = NONE;
+        //     //             m_tileTypes[i + 1][y] = m_tileTypes[i][y];
+        //     //             m_tileTypes[i][y] = NONE;
         //     //         }
         //     //         else
         //     //         {
-        //     //             m_tileMatrix[i + 1][y] = m_tileMatrix[i][y];
-        //     //             m_tileMatrix[i][y] = NONE;
+        //     //             m_tileTypes[i + 1][y] = m_tileTypes[i][y];
+        //     //             m_tileTypes[i][y] = NONE;
         //     //         }
         //     //     }
         //     // }
@@ -248,7 +247,7 @@ public:
         : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY)
     {
         m_noise.SetSeed(m_seed);
-        m_tileMatrix = std::vector<std::vector<TileType>>(m_worldTilesX, std::vector<TileType>(m_worldTilesY));
+        m_tileTypes = std::vector<TileType>(m_worldTilesX * m_worldTilesY);
     }
 
     void generateWorld()
@@ -263,8 +262,8 @@ public:
         // createSkyline();
     }
 
-    std::vector<std::vector<TileType>> getTileMatrix()
+    std::vector<TileType>& getTileTypes()
     {
-        return m_tileMatrix;
+        return m_tileTypes;
     }
 };

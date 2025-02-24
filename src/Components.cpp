@@ -29,7 +29,7 @@ CGravity::CGravity(float g) : gravity(g) {}
 
 CState::CState(const std::string& s) : state(s) {}
 
-CFireRate::CFireRate(int fr) : fireRate(fr) {}
+CFire::CFire(const int fr, const float minAcc, const float maxAcc) : fireRate(fr), minAccuracy(minAcc), accuracy(maxAcc), maxAccuracy(maxAcc) {}
 
 CJointRelation::CJointRelation(const Entity& e, const float minA, const float maxA) : entityID(e.getID()), minAngle(minA), maxAngle(maxA) {}
 

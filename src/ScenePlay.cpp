@@ -138,7 +138,7 @@ void ScenePlay::generateWorld()
     // generate world and get tile positions
     WorldGenerator gen(m_worldMaxCells.x, m_worldMaxCells.y);
     gen.generateWorld();
-    const std::vector<std::vector<TileType>>& tileMatrix = gen.getTileMatrix();
+    const std::vector<TileType>& tileTypes = gen.getTileTypes();
 
     // spawn tiles according to their positions in the grid
     for (int x = 0; x < m_worldMaxCells.x; ++x)
@@ -147,40 +147,52 @@ void ScenePlay::generateWorld()
 
         for (int y = 0; y < m_worldMaxCells.y; ++y)
         {
-            TileType tileType = tileMatrix[x][y];
+            TileType tileType = tileTypes[x * m_worldMaxCells.y + y];
             if (tileType)
             {
                 // std::cout << "adding tile " << x << ", " << y << std::endl;
 
-                Entity tile = m_entityManager.addEntity("tile");
-
-                // tile.addComponent<CAnimation>(m_game.assets().getAnimation(tileMatrix[x][y]), true); /// TODO: this is what takes so long to gen world, adding animation, seems like this loop just stops (think twice now) at entity 499399
-                // tile.addComponent<CTransform>(gridToMidPixel(x, y, tile));
-                // tile.addComponent<CBoundingBox>(GlobalSettings::cellSizePixels, true, true);
-                // tile.addComponent<CPosition>(gridToMidPixel(x, y, tile)); // uses CBoundingBox data, must be after
-                tile.addComponent<CType>(tileType);
+                Tile tile;
+                tile.type = tileType;
+                tile.light = 0; /// TODO: instead of propagating light, just make all tiles darker than usual, then render the ones in sight brighter?
 
                 float randomNumber = generateRandomFloat(0.9f, 1.1f); /// TODO: could be faster to use predetermined values or formula, like function of depth or something
 
                 if (tileType == DIRT)
                 {
-                    tile.addComponent<CHealth>(40);
-                    tile.addComponent<CColor>(100.0f * randomNumber, 60.0f * randomNumber, 40.0f * randomNumber);
+                    tile.health = 40;
+                    tile.r = 100.0f * randomNumber;
+                    tile.g = 60.0f * randomNumber;
+                    tile.b = 40.0f * randomNumber;
+                    tile.blocksMovement = true;
+                    tile.blocksVision = true;
                 }
                 else if (tileType == STONE)
                 {
-                    tile.addComponent<CHealth>(60);
-                    tile.addComponent<CColor>(145.0f * randomNumber, 145.0f * randomNumber, 145.0f * randomNumber);
+                    tile.health = 60;
+                    tile.r = 145.0f * randomNumber;
+                    tile.g = 145.0f * randomNumber;
+                    tile.b = 145.0f * randomNumber;
+                    tile.blocksMovement = true;
+                    tile.blocksVision = true;
                 }
                 else if (tileType == BRICK)
                 {
-                    tile.addComponent<CHealth>(100);
-                    tile.addComponent<CColor>(100.0f * randomNumber, 0.0f * randomNumber, 0.0f * randomNumber);
+                    tile.health = 100;
+                    tile.r = 100.0f * randomNumber;
+                    tile.g = 0.0f;
+                    tile.b = 0.0f;
+                    tile.blocksMovement = true;
+                    tile.blocksVision = true;
                 }
                 else if (tileType == BRICKWALL) /// TODO: make non-destructible by bullets after changing tile matrix to hold data directly, indep of ECS
                 {
-                    tile.addComponent<CHealth>(10);
-                    tile.addComponent<CColor>(50.0f * randomNumber, 0.0f * randomNumber, 0.0f * randomNumber);
+                    tile.health = 10;
+                    tile.r = 50.0f * randomNumber;
+                    tile.g = 0.0f;
+                    tile.b = 0.0f;
+                    tile.blocksMovement = false;
+                    tile.blocksVision = false;
                 }
                 else
                 {
@@ -188,7 +200,7 @@ void ScenePlay::generateWorld()
                     exit(-1);
                 }
 
-                m_entityManager.addTileToMatrix(tile, x, y);
+                m_tileManager.addTile(tile, x, y);
             }
         }
     }
@@ -370,8 +382,8 @@ void ScenePlay::sObjectMovement()
         // weapon held by player
         weaponTrans.pos.x = playerTrans.pos.x;
         weaponTrans.pos.y = playerTrans.pos.y - 20.0f;
-        const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-        const Vec2f aimVec = worldTarget - weaponTrans.pos;
+        const sf::Vector2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+        const Vec2f aimVec(worldTarget.x - weaponTrans.pos.x, worldTarget.y - weaponTrans.pos.y);
         weaponTrans.pos += aimVec.norm() * weaponBox.halfSize.x / 2.0f;
         weaponTrans.angle = aimVec.angle();
 
@@ -533,9 +545,9 @@ void ScenePlay::sObjectCollision()
     PROFILE_FUNCTION();
 
     // cache once per frame
-    const std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
+    const std::vector<Tile>& tiles = m_tileManager.getTiles();
 
-    playerTileCollisions(tileMatrix);
+    playerTileCollisions(tiles);
 
     /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
 
@@ -584,7 +596,7 @@ void ScenePlay::sObjectCollision()
 
             /// TODO: edge case: vert x = 1300 so grid pos = 130, but no resolutions needs to happen
             /// TODO: maybe check multiple times per frame for more accuracy
-            if (tileMatrix[gridPos.x][gridPos.y].isActive()) // vertex inside tile /// TODO: possible seg faults
+            if (tiles[gridPos.x * m_worldMaxCells.y + gridPos.y].health) // vertex inside tile /// TODO: possible seg faults
             {
                 // std::cout << "collision with tile" << std::endl;
 
@@ -763,7 +775,7 @@ void ScenePlay::sObjectCollision()
     }
 }
 
-/// @brief handle all weapon firing logic (and melee if implemented) and projectile movement; decoupled from other entities since updated multiple times per frame; includes CInput, CFireRate, CTransform, CDamage, CHealth, CType, tile matrix
+/// @brief handle all weapon firing logic (and melee if implemented) and projectile movement; decoupled from other entities since updated multiple times per frame; includes CInput, CFire, CTransform, CDamage, CHealth, CType, tile matrix
 void ScenePlay::sProjectiles()
 {
     PROFILE_FUNCTION();
@@ -784,12 +796,20 @@ void ScenePlay::sProjectiles()
 
     // then handle bullet spawning
     CInput& input = m_player.getComponent<CInput>();
-    CFireRate& fireRate = m_weapon.getComponent<CFireRate>();
+    CFire& fire = m_weapon.getComponent<CFire>();
     std::chrono::steady_clock::time_point now = std::chrono::high_resolution_clock::now();
-    if (input.shoot && (now - fireRate.lastShotTime).count() >= 1000000000.0f / fireRate.fireRate)
+    if (input.shoot && (now - fire.lastShotTime).count() >= 1000000000 / fire.fireRate)
     {
-        fireRate.lastShotTime = now;
+        fire.lastShotTime = now;
+        if (fire.accuracy > fire.minAccuracy)
+        {
+            fire.accuracy -= 0.01f;
+        }
         spawnBullet(m_weapon);
+    }
+    else if (fire.accuracy < fire.maxAccuracy)
+    {
+        fire.accuracy += 0.0005f;
     }
 }
 
@@ -978,7 +998,7 @@ void ScenePlay::sRender()
     window.clear(sf::Color(10, 10, 10));
 
     const CTransform& playerTrans = m_player.getComponent<CTransform>();
-    const std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
+    std::vector<Tile>& tiles = m_tileManager.getTiles();
 
 
     /// draw all entity textures / animations in layers
@@ -986,9 +1006,9 @@ void ScenePlay::sRender()
     // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
     Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
 
-    const Vec2f& mainViewSize = m_mainView.getSize(); //  window size is the view size now
+    const sf::Vector2f& mainViewSize = m_mainView.getSize(); //  window size is the view size now
 
-    Vec2i checkLength = (mainViewSize / m_cellSizePixels / 2.0f).to<int>();
+    Vec2i checkLength(mainViewSize.x / m_cellSizePixels / 2.0f, mainViewSize.y / m_cellSizePixels / 2.0f);
 
     // limits on grid coords to check
     int minX = std::max(0, playerGridPos.x - checkLength.x);
@@ -1005,11 +1025,11 @@ void ScenePlay::sRender()
     /// TODO: could even keep this and render only tiles with ray trace vertices
     {
         PROFILE_SCOPE("find open tiles");
-        findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
+        findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
     }
 
     // ray casting
-    std::vector<Vec2f> triangleFan = rayCast(m_mainView.getCenter(), m_mainView.getSize(), openTiles, playerTrans.pos, tileMatrix, minX, maxX, minY, maxY);
+    std::vector<Vec2f> triangleFan = rayCast(Vec2f(m_mainView.getCenter().x, m_mainView.getCenter().y), Vec2f(mainViewSize.x, mainViewSize.y), openTiles, playerTrans.pos, tiles, minX, maxX, minY, maxY);
     sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
     for (int i = 0; i < triangleFan.size(); ++i)
     {
@@ -1121,44 +1141,41 @@ void ScenePlay::sRender()
             {
                 if (visited[x - minX][y - minY])
                 {
-                    const Entity& tile = tileMatrix[x][y];
-                    if (tile.isActive())
+                    Tile& tile = tiles[x * m_worldMaxCells.y + y];
+                    if (tile.health)
                     {
                         // Vec2i startCoord(x, y);
                         // Vec2i currentCoord = startCoord;
                         // propagateLight(blocks, 3, 0, startCoord, currentCoord, minX, maxX, minY, maxY);
 
-                        CColor& color = tile.getComponent<CColor>();
-                        color.light = 255;
-                        c.r = color.r;
-                        c.g = color.g;
-                        c.b = color.b;
-                        c.a = color.light;
+                        tile.light = 255;
+                        c.r = tile.r;
+                        c.g = tile.g;
+                        c.b = tile.b;
+                        c.a = tile.light;
                         addBlock(blocks, x, y, c);
 
                         // draw neighbors with less lighting
                         if (x > minX) // && playerGridPos.x >= x)
                         {
-                            const Entity& tile = tileMatrix[x - 1][y];
-                            if (tile.isActive())
+                            Tile& neighborTile = tiles[(x - 1) * m_worldMaxCells.y + y];
+                            if (neighborTile.health)
                             {
-                                CColor& neighborColor = tile.getComponent<CColor>();
-                                if (neighborColor.light < color.light)
+                                if (neighborTile.light < tile.light)
                                 {
-                                    neighborColor.light = color.light - 85;
-                                    c.a = neighborColor.light;
+                                    neighborTile.light = tile.light - 85;
+                                    c.a = neighborTile.light;
                                     addBlock(blocks, x - 1, y, c);
 
                                     if (x - 1 > minX)
                                     {
-                                        const Entity& tile = tileMatrix[x - 2][y];
-                                        if (tile.isActive())
+                                        Tile& nextNeighborTile = tiles[(x - 2) * m_worldMaxCells.y + y];
+                                        if (nextNeighborTile.health)
                                         {
-                                            CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                            if (nextNeighborColor.light < neighborColor.light)
+                                            if (nextNeighborTile.light < neighborTile.light)
                                             {
-                                                nextNeighborColor.light = neighborColor.light - 85;
-                                                c.a = nextNeighborColor.light;
+                                                nextNeighborTile.light = neighborTile.light - 85;
+                                                c.a = nextNeighborTile.light;
                                                 addBlock(blocks, x - 2, y, c);
                                             }
                                         }
@@ -1166,7 +1183,7 @@ void ScenePlay::sRender()
                                         // if (y > minY) // && playerGridPos.y >= y)
                                         // {
                                         //     const Entity& tile = tileMatrix[x - 2][y - 1];
-                                        //     if (tile.isActive())
+                                        //     if (tile.health)
                                         //     {
                                         //         CColor& nextNeighborColor = tile.getComponent<CColor>();
                                         //         if (nextNeighborColor.light < neighborColor.light)
@@ -1182,7 +1199,7 @@ void ScenePlay::sRender()
                                         // if (y < maxY) // && playerGridPos.y <= y)
                                         // {
                                         //     const Entity& tile = tileMatrix[x - 2][y + 1];
-                                        //     if (tile.isActive())
+                                        //     if (tile.health)
                                         //     {
                                         //         CColor& nextNeighborColor = tile.getComponent<CColor>();
                                         //         if (nextNeighborColor.light < neighborColor.light)
@@ -1199,7 +1216,7 @@ void ScenePlay::sRender()
                                     // if (y > minY) // && playerGridPos.y >= y)
                                     // {
                                     //     const Entity& tile = tileMatrix[x - 1][y - 1];
-                                    //     if (tile.isActive())
+                                    //     if (tile.health)
                                     //     {
                                     //         CColor& nextNeighborColor = tile.getComponent<CColor>();
                                     //         if (nextNeighborColor.light < neighborColor.light)
@@ -1219,7 +1236,7 @@ void ScenePlay::sRender()
                                     // if (y < maxY) // && playerGridPos.y <= y)
                                     // {
                                     //     const Entity& tile = tileMatrix[x - 1][y + 1];
-                                    //     if (tile.isActive())
+                                    //     if (tile.health)
                                     //     {
                                     //         CColor& nextNeighborColor = tile.getComponent<CColor>();
                                     //         if (nextNeighborColor.light < neighborColor.light)
@@ -1241,26 +1258,24 @@ void ScenePlay::sRender()
 
                         if (x < maxX) // && playerGridPos.x <= x)
                         {
-                            const Entity& tile = tileMatrix[x + 1][y];
-                            if (tile.isActive())
+                            Tile& neighborTile = tiles[(x + 1) * m_worldMaxCells.y + y];
+                            if (neighborTile.health)
                             {
-                                CColor& neighborColor = tile.getComponent<CColor>();
-                                if (neighborColor.light < color.light)
+                                if (neighborTile.light < tile.light)
                                 {
-                                    neighborColor.light = color.light - 85;
-                                    c.a = neighborColor.light;
+                                    neighborTile.light = tile.light - 85;
+                                    c.a = neighborTile.light;
                                     addBlock(blocks, x + 1, y, c);
 
                                     if (x + 1 < maxX)
                                     {
-                                        const Entity& tile = tileMatrix[x + 2][y];
-                                        if (tile.isActive())
+                                        Tile& nextNeighborTile = tiles[(x + 2) * m_worldMaxCells.y + y];
+                                        if (nextNeighborTile.health)
                                         {
-                                            CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                            if (nextNeighborColor.light < neighborColor.light)
+                                            if (nextNeighborTile.light < neighborTile.light)
                                             {
-                                                nextNeighborColor.light = neighborColor.light - 85;
-                                                c.a = nextNeighborColor.light;
+                                                nextNeighborTile.light = neighborTile.light - 85;
+                                                c.a = nextNeighborTile.light;
                                                 addBlock(blocks, x + 2, y, c);
                                             }
                                         }
@@ -1271,26 +1286,24 @@ void ScenePlay::sRender()
 
                         if (y > minY) // && playerGridPos.y >= y)
                         {
-                            const Entity& tile = tileMatrix[x][y - 1];
-                            if (tile.isActive())
+                            Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y - 1)];
+                            if (neighborTile.health)
                             {
-                                CColor& neighborColor = tile.getComponent<CColor>();
-                                if (neighborColor.light < color.light)
+                                if (neighborTile.light < tile.light)
                                 {
-                                    neighborColor.light = color.light - 85;
-                                    c.a = neighborColor.light;
+                                    neighborTile.light = tile.light - 85;
+                                    c.a = neighborTile.light;
                                     addBlock(blocks, x, y - 1, c);
 
                                     if (y - 1 > minY)
                                     {
-                                        const Entity& tile = tileMatrix[x][y - 2];
-                                        if (tile.isActive())
+                                        Tile& nextNeighborTile = tiles[x + m_worldMaxCells.y + (y - 2)];
+                                        if (nextNeighborTile.health)
                                         {
-                                            CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                            if (nextNeighborColor.light < neighborColor.light)
+                                            if (nextNeighborTile.light < neighborTile.light)
                                             {
-                                                nextNeighborColor.light = neighborColor.light - 85;
-                                                c.a = nextNeighborColor.light;
+                                                nextNeighborTile.light = neighborTile.light - 85;
+                                                c.a = nextNeighborTile.light;
                                                 addBlock(blocks, x, y - 2, c);
                                             }
                                         }
@@ -1301,26 +1314,24 @@ void ScenePlay::sRender()
 
                         if (y < maxY) // && playerGridPos.y <= y)
                         {
-                            const Entity& tile = tileMatrix[x][y + 1];
-                            if (tile.isActive())
+                            Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y + 1)];
+                            if (neighborTile.health)
                             {
-                                CColor& neighborColor = tile.getComponent<CColor>();
-                                if (neighborColor.light < color.light)
+                                if (neighborTile.light < tile.light)
                                 {
-                                    neighborColor.light = color.light - 85;
-                                    c.a = neighborColor.light;
+                                    neighborTile.light = tile.light - 85;
+                                    c.a = neighborTile.light;
                                     addBlock(blocks, x, y + 1, c);
 
                                     if (y + 1 < maxY)
                                     {
-                                        const Entity& tile = tileMatrix[x][y + 2];
-                                        if (tile.isActive())
+                                        Tile& nextNeighborTile = tiles[x * m_worldMaxCells.y + (y + 2)];
+                                        if (nextNeighborTile.health)
                                         {
-                                            CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                            if (nextNeighborColor.light < neighborColor.light)
+                                            if (nextNeighborTile.light < neighborTile.light)
                                             {
-                                                nextNeighborColor.light = neighborColor.light - 85;
-                                                c.a = nextNeighborColor.light;
+                                                nextNeighborTile.light = neighborTile.light - 85;
+                                                c.a = nextNeighborTile.light;
                                                 addBlock(blocks, x, y + 2, c);
                                             }
                                         }
@@ -1342,7 +1353,7 @@ void ScenePlay::sRender()
         {
             for (int y = minY; y <= maxY; ++y)
             {
-                tileMatrix[x][y].getComponent<CColor>().light = 0;
+                tiles[x * m_worldMaxCells.y + y].light = 0;
             }
         }
     }
@@ -1354,28 +1365,27 @@ void ScenePlay::sRender()
 
         sf::Sprite& sprite = bullet.getComponent<CAnimation>().animation.getSprite();
         sprite.setRotation(sf::radians(transform.angle));
-        sprite.setPosition(transform.pos);
-        sprite.setScale(transform.scale);
+        sprite.setPosition({ transform.pos.x, transform.pos.y });
+        sprite.setScale({ transform.scale.x, transform.scale.y });
 
         window.draw(sprite);
     }
-
 
     // ragdolls
     for (Entity& rag : m_entityManager.getEntities("ragdoll"))
     {
         const CTransform& trans = rag.getComponent<CTransform>();
         sf::Sprite& sprite = rag.getComponent<CAnimation>().animation.getSprite();
-        sprite.setPosition(trans.pos);
+        sprite.setPosition({ trans.pos.x, trans.pos.y });
         sprite.setRotation(sf::radians(trans.angle));
         window.draw(sprite);
 
         // draw bounding box
         const CBoundingBox& box = rag.getComponent<CBoundingBox>();
         sf::RectangleShape rect;
-        rect.setSize(Vec2f(box.size.x - 1, box.size.y - 1)); // - 1 cuz line thickness of 1?
-        rect.setOrigin(box.halfSize);
-        rect.setPosition(trans.pos);
+        rect.setSize({ box.size.x - 1.0f, box.size.y - 1.0f }); // - 1 cuz line thickness of 1?
+        rect.setOrigin({ box.halfSize.x, box.halfSize.y });
+        rect.setPosition({ trans.pos.x, trans.pos.y });
         rect.setRotation(sf::radians(trans.angle));
         rect.setFillColor(sf::Color::Transparent);
         rect.setOutlineColor(sf::Color::White);
@@ -1389,15 +1399,15 @@ void ScenePlay::sRender()
         // back arm
         const CTransform& backArmTrans = m_playerArmBack.getComponent<CTransform>();
         sf::Sprite& backArmSprite = m_playerArmBack.getComponent<CAnimation>().animation.getSprite();
-        backArmSprite.setPosition(backArmTrans.pos);
-        backArmSprite.setScale(backArmTrans.scale);
+        backArmSprite.setPosition({ backArmTrans.pos.x, backArmTrans.pos.y });
+        backArmSprite.setScale({ backArmTrans.scale.x, backArmTrans.scale.y });
         backArmSprite.setRotation(sf::radians(backArmTrans.angle));
         window.draw(backArmSprite);
 
         // player 
         sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
-        playerSprite.setPosition(Vec2f(playerTrans.pos.x, playerTrans.pos.y));
-        playerSprite.setScale(playerTrans.scale);
+        playerSprite.setPosition({ playerTrans.pos.x, playerTrans.pos.y });
+        playerSprite.setScale({ playerTrans.scale.x, playerTrans.scale.y });
         window.draw(playerSprite);
 
         // health bar
@@ -1417,24 +1427,24 @@ void ScenePlay::sRender()
         // weapon
         const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
         sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
-        weaponSprite.setPosition(weaponTrans.pos);
-        weaponSprite.setScale(weaponTrans.scale);
+        weaponSprite.setPosition({ weaponTrans.pos.x, weaponTrans.pos.y });
+        weaponSprite.setScale({ weaponTrans.scale.x, weaponTrans.scale.y });
         weaponSprite.setRotation(sf::radians(weaponTrans.angle));
         window.draw(weaponSprite);
 
         // head
         const CTransform& headTrans = m_playerHead.getComponent<CTransform>();
         sf::Sprite& headSprite = m_playerHead.getComponent<CAnimation>().animation.getSprite();
-        headSprite.setPosition(headTrans.pos);
-        headSprite.setScale(headTrans.scale);
+        headSprite.setPosition({ headTrans.pos.x, headTrans.pos.y });
+        headSprite.setScale({ headTrans.scale.x, headTrans.scale.y });
         headSprite.setRotation(sf::radians(headTrans.angle));
         window.draw(headSprite);
 
         // front arm
         const CTransform& frontArmTrans = m_playerArmFront.getComponent<CTransform>();
         sf::Sprite& frontArmSprite = m_playerArmFront.getComponent<CAnimation>().animation.getSprite();
-        frontArmSprite.setPosition(frontArmTrans.pos);
-        frontArmSprite.setScale(frontArmTrans.scale);
+        frontArmSprite.setPosition({ frontArmTrans.pos.x, frontArmTrans.pos.y });
+        frontArmSprite.setScale({ frontArmTrans.scale.x, frontArmTrans.scale.y });
         frontArmSprite.setRotation(sf::radians(frontArmTrans.angle));
         window.draw(frontArmSprite);
     }
@@ -1463,12 +1473,13 @@ void ScenePlay::sRender()
     // }
 
     /// fps counter
-
     float elapsedTime = m_fpsClock.restart().asSeconds();
     float fps = 1.0f / elapsedTime;
     m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
     window.setView(window.getDefaultView());
     window.draw(m_fpsText);
+
+    /// crosshair /// TODO:
 
     /// TODO: line of sight without cone? triangle fan method, ray casting
     // ideas:
@@ -1499,7 +1510,7 @@ void ScenePlay::sRender()
         PROFILE_SCOPE("rendering minimap");
 
         window.setView(m_miniMapView);
-        const Vec2f& miniViewSize = m_miniMapView.getSize();
+        const sf::Vector2f& miniViewSize = m_miniMapView.getSize();
 
         // background
         sf::RectangleShape minimapBackground(miniViewSize);
@@ -1528,14 +1539,13 @@ void ScenePlay::sRender()
         {
             for (int y = minY; y <= maxY; ++y)
             {
-                const Entity& tile = tileMatrix[x][y];
+                Tile& tile = tiles[x * m_worldMaxCells.y + y];
 
-                if (tile.isActive())
+                if (tile.health)
                 {
-                    CColor& color = tile.getComponent<CColor>();
-                    c.r = color.r;
-                    c.g = color.g;
-                    c.b = color.b;
+                    c.r = tile.r;
+                    c.g = tile.g;
+                    c.b = tile.b;
                     sf::Vertex v = { sf::Vector2f(x, y), c };
                     points.append(v);
                 }
@@ -1610,7 +1620,7 @@ void ScenePlay::spawnPlayer()
 
     // spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
-    m_weapon.addComponent<CFireRate>(12);
+    m_weapon.addComponent<CFire>(12, 0.97f, 1.0f);
     m_weapon.addComponent<CDamage>(50);
     m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos).scale = Vec2f(0.3f, 0.3f); /// TODO: make this a lil infront of player
     m_weapon.addComponent<CBoundingBox>(Vec2i(50, 10), false, false); /// TODO: make this dynamic for each weapon
@@ -1625,14 +1635,17 @@ void ScenePlay::spawnBullet(Entity entity)
 
     CTransform& entityTrans = entity.getComponent<CTransform>();
     CBoundingBox& entityBox = entity.getComponent<CBoundingBox>();
+    CFire& entityFire = entity.getComponent<CFire>();
+
     Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.angle), sinf(entityTrans.angle)) * entityBox.halfSize.x;
     float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
 
-    const Vec2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-    const Vec2f bulletVec = worldTarget - entityTrans.pos;
+    const sf::Vector2f& worldTargetSFML = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+    const Vec2f worldTarget(worldTargetSFML.x, worldTargetSFML.y);
+    const Vec2f bulletVec = Vec2f(worldTarget.x - entityTrans.pos.x, worldTarget.y - entityTrans.pos.y).rotate(generateRandomFloat(entityFire.accuracy - 1, 1 - entityFire.accuracy) * M_PI);
 
     Entity bullet = m_entityManager.addEntity("bullet");
-    bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), entityTrans.angle, 0.0f);
+    bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), bulletVec.angle(), 0.0f);
     bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
     bullet.addComponent<CLifespan>(300);
     bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
@@ -1642,7 +1655,7 @@ void ScenePlay::spawnBullet(Entity entity)
 
 /// @brief handle player-tile collisions and player state updates
 /// TODO: update for ramp tiles to walk up stairs or hills
-void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix)
+void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
 {
     PROFILE_FUNCTION();
 
@@ -1665,7 +1678,9 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
     {
         for (int y = minY; y <= maxY; ++y)
         {
-            if (tileMatrix[x][y].isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this
+            const Tile& tile = tiles[x * m_worldMaxCells.y + y];
+
+            if (tile.health && tile.blocksMovement)
             {
                 // finding overlap (without tile bounding boxes)
                 float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels);
@@ -1764,7 +1779,7 @@ void ScenePlay::playerTileCollisions(const std::vector<std::vector<Entity>>& til
 /// @brief handle bullet-tile collisions
 /// TODO: for super fast bullets or just laser tracing whatver it's called, do a line intersect check - easy with tiles since I can just check grid positions along the line from entity to click spot and stop at first intersect
 /// TODO: for fast bullets but still projectiles, update the bullet system more than once per game frame
-void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets)
+void ScenePlay::projectileTileCollisions(std::vector<Tile>& tiles, std::vector<Entity>& bullets)
 {
     PROFILE_FUNCTION();
 
@@ -1785,21 +1800,20 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
             continue;
         }
 
-        const Entity& tile = tileMatrix[bulletGridPos.x][bulletGridPos.y];
+        Tile& tile = tiles[bulletGridPos.x * m_worldMaxCells.y + bulletGridPos.y];
 
-        if (tile.isActive()) /// TODO: accessing memory in tileMatrix and then switching to entity memory pool, might want local var in tileMatrix or somethin so we don't have to do this, batch operation, if not store tile components (some or all) in the tile matrix
+        if (tile.health && tile.blocksMovement) /// TODO: get a blocksProjectiles member? maybe blocks movement but not projectiles, or other way around
         {
             int& bDamage = bullet.getComponent<CDamage>().damage;
-            int& tHealth = tile.getComponent<CHealth>().current;
 
-            tHealth -= bDamage;
+            tile.health -= bDamage < tile.health ? bDamage : tile.health;
             bDamage /= 2;
 
             if (bDamage <= 0)
             {
                 bullet.destroy();
             }
-            else if (tile.getComponent<CType>().type == STONE)
+            else if (tile.type == STONE)
             {
                 float ricochetChance = generateRandomFloat(0.0f, 1.0f);
                 if (ricochetChance > 0.8f)
@@ -1820,14 +1834,6 @@ void ScenePlay::projectileTileCollisions(std::vector<std::vector<Entity>>& tileM
                     /// TODO: no richochets after entering solid material, only on surfaces
                     // bullet.canRocichet = false;
                 }
-            }
-
-            /// TODO: could create a toDestory vector and destroy entities all at once somewhere else if faster, test, since we are accessing tileMatrix and then memory pool back and forth for all bullets
-            if (tHealth <= 0)
-            {
-                tile.destroy();
-
-                /// TODO: check neighbors for floating tiles, then apply physics to them (if no close background) by adding a component to them
             }
         }
         // else
@@ -1933,7 +1939,7 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
     const CTransform& causeTrans = cause.getComponent<CTransform>();
 
     // weapon
-    if (entity.hasComponent<CFireRate>())
+    if (entity.hasComponent<CFire>())
     {
         Entity ragdoll = spawnRagdollElement(entityTrans.pos, entityTrans.angle, entityBox.size, entityAnim.animation);
         Vec2f force;
@@ -2074,8 +2080,8 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
     /// TODO: be more ECS-like, put all manip of CTrans in the sMovement system or something
 
     // check for collisions with tiles
-    std::vector<std::vector<Entity>>& tileMatrix = m_entityManager.getTileMatrix();
-    projectileTileCollisions(tileMatrix, projectiles);
+    std::vector<Tile>& tiles = m_tileManager.getTiles();
+    projectileTileCollisions(tiles, projectiles);
     projectilePlayerCollisions(players, projectiles);
 }
 
@@ -2089,7 +2095,7 @@ float ScenePlay::generateRandomFloat(float min, float max)
 
 /// @brief find tile grid coords that are reachable from (x, y) grid coords without breaking other tiles and add them to openTiles
 /// TODO: way to only update visible tiles on certain events like destroy tile, move, place tile, etc.?
-void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited)
+void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited)
 {
     // base case - off game world or rendering screen
     /// TODO: seg fault on world edge case, just make world bounds so that camera always in middle and player never reaches "edge"
@@ -2099,7 +2105,8 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
     }
 
     // base case - active tile found
-    if (tileMatrix[x][y].isActive())
+    const Tile& tile = tiles[x * m_worldMaxCells.y + y];
+    if (tile.health && tile.blocksVision)
     {
         openTiles.emplace_back(x, y);
         return;
@@ -2131,11 +2138,11 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
     {
         Vec2i topVal = tileStack.top();
         tileStack.pop();
-        findOpenTiles(topVal.x, topVal.y, minX, maxX, minY, maxY, tileMatrix, openTiles, tileStack, visited);
+        findOpenTiles(topVal.x, topVal.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
     }
 }
 
-std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<std::vector<Entity>>& tileMatrix, int minX, int maxX, int minY, int maxY)
+std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY)
 {
     PROFILE_FUNCTION();
 
@@ -2236,7 +2243,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                 yTravel += yMoveHypDist * m_cellSizePixels;
             }
 
-            if (tileMatrix[gridCoord.x][gridCoord.y].isActive()) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
+            if (tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
             {
                 tileHit = true;
 
@@ -2248,7 +2255,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
             // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
             /// TODO: keep repeats? given this thought above ^
-            if (!tileMatrix[gridCoord.x][gridCoord.y].isActive() && (vertex.x >= gridCoord.x * m_cellSizePixels && vertex.x <= (gridCoord.x + 1) * m_cellSizePixels && vertex.y >= gridCoord.y * m_cellSizePixels && vertex.y <= (gridCoord.y + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
+            if (!tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health && (vertex.x >= gridCoord.x * m_cellSizePixels && vertex.x <= (gridCoord.x + 1) * m_cellSizePixels && vertex.y >= gridCoord.y * m_cellSizePixels && vertex.y <= (gridCoord.y + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
             {
                 vertexReached = true;
             }
@@ -2264,7 +2271,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
             // check for tile just passed the vertex in the direction of the ray
             Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels).to<int>();
 
-            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tileMatrix[checkCoord.x][checkCoord.y].isActive()))
+            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tiles[checkCoord.x * m_worldMaxCells.y + checkCoord.y].health))
             {
                 /// add small angle to ray 
                 /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
@@ -2275,40 +2282,40 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                 float newAngle;
                 if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
                 {
-                    if (tileMatrix[gridCoord.x - 1][gridCoord.y].isActive() && tileMatrix[gridCoord.x][gridCoord.y - 1].isActive()) // shared vertex
+                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health) // shared vertex
                         continue; // don't want ray shining through diagonal lines of tiles
 
-                    if (tileMatrix[gridCoord.x - 1][gridCoord.y].isActive()) // tile to the left active
+                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health) // tile to the left active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile above active
                         newAngle = rayAngle - dTheta; // CCW
                 }
                 else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
                 {
-                    if (tileMatrix[gridCoord.x][gridCoord.y - 1].isActive() && tileMatrix[gridCoord.x + 1][gridCoord.y].isActive())
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health && tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health)
                         continue;
 
-                    if (tileMatrix[gridCoord.x][gridCoord.y - 1].isActive()) // tile above active
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health) // tile above active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the right active
                         newAngle = rayAngle - dTheta;; // CCW
                 }
                 else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
                 {
-                    if (tileMatrix[gridCoord.x + 1][gridCoord.y].isActive() && tileMatrix[gridCoord.x][gridCoord.y + 1].isActive())
+                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health)
                         continue;
 
-                    if (tileMatrix[gridCoord.x + 1][gridCoord.y].isActive()) // tile to the right
+                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health) // tile to the right
                         newAngle = rayAngle + dTheta; // CW
                     else // tile below is active
                         newAngle = rayAngle - dTheta; // CCW
                 }
                 else // came from top right or /// TODO: a horizontal/vertical ray case
                 {
-                    if (tileMatrix[gridCoord.x][gridCoord.y + 1].isActive() && tileMatrix[gridCoord.x - 1][gridCoord.y].isActive())
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health && tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health)
                         continue;
 
-                    if (tileMatrix[gridCoord.x][gridCoord.y + 1].isActive()) // tile below is active
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health) // tile below is active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the left is active
                         newAngle = rayAngle - dTheta; // CCW
@@ -2333,7 +2340,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
                         // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (gridCoord.x, gridCoord.y) if tile is active there
 
-                        if (gridCoord.x < minX || gridCoord.x > maxX || tileMatrix[gridCoord.x][gridCoord.y].isActive()) /// TODO: use ==? 
+                        if (gridCoord.x < minX || gridCoord.x > maxX || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) /// TODO: use ==? 
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
@@ -2347,7 +2354,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                     {
                         gridCoord.y += rayStep.y;
 
-                        if (gridCoord.y < minY || gridCoord.y > maxY || tileMatrix[gridCoord.x][gridCoord.y].isActive()) /// TODO: use ==?
+                        if (gridCoord.y < minY || gridCoord.y > maxY || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) /// TODO: use ==?
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);
@@ -2394,28 +2401,20 @@ void ScenePlay::propagateLight(sf::VertexArray& blocks, int maxDepth, int curren
     }
 
     // recursive step
-    const Entity& tile = m_entityManager.getTileMatrix()[currentCoord.x][currentCoord.y];
+    Tile& tile = m_tileManager.getTiles()[currentCoord.x * m_worldMaxCells.y + currentCoord.y];
     std::cout << "Processing tile at (" << currentCoord.x << ", " << currentCoord.y << ")\n";
 
-    if (tile.isActive())
+    if (tile.health)
     {
-        CColor& color = tile.getComponent<CColor>();
         int newLight = 255 - currentDepth * (255 / maxDepth);
-        std::cout << "    light: " << static_cast<int>(color.light) << ", newLight: " << newLight << std::endl;
-        if (color.light < newLight)
+        std::cout << "    light: " << static_cast<int>(tile.light) << ", newLight: " << newLight << std::endl;
+        if (tile.light < newLight)
         {
-            color.light = newLight;
+            tile.light = newLight;
 
             // create block with 2 triangles
-            sf::Color c(color.r, color.g, color.b, color.light);
-            int px = currentCoord.x * m_cellSizePixels;
-            int py = currentCoord.y * m_cellSizePixels;
-            blocks.append({ Vec2f(px, py), c });
-            blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-            blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-            blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-            blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-            blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
+            sf::Color c(tile.r, tile.g, tile.b, tile.light);
+            addBlock(blocks, currentCoord.x, currentCoord.y, c);
 
             std::cout << "        Depth: " << currentDepth << std::endl;
 
@@ -2444,13 +2443,13 @@ void ScenePlay::propagateLight(sf::VertexArray& blocks, int maxDepth, int curren
 
 void ScenePlay::addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c)
 {
-    int px = xGrid * m_cellSizePixels;
-    int py = yGrid * m_cellSizePixels;
-    blocks.append({ Vec2f(px, py), c });
-    blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-    blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-    blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-    blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-    blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
+    float px = xGrid * m_cellSizePixels;
+    float py = yGrid * m_cellSizePixels;
+    blocks.append({ { px, py }, c });
+    blocks.append({ { px + m_cellSizePixels, py }, c });
+    blocks.append({ { px, py + m_cellSizePixels }, c });
+    blocks.append({ { px, py + m_cellSizePixels }, c });
+    blocks.append({ { px + m_cellSizePixels, py }, c });
+    blocks.append({ { px + m_cellSizePixels, py + m_cellSizePixels }, c });
 }
 

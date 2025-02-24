@@ -5,6 +5,7 @@
 #include "Vec2.hpp"
 #include "GameEngine.hpp"
 #include "Globals.hpp"
+#include "TileManager.hpp"
 
 #include <SFML/Graphics.hpp>
 
@@ -26,14 +27,17 @@ protected:
     const Vec2i m_worldMaxPixels = { m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
 
     // views and textures
-    sf::View m_mainView = sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()); // center, size
+    sf::View m_mainView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(GlobalSettings::windowSize.x, GlobalSettings::windowSize.y)); // center, size
     // sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
-    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, m_worldMaxCells.to<float>() * 2.0f); // center, size
+    sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(m_worldMaxCells.x, m_worldMaxCells.y) * 2.0f); // center, size
 
     // entities
     EntityManager m_entityManager = EntityManager(m_worldMaxCells, m_cellSizePixels);
     Entity m_player, m_playerArmFront, m_playerArmBack, m_playerHead, m_weapon; // commonly used
     PlayerConfig m_playerConfig;
+
+    // tiles
+    TileManager m_tileManager;
 
     // rendering
     bool m_drawTextures = true;
@@ -51,15 +55,15 @@ protected:
     void spawnPlayer();
     void spawnBullet(Entity entity);
     void updateProjectiles(std::vector<Entity>& bullets);
-    void playerTileCollisions(const std::vector<std::vector<Entity>>& tileMatrix);
-    void projectileTileCollisions(std::vector<std::vector<Entity>>& tileMatrix, std::vector<Entity>& bullets);
+    void playerTileCollisions(const std::vector<Tile>& tiles);
+    void projectileTileCollisions(std::vector<Tile>& tiles, std::vector<Entity>& bullets);
     void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
     Entity spawnRagdollElement(const Vec2f& pos, const float angle, const Vec2i& boxSize, const Animation& animation);
     void createRagdoll(const Entity& entity, const Entity& cause);
     Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
     float generateRandomFloat(float min, float max);
-    void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<std::vector<Entity>>& tileMatrix, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
-    std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<std::vector<Entity>>& tileMatrix, int minX, int maxX, int minY, int maxY);
+    void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
+    std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY);
     void propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY);
     void addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c);
 
