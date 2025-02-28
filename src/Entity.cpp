@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
 

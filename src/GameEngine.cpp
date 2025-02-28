@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 #include "Globals.hpp"
 #include "GameEngine.hpp"
 #include "SceneMenu.hpp"

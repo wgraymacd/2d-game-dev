@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 /// NOTE: using constexp ensures that the condition is checked at compile time, branch that isn't valid is discarded, saves runtime processing
 
 #pragma once

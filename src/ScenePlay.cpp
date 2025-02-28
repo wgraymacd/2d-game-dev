@@ -161,34 +161,52 @@ void ScenePlay::generateWorld()
                 if (tileType == DIRT)
                 {
                     tile.health = 40;
-                    tile.r = 100.0f * randomNumber;
-                    tile.g = 60.0f * randomNumber;
-                    tile.b = 40.0f * randomNumber;
+                    tile.r = 50.0f * randomNumber;
+                    tile.g = 30.0f * randomNumber;
+                    tile.b = 20.0f * randomNumber;
                     tile.blocksMovement = true;
                     tile.blocksVision = true;
+                }
+                else if (tileType == DIRTWALL)
+                {
+                    tile.health = 10;
+                    tile.r = 25.0f * randomNumber;
+                    tile.g = 15.0f * randomNumber;
+                    tile.b = 10.0f * randomNumber;
+                    tile.blocksMovement = false;
+                    tile.blocksVision = false;
                 }
                 else if (tileType == STONE)
                 {
                     tile.health = 60;
-                    tile.r = 145.0f * randomNumber;
-                    tile.g = 145.0f * randomNumber;
-                    tile.b = 145.0f * randomNumber;
+                    tile.r = 70.0f * randomNumber;
+                    tile.g = 70.0f * randomNumber;
+                    tile.b = 70.0f * randomNumber;
                     tile.blocksMovement = true;
                     tile.blocksVision = true;
+                }
+                else if (tileType == STONEWALL)
+                {
+                    tile.health = 10;
+                    tile.r = 35.0f * randomNumber;
+                    tile.g = 35.0f * randomNumber;
+                    tile.b = 35.0f * randomNumber;
+                    tile.blocksMovement = false;
+                    tile.blocksVision = false;
                 }
                 else if (tileType == BRICK)
                 {
                     tile.health = 100;
-                    tile.r = 100.0f * randomNumber;
+                    tile.r = 50.0f * randomNumber;
                     tile.g = 0.0f;
                     tile.b = 0.0f;
                     tile.blocksMovement = true;
                     tile.blocksVision = true;
                 }
-                else if (tileType == BRICKWALL) /// TODO: make non-destructible by bullets after changing tile matrix to hold data directly, indep of ECS
+                else if (tileType == BRICKWALL)
                 {
                     tile.health = 10;
-                    tile.r = 50.0f * randomNumber;
+                    tile.r = 25.0f * randomNumber;
                     tile.g = 0.0f;
                     tile.b = 0.0f;
                     tile.blocksMovement = false;
@@ -267,7 +285,7 @@ void ScenePlay::sObjectMovement()
     // player
     if (m_player.isActive())
     {
-        std::string& playerState = m_player.getComponent<CState>().state;
+        CState& playerState = m_player.getComponent<CState>();
         CInput& playerInput = m_player.getComponent<CInput>();
         CTransform& playerTrans = m_player.getComponent<CTransform>();
         CGravity& playerGrav = m_player.getComponent<CGravity>();
@@ -292,11 +310,11 @@ void ScenePlay::sObjectMovement()
         {
             // set friction value based on state
             float friction;
-            if (playerState == "air")
+            if (playerState.state == AIR)
             {
                 friction = 0.2f;
             }
-            else // if (playerState == "run")
+            else
             {
                 friction = 1.0f;
             }
@@ -341,17 +359,19 @@ void ScenePlay::sObjectMovement()
             // playerTrans.scale.x = -abs(playerTrans.scale.x);
         }
 
-        if (playerInput.up && playerInput.canJump)
+        /// TODO: better jumping and flying, min jump height, max jump height if up input held down, consider gravity changing
+        if (playerInput.up)
         {
-            velToAdd.y -= m_playerConfig.SY;
-            playerInput.canJump = false; // set to true in sCollision (must see if on the ground)
-        }
-
-        // on release of jump key
-        /// TODO: implement new jumping (min jump height, no sudden fall on release, double jumping / flying)
-        if (!playerInput.up && playerTrans.velocity.y < 0)
-        {
-            playerTrans.velocity.y = 0;
+            if (playerState.state == AIR)
+            {
+                std::cout << "air jump\n";
+                velToAdd.y -= 2.0f * m_playerConfig.GRAVITY;
+            }
+            else // on the ground
+            {
+                std::cout << "jumping with state " << playerState.state << "\n";
+                velToAdd.y -= m_playerConfig.SY;
+            }
         }
 
         playerTrans.velocity += velToAdd;
@@ -596,7 +616,7 @@ void ScenePlay::sObjectCollision()
 
             /// TODO: edge case: vert x = 1300 so grid pos = 130, but no resolutions needs to happen
             /// TODO: maybe check multiple times per frame for more accuracy
-            if (tiles[gridPos.x * m_worldMaxCells.y + gridPos.y].health) // vertex inside tile /// TODO: possible seg faults
+            if (tiles[gridPos.x * m_worldMaxCells.y + gridPos.y].blocksMovement) // vertex inside tile /// TODO: possible seg faults
             {
                 // std::cout << "collision with tile" << std::endl;
 
@@ -803,13 +823,13 @@ void ScenePlay::sProjectiles()
         fire.lastShotTime = now;
         if (fire.accuracy > fire.minAccuracy)
         {
-            fire.accuracy -= 0.01f;
+            fire.accuracy -= 0.003f;
         }
         spawnBullet(m_weapon);
     }
     else if (fire.accuracy < fire.maxAccuracy)
     {
-        fire.accuracy += 0.0005f;
+        fire.accuracy += 0.0002f;
     }
 }
 
@@ -955,7 +975,7 @@ void ScenePlay::sAnimation()
     /// TODO: could create an "animation" which is just data on where each limb should be and what angle it should be at, and could then use this data to control rigid bodies when alive by forcing them toward the angle and position needed. Easy transition to ragdoll from there by just letting the entity bodies fall (they're already created, in the right places, and have the right velocities to have a smooth transition)
     CAnimation& playerAnim = m_player.getComponent<CAnimation>();
     CState& playerState = m_player.getComponent<CState>();
-    if (playerState.state == "run")
+    if (playerState.state == RUN)
     {
         playerAnim.animation.updateLoop();
     }
@@ -1027,21 +1047,6 @@ void ScenePlay::sRender()
         PROFILE_SCOPE("find open tiles");
         findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
     }
-
-    // ray casting
-    std::vector<Vec2f> triangleFan = rayCast(Vec2f(m_mainView.getCenter().x, m_mainView.getCenter().y), Vec2f(mainViewSize.x, mainViewSize.y), openTiles, playerTrans.pos, tiles, minX, maxX, minY, maxY);
-    sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
-    for (int i = 0; i < triangleFan.size(); ++i)
-    {
-        fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
-        fan[i].color = sf::Color(255, 255, 255, 100);
-
-        // sf::CircleShape dot(2);
-        // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
-        // dot.setFillColor(sf::Color(0, 0, 255, 100));
-        // window.draw(dot);
-    }
-    window.draw(fan);
 
     /// TODO: slow, could use some other sort of logic (either just logic same process or different entirely like lighting based on distance to player and/or light cone direction) after taking another look at the recrsive func efficiency
     /// TODO: test rendering tiles underneath that are only along the line of sight of player, not just using the playerGridPos.x >= currentCoord.x then render below thing
@@ -1156,189 +1161,189 @@ void ScenePlay::sRender()
                         addBlock(blocks, x, y, c);
 
                         // draw neighbors with less lighting
-                        if (x > minX) // && playerGridPos.x >= x)
-                        {
-                            Tile& neighborTile = tiles[(x - 1) * m_worldMaxCells.y + y];
-                            if (neighborTile.health)
-                            {
-                                if (neighborTile.light < tile.light)
-                                {
-                                    neighborTile.light = tile.light - 85;
-                                    c.a = neighborTile.light;
-                                    addBlock(blocks, x - 1, y, c);
+                        // if (x > minX) // && playerGridPos.x >= x)
+                        // {
+                        //     Tile& neighborTile = tiles[(x - 1) * m_worldMaxCells.y + y];
+                        //     if (neighborTile.health)
+                        //     {
+                        //         if (neighborTile.light < tile.light)
+                        //         {
+                        //             neighborTile.light = tile.light - 85;
+                        //             c.a = neighborTile.light;
+                        //             addBlock(blocks, x - 1, y, c);
 
-                                    if (x - 1 > minX)
-                                    {
-                                        Tile& nextNeighborTile = tiles[(x - 2) * m_worldMaxCells.y + y];
-                                        if (nextNeighborTile.health)
-                                        {
-                                            if (nextNeighborTile.light < neighborTile.light)
-                                            {
-                                                nextNeighborTile.light = neighborTile.light - 85;
-                                                c.a = nextNeighborTile.light;
-                                                addBlock(blocks, x - 2, y, c);
-                                            }
-                                        }
+                        //             if (x - 1 > minX)
+                        //             {
+                        //                 Tile& nextNeighborTile = tiles[(x - 2) * m_worldMaxCells.y + y];
+                        //                 if (nextNeighborTile.health)
+                        //                 {
+                        //                     if (nextNeighborTile.light < neighborTile.light)
+                        //                     {
+                        //                         nextNeighborTile.light = neighborTile.light - 85;
+                        //                         c.a = nextNeighborTile.light;
+                        //                         addBlock(blocks, x - 2, y, c);
+                        //                     }
+                        //                 }
 
-                                        // if (y > minY) // && playerGridPos.y >= y)
-                                        // {
-                                        //     const Entity& tile = tileMatrix[x - 2][y - 1];
-                                        //     if (tile.health)
-                                        //     {
-                                        //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                        //         if (nextNeighborColor.light < neighborColor.light)
-                                        //         {
-                                        //             nextNeighborColor.light = neighborColor.light - 60;
-                                        //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
-                                        //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y - 1 - minY) });
-                                        //             m_tileTexture.draw(block);
-                                        //         }
-                                        //     }
-                                        // }
+                        //                 // if (y > minY) // && playerGridPos.y >= y)
+                        //                 // {
+                        //                 //     const Entity& tile = tileMatrix[x - 2][y - 1];
+                        //                 //     if (tile.health)
+                        //                 //     {
+                        //                 //         CColor& nextNeighborColor = tile.getComponent<CColor>();
+                        //                 //         if (nextNeighborColor.light < neighborColor.light)
+                        //                 //         {
+                        //                 //             nextNeighborColor.light = neighborColor.light - 60;
+                        //                 //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
+                        //                 //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y - 1 - minY) });
+                        //                 //             m_tileTexture.draw(block);
+                        //                 //         }
+                        //                 //     }
+                        //                 // }
 
-                                        // if (y < maxY) // && playerGridPos.y <= y)
-                                        // {
-                                        //     const Entity& tile = tileMatrix[x - 2][y + 1];
-                                        //     if (tile.health)
-                                        //     {
-                                        //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                        //         if (nextNeighborColor.light < neighborColor.light)
-                                        //         {
-                                        //             nextNeighborColor.light = neighborColor.light - 60;
-                                        //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
-                                        //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y + 1 - minY) });
-                                        //             m_tileTexture.draw(block);
-                                        //         }
-                                        //     }
-                                        // }
-                                    }
+                        //                 // if (y < maxY) // && playerGridPos.y <= y)
+                        //                 // {
+                        //                 //     const Entity& tile = tileMatrix[x - 2][y + 1];
+                        //                 //     if (tile.health)
+                        //                 //     {
+                        //                 //         CColor& nextNeighborColor = tile.getComponent<CColor>();
+                        //                 //         if (nextNeighborColor.light < neighborColor.light)
+                        //                 //         {
+                        //                 //             nextNeighborColor.light = neighborColor.light - 60;
+                        //                 //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
+                        //                 //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y + 1 - minY) });
+                        //                 //             m_tileTexture.draw(block);
+                        //                 //         }
+                        //                 //     }
+                        //                 // }
+                        //             }
 
-                                    // if (y > minY) // && playerGridPos.y >= y)
-                                    // {
-                                    //     const Entity& tile = tileMatrix[x - 1][y - 1];
-                                    //     if (tile.health)
-                                    //     {
-                                    //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                    //         if (nextNeighborColor.light < neighborColor.light)
-                                    //         {
-                                    //             nextNeighborColor.light = neighborColor.light - 85;
-                                    //             c.a = nextNeighborColor.light;
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py - m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
-                                    //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px, py), c });
-                                    //         }
-                                    //     }
-                                    // }
+                        //             // if (y > minY) // && playerGridPos.y >= y)
+                        //             // {
+                        //             //     const Entity& tile = tileMatrix[x - 1][y - 1];
+                        //             //     if (tile.health)
+                        //             //     {
+                        //             //         CColor& nextNeighborColor = tile.getComponent<CColor>();
+                        //             //         if (nextNeighborColor.light < neighborColor.light)
+                        //             //         {
+                        //             //             nextNeighborColor.light = neighborColor.light - 85;
+                        //             //             c.a = nextNeighborColor.light;
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py - m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
+                        //             //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px, py), c });
+                        //             //         }
+                        //             //     }
+                        //             // }
 
-                                    // if (y < maxY) // && playerGridPos.y <= y)
-                                    // {
-                                    //     const Entity& tile = tileMatrix[x - 1][y + 1];
-                                    //     if (tile.health)
-                                    //     {
-                                    //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                                    //         if (nextNeighborColor.light < neighborColor.light)
-                                    //         {
-                                    //             nextNeighborColor.light = neighborColor.light - 85;
-                                    //             c.a = nextNeighborColor.light;
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py + m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-                                    //             blocks.append({ Vec2f(px, py + 2 * m_cellSizePixels), c });
-                                    //         }
-                                    //     }
-                                    // }
-                                }
-                            }
-                        }
+                        //             // if (y < maxY) // && playerGridPos.y <= y)
+                        //             // {
+                        //             //     const Entity& tile = tileMatrix[x - 1][y + 1];
+                        //             //     if (tile.health)
+                        //             //     {
+                        //             //         CColor& nextNeighborColor = tile.getComponent<CColor>();
+                        //             //         if (nextNeighborColor.light < neighborColor.light)
+                        //             //         {
+                        //             //             nextNeighborColor.light = neighborColor.light - 85;
+                        //             //             c.a = nextNeighborColor.light;
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
+                        //             //             blocks.append({ Vec2f(px, py + 2 * m_cellSizePixels), c });
+                        //             //         }
+                        //             //     }
+                        //             // }
+                        //         }
+                        //     }
+                        // }
 
-                        if (x < maxX) // && playerGridPos.x <= x)
-                        {
-                            Tile& neighborTile = tiles[(x + 1) * m_worldMaxCells.y + y];
-                            if (neighborTile.health)
-                            {
-                                if (neighborTile.light < tile.light)
-                                {
-                                    neighborTile.light = tile.light - 85;
-                                    c.a = neighborTile.light;
-                                    addBlock(blocks, x + 1, y, c);
+                        // if (x < maxX) // && playerGridPos.x <= x)
+                        // {
+                        //     Tile& neighborTile = tiles[(x + 1) * m_worldMaxCells.y + y];
+                        //     if (neighborTile.health)
+                        //     {
+                        //         if (neighborTile.light < tile.light)
+                        //         {
+                        //             neighborTile.light = tile.light - 85;
+                        //             c.a = neighborTile.light;
+                        //             addBlock(blocks, x + 1, y, c);
 
-                                    if (x + 1 < maxX)
-                                    {
-                                        Tile& nextNeighborTile = tiles[(x + 2) * m_worldMaxCells.y + y];
-                                        if (nextNeighborTile.health)
-                                        {
-                                            if (nextNeighborTile.light < neighborTile.light)
-                                            {
-                                                nextNeighborTile.light = neighborTile.light - 85;
-                                                c.a = nextNeighborTile.light;
-                                                addBlock(blocks, x + 2, y, c);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        //             if (x + 1 < maxX)
+                        //             {
+                        //                 Tile& nextNeighborTile = tiles[(x + 2) * m_worldMaxCells.y + y];
+                        //                 if (nextNeighborTile.health)
+                        //                 {
+                        //                     if (nextNeighborTile.light < neighborTile.light)
+                        //                     {
+                        //                         nextNeighborTile.light = neighborTile.light - 85;
+                        //                         c.a = nextNeighborTile.light;
+                        //                         addBlock(blocks, x + 2, y, c);
+                        //                     }
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // }
 
-                        if (y > minY) // && playerGridPos.y >= y)
-                        {
-                            Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y - 1)];
-                            if (neighborTile.health)
-                            {
-                                if (neighborTile.light < tile.light)
-                                {
-                                    neighborTile.light = tile.light - 85;
-                                    c.a = neighborTile.light;
-                                    addBlock(blocks, x, y - 1, c);
+                        // if (y > minY) // && playerGridPos.y >= y)
+                        // {
+                        //     Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y - 1)];
+                        //     if (neighborTile.health)
+                        //     {
+                        //         if (neighborTile.light < tile.light)
+                        //         {
+                        //             neighborTile.light = tile.light - 85;
+                        //             c.a = neighborTile.light;
+                        //             addBlock(blocks, x, y - 1, c);
 
-                                    if (y - 1 > minY)
-                                    {
-                                        Tile& nextNeighborTile = tiles[x + m_worldMaxCells.y + (y - 2)];
-                                        if (nextNeighborTile.health)
-                                        {
-                                            if (nextNeighborTile.light < neighborTile.light)
-                                            {
-                                                nextNeighborTile.light = neighborTile.light - 85;
-                                                c.a = nextNeighborTile.light;
-                                                addBlock(blocks, x, y - 2, c);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        //             if (y - 1 > minY)
+                        //             {
+                        //                 Tile& nextNeighborTile = tiles[x + m_worldMaxCells.y + (y - 2)];
+                        //                 if (nextNeighborTile.health)
+                        //                 {
+                        //                     if (nextNeighborTile.light < neighborTile.light)
+                        //                     {
+                        //                         nextNeighborTile.light = neighborTile.light - 85;
+                        //                         c.a = nextNeighborTile.light;
+                        //                         addBlock(blocks, x, y - 2, c);
+                        //                     }
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // }
 
-                        if (y < maxY) // && playerGridPos.y <= y)
-                        {
-                            Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y + 1)];
-                            if (neighborTile.health)
-                            {
-                                if (neighborTile.light < tile.light)
-                                {
-                                    neighborTile.light = tile.light - 85;
-                                    c.a = neighborTile.light;
-                                    addBlock(blocks, x, y + 1, c);
+                        // if (y < maxY) // && playerGridPos.y <= y)
+                        // {
+                        //     Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y + 1)];
+                        //     if (neighborTile.health)
+                        //     {
+                        //         if (neighborTile.light < tile.light)
+                        //         {
+                        //             neighborTile.light = tile.light - 85;
+                        //             c.a = neighborTile.light;
+                        //             addBlock(blocks, x, y + 1, c);
 
-                                    if (y + 1 < maxY)
-                                    {
-                                        Tile& nextNeighborTile = tiles[x * m_worldMaxCells.y + (y + 2)];
-                                        if (nextNeighborTile.health)
-                                        {
-                                            if (nextNeighborTile.light < neighborTile.light)
-                                            {
-                                                nextNeighborTile.light = neighborTile.light - 85;
-                                                c.a = nextNeighborTile.light;
-                                                addBlock(blocks, x, y + 2, c);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        //             if (y + 1 < maxY)
+                        //             {
+                        //                 Tile& nextNeighborTile = tiles[x * m_worldMaxCells.y + (y + 2)];
+                        //                 if (nextNeighborTile.health)
+                        //                 {
+                        //                     if (nextNeighborTile.light < neighborTile.light)
+                        //                     {
+                        //                         nextNeighborTile.light = neighborTile.light - 85;
+                        //                         c.a = nextNeighborTile.light;
+                        //                         addBlock(blocks, x, y + 2, c);
+                        //                     }
+                        //                 }
+                        //             }
+                        //         }
+                        //     }
+                        // }
                     }
                     /// TODO: render visited backgrounds and decoration and such differently if they arent 10x10 sized pixels only (static background blocks can be I suppose, but not the main parallax background)
                     // else render other shit that's not tiles (background, etc)
@@ -1349,14 +1354,29 @@ void ScenePlay::sRender()
         window.draw(blocks);
 
         // reset lighting for light propagation /// TODO: consider using a visited array, maybe the same as used for findOpenTiles instead of using this light thing (adds this loop)
-        for (int x = minX; x <= maxX; ++x)
-        {
-            for (int y = minY; y <= maxY; ++y)
-            {
-                tiles[x * m_worldMaxCells.y + y].light = 0;
-            }
-        }
+        // for (int x = minX; x <= maxX; ++x)
+        // {
+        //     for (int y = minY; y <= maxY; ++y)
+        //     {
+        //         tiles[x * m_worldMaxCells.y + y].light = 0;
+        //     }
+        // }
     }
+
+    // ray casting
+    std::vector<Vec2f> triangleFan = rayCast(Vec2f(m_mainView.getCenter().x, m_mainView.getCenter().y), Vec2f(mainViewSize.x, mainViewSize.y), openTiles, playerTrans.pos, tiles, minX, maxX, minY, maxY);
+    sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
+    for (int i = 0; i < triangleFan.size(); ++i)
+    {
+        fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
+        fan[i].color = sf::Color(255, 255, 255, 50);
+
+        // sf::CircleShape dot(2);
+        // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
+        // dot.setFillColor(sf::Color(0, 0, 255, 100));
+        // window.draw(dot);
+    }
+    window.draw(fan);
 
     // bullets
     for (Entity& bullet : m_entityManager.getEntities("bullet"))
@@ -1541,7 +1561,7 @@ void ScenePlay::sRender()
             {
                 Tile& tile = tiles[x * m_worldMaxCells.y + y];
 
-                if (tile.health)
+                if (tile.blocksMovement || tile.blocksVision)
                 {
                     c.r = tile.r;
                     c.g = tile.g;
@@ -1595,7 +1615,7 @@ void ScenePlay::spawnPlayer()
     CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     playerTrans.scale = Vec2f(0.5f, 0.5f);
     m_player.addComponent<CAnimation>(m_game.assets().getAnimation("Run"), false);
-    m_player.addComponent<CState>("air");
+    m_player.addComponent<CState>(AIR);
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
     m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
@@ -1620,7 +1640,7 @@ void ScenePlay::spawnPlayer()
 
     // spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
-    m_weapon.addComponent<CFire>(12, 0.97f, 1.0f);
+    m_weapon.addComponent<CFire>(50, 0.97f, 1.0f);
     m_weapon.addComponent<CDamage>(50);
     m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos).scale = Vec2f(0.3f, 0.3f); /// TODO: make this a lil infront of player
     m_weapon.addComponent<CBoundingBox>(Vec2i(50, 10), false, false); /// TODO: make this dynamic for each weapon
@@ -1661,10 +1681,10 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
 
     CTransform& playerTrans = m_player.getComponent<CTransform>();
     CBoundingBox& playerBounds = m_player.getComponent<CBoundingBox>();
-    std::string& playerState = m_player.getComponent<CState>().state;
+    CState& playerState = m_player.getComponent<CState>();
     CInput& playerInput = m_player.getComponent<CInput>();
 
-    bool collision = false;
+    bool xCollision, yCollision = false;
 
     Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // must be signed as subtraction below 0 is happening
     Vec2i checkLength(playerBounds.halfSize.x / m_cellSizePixels + 1, playerBounds.halfSize.y / m_cellSizePixels + 1);
@@ -1680,7 +1700,7 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
         {
             const Tile& tile = tiles[x * m_worldMaxCells.y + y];
 
-            if (tile.health && tile.blocksMovement)
+            if (tile.blocksMovement)
             {
                 // finding overlap (without tile bounding boxes)
                 float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels);
@@ -1691,8 +1711,6 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
                 // there is a collision
                 if (xOverlap > 0 && yOverlap > 0)
                 {
-                    collision = true;
-
                     // finding previous overlap (without tile bounding boxes)
                     float xPrevDiff = abs(playerTrans.prevPos.x - (x + 0.5f) * m_cellSizePixels);
                     float yPrevDiff = abs(playerTrans.prevPos.y - (y + 0.5f) * m_cellSizePixels);
@@ -1702,17 +1720,13 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
                     // we are colliding in y-direction this frame since previous frame already had x-direction overlap
                     if (xPrevOverlap > 0)
                     {
+                        yCollision = true;
+
                         // player moving down
                         if (playerTrans.velocity.y > 0)
                         {
                             playerTrans.pos.y -= yOverlap; // player can't fall below tile
-                            playerState = abs(playerTrans.velocity.x) > 0 ? "run" : "stand";
-
-                            // jumping
-                            if (!m_player.getComponent<CInput>().up) // wait for player to release w key before allowing jump
-                            {
-                                m_player.getComponent<CInput>().canJump = true; // set to false after jumping in sMovement()
-                            }
+                            playerState.state = abs(playerTrans.velocity.x) > 0 ? RUN : IDLE;
                         }
 
                         // player moving up
@@ -1725,6 +1739,8 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
                     // colliding in x-direction this frame
                     else if (yPrevOverlap > 0)
                     {
+                        xCollision = true;
+
                         // player moving right
                         if (playerTrans.velocity.x > 0)
                         {
@@ -1746,9 +1762,9 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
         }
     }
 
-    if (!collision)
+    if (!yCollision)
     {
-        playerState = "air";
+        playerState.state = AIR;
     }
 
     // restrict player movement passed top, bottom, or side of map
@@ -1772,7 +1788,6 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
     {
         playerTrans.pos.y = m_worldMaxPixels.y - bBoxHalfSize.y;
         playerTrans.velocity.y = 0;
-        playerInput.canJump = true;
     }
 }
 
@@ -1802,11 +1817,37 @@ void ScenePlay::projectileTileCollisions(std::vector<Tile>& tiles, std::vector<E
 
         Tile& tile = tiles[bulletGridPos.x * m_worldMaxCells.y + bulletGridPos.y];
 
-        if (tile.health && tile.blocksMovement) /// TODO: get a blocksProjectiles member? maybe blocks movement but not projectiles, or other way around
+        if (tile.blocksMovement) /// TODO: get a blocksProjectiles member? maybe blocks movement but not projectiles, or other way around
         {
             int& bDamage = bullet.getComponent<CDamage>().damage;
 
-            tile.health -= bDamage < tile.health ? bDamage : tile.health;
+            if (bDamage >= tile.health)
+            {
+                // tile.health = 10;
+                // tile.r /= 2;
+                // tile.g /= 2;
+                // tile.b /= 2;
+                // tile.blocksMovement = false;
+                // tile.blocksVision = false;
+                // if (tile.type == DIRT)
+                // {
+                //     tile.type = DIRTWALL;
+                // }
+                // else if (tile.type == STONE)
+                // {
+                //     tile.type = STONEWALL;
+                // }
+                // else if (tile.type == BRICK)
+                // {
+                //     tile.type = BRICKWALL;
+                // }
+                tile = Tile();
+            }
+            else
+            {
+                tile.health -= bDamage;
+            }
+
             bDamage /= 2;
 
             if (bDamage <= 0)
@@ -2106,7 +2147,7 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
 
     // base case - active tile found
     const Tile& tile = tiles[x * m_worldMaxCells.y + y];
-    if (tile.health && tile.blocksVision)
+    if (tile.blocksVision)
     {
         openTiles.emplace_back(x, y);
         return;
@@ -2142,6 +2183,7 @@ void ScenePlay::findOpenTiles(int x, int y, const int minX, const int maxX, cons
     }
 }
 
+/// TODO: fix now that I have tiles that have health (exist) but don't block vision
 std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY)
 {
     PROFILE_FUNCTION();
@@ -2243,7 +2285,8 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                 yTravel += yMoveHypDist * m_cellSizePixels;
             }
 
-            if (tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
+            const Tile& tile = tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y];
+            if (tile.blocksVision) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
             {
                 tileHit = true;
 
@@ -2255,7 +2298,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
             // if vertex reached and not originally unique (another tile shares it so don't go through) just keep vertex point, do nothing
             /// TODO: keep repeats? given this thought above ^
-            if (!tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health && (vertex.x >= gridCoord.x * m_cellSizePixels && vertex.x <= (gridCoord.x + 1) * m_cellSizePixels && vertex.y >= gridCoord.y * m_cellSizePixels && vertex.y <= (gridCoord.y + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
+            if (!tile.blocksVision && (vertex.x >= gridCoord.x * m_cellSizePixels && vertex.x <= (gridCoord.x + 1) * m_cellSizePixels && vertex.y >= gridCoord.y * m_cellSizePixels && vertex.y <= (gridCoord.y + 1) * m_cellSizePixels)) // vertex reached since in cell with no tile but with this vertex
             {
                 vertexReached = true;
             }
@@ -2271,7 +2314,8 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
             // check for tile just passed the vertex in the direction of the ray
             Vec2i checkCoord = ((vertex.to<float>() + rayUnitVec) / m_cellSizePixels).to<int>();
 
-            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tiles[checkCoord.x * m_worldMaxCells.y + checkCoord.y].health))
+            const Tile& tile = tiles[checkCoord.x * m_worldMaxCells.y + checkCoord.y];
+            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tile.blocksVision))
             {
                 /// add small angle to ray 
                 /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
@@ -2282,40 +2326,40 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                 float newAngle;
                 if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
                 {
-                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health) // shared vertex
+                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].blocksVision) // shared vertex
                         continue; // don't want ray shining through diagonal lines of tiles
 
-                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health) // tile to the left active
+                    if (tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision) // tile to the left active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile above active
                         newAngle = rayAngle - dTheta; // CCW
                 }
                 else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
                 {
-                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health && tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health)
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].blocksVision && tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         continue;
 
-                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].health) // tile above active
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].blocksVision) // tile above active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the right active
                         newAngle = rayAngle - dTheta;; // CCW
                 }
                 else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
                 {
-                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health)
+                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision && tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision)
                         continue;
 
-                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].health) // tile to the right
+                    if (tiles[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision) // tile to the right
                         newAngle = rayAngle + dTheta; // CW
                     else // tile below is active
                         newAngle = rayAngle - dTheta; // CCW
                 }
                 else // came from top right or /// TODO: a horizontal/vertical ray case
                 {
-                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health && tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].health)
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision && tiles[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         continue;
 
-                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].health) // tile below is active
+                    if (tiles[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision) // tile below is active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the left is active
                         newAngle = rayAngle - dTheta; // CCW
@@ -2340,7 +2384,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
                         // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (gridCoord.x, gridCoord.y) if tile is active there
 
-                        if (gridCoord.x < minX || gridCoord.x > maxX || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) /// TODO: use ==? 
+                        if (gridCoord.x < minX || gridCoord.x > maxX || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
@@ -2354,7 +2398,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                     {
                         gridCoord.y += rayStep.y;
 
-                        if (gridCoord.y < minY || gridCoord.y > maxY || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].health) /// TODO: use ==?
+                        if (gridCoord.y < minY || gridCoord.y > maxY || tiles[gridCoord.x * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);

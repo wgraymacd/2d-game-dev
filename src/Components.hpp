@@ -1,9 +1,12 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 #pragma once
 
 #include "Vec2.hpp"
 #include "Animation.hpp"
 #include "TileType.hpp"
 #include "Globals.hpp"
+#include "State.hpp"
 
 #include <string>
 #include <array>
@@ -102,7 +105,6 @@ public:
     bool right = false;
     bool up = false;
     bool down = false;
-    bool canJump = false;
     bool shoot = false;
 
     CInput() = default;
@@ -153,10 +155,10 @@ public:
 class CState : public Component
 {
 public:
-    std::string state; // values: "stand", "run", "air"
+    State state; // values: "stand", "run", "air"
 
     CState() = default;
-    CState(const std::string& s);
+    CState(const State s);
 };
 
 class CFire : public Component

@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 // #include "Timer.hpp"
 // #include "SceneLoad.hpp"
 // #include "Scene.hpp"

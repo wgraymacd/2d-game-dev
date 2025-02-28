@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 /// NOTE: std::queue, vector, and tuple all manage their own memory, clearing everything when they go out of scope
 /// NOTE: static singleton automatically detroyed when program terminates
 /// NOTE: if you don't use raw pointer or manual `new` and `delete` calls, then you don't need the destructor

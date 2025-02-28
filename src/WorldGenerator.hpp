@@ -135,7 +135,15 @@ class WorldGenerator
                 float caveNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y * 1.5)); // TODO: mess with multiplying x or y by scalar to stretch or squish noise along an axis
                 if (caveNoise * (1 + 0.5f * y / m_worldTilesY) > caveThreshold)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = NONE; // no tile in the tile layer, but still may have unique background on background layer matrix (in front of actual parallax background, like Terraria)
+                    TileType& type = m_tileTypes[x * m_worldTilesY + y];
+                    if (type == DIRT)
+                    {
+                        type = DIRTWALL;
+                    }
+                    else if (type == STONE)
+                    {
+                        type = STONEWALL;
+                    }
                 }
             }
         }
@@ -146,7 +154,7 @@ class WorldGenerator
     void addBuildings()
     {
         StructureTypes structures;
-        int numberOfBuildings = (m_worldTilesX * m_worldTilesY) / 100000;
+        int numberOfBuildings = (m_worldTilesX * m_worldTilesY) / 50000;
         for (int i = 0; i < numberOfBuildings; ++i)
         {
             // int structType = rand() % numberOfBuildings;
@@ -155,6 +163,55 @@ class WorldGenerator
 
             int structSizeX = structures.hallway.size();
             int structSizeY = structures.hallway[0].size();
+
+            for (int x = xPos; x < xPos + structSizeX; ++x)
+            {
+                if (x >= 0 && x < m_worldTilesX)
+                {
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
+                    {
+                        if (y >= 0 && y < m_worldTilesY)
+                        {
+                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                        }
+                    }
+                }
+            }
+
+            // int structType = rand() % numberOfBuildings;
+            xPos += structSizeX - 1;
+
+            for (int x = xPos; x < xPos + structSizeX; ++x)
+            {
+                if (x >= 0 && x < m_worldTilesX)
+                {
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
+                    {
+                        if (y >= 0 && y < m_worldTilesY)
+                        {
+                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                        }
+                    }
+                }
+            }
+
+            yPos += structSizeY - 1;
+
+            for (int x = xPos; x < xPos + structSizeX; ++x)
+            {
+                if (x >= 0 && x < m_worldTilesX)
+                {
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
+                    {
+                        if (y >= 0 && y < m_worldTilesY)
+                        {
+                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                        }
+                    }
+                }
+            }
+
+            yPos += structSizeY - 1;
 
             for (int x = xPos; x < xPos + structSizeX; ++x)
             {

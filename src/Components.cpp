@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 #include "Components.hpp"
 #include "Entity.hpp"
 
@@ -27,7 +29,7 @@ CAnimation::CAnimation(const Animation& animation, bool r) : animation(animation
 
 CGravity::CGravity(float g) : gravity(g) {}
 
-CState::CState(const std::string& s) : state(s) {}
+CState::CState(const State s) : state(s) {}
 
 CFire::CFire(const int fr, const float minAcc, const float maxAcc) : fireRate(fr), minAccuracy(minAcc), accuracy(maxAcc), maxAccuracy(maxAcc) {}
 
