@@ -45,17 +45,3 @@ Alternative:
 Notes:
 - the menu screen is not related to the game yet, just hit enter on any level to generate the random world
 - you can play with the world size by changing `worldMaxCells` in the Globals.hpp file
-
-
-### config files:
-
-asset config:
-- Texture N P | name, file path | std::string (x2)
-- Animation N T F S | name, texture/sprite name, frame count, speed | std::string (x2), int (x2)
-- AnimationStatic N T X Y W H | name texture name, pixelX, pixelY, width, height | std::string (x2), int (x4)
-- Font N P | name, file path | std::string (x2)
-
-#### misc:
-
-- 'p' pauses game
-- 'esc' goes back to main menu or quits if on main menu
