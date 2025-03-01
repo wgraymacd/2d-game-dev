@@ -5,7 +5,7 @@
 #include "SceneMenu.hpp"
 #include "Scene.hpp"
 #include "Assets.hpp"
-#include "NetworkManager.hpp"
+// #include "NetworkManager.hpp"
 
 #include <string>
 #include <memory>

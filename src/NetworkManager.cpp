@@ -74,6 +74,8 @@ void NetworkManager::update()
             std::cout << (isServer ? "Client disconnected.\n" : "Disconnected from server.\n");
             // reset peer's client info here if stored above with event.peer->data = nullptr;
             break;
+        case ENET_EVENT_TYPE_NONE:
+            break;
         }
     }
 }

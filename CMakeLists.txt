@@ -21,8 +21,8 @@ add_executable(Game
     src/NetworkManager.cpp)
 
 # enet
-target_include_directories(Game PRIVATE /opt/homebrew/include/enet)
-target_link_libraries(Game PRIVATE /opt/homebrew/lib/libenet.dylib)
+find_library(ENET_LIB enet REQUIRED PATHS /opt/homebrew/lib)
+target_link_libraries(Game PRIVATE ${ENET_LIB})
 
 # SFML
 find_package(SFML 3.0.0 REQUIRED COMPONENTS Graphics Window System Audio)
