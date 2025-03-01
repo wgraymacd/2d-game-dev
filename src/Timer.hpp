@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 // use a singleton for this
 // singleton class insures that only one instance of the class can be created  
 // typical use case is for global functionality, like this case

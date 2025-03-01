@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 /// TODO: multithreading
 /// TODO: worry about signed vs unsigned and size and even size_t (adapts to platform's word size) and all that later after learning more about performance differences and such (e.g., may not want to mix signed and unsigned ints like uint32_t and int8_t)
 /// TODO: in some cases processing a 64-bit int is faster than a 32-bit one (or 32 faster than 16), but in many cases memory is what slows down a program, so just have to test between memory efficiency and CPU efficiency

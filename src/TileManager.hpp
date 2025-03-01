@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 #pragma once
 
 #include <vector>

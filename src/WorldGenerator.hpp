@@ -1,3 +1,5 @@
+// Copyright 2025, William MacDonald, All Rights Reserved.
+
 /// TODO: to make world gen and general game logic and maintenence easier, remove all entity-related stuff from tiles, just put all data in tile matrix (still have to store it all and fetch it from the memory pool anyway, waste to have tile matrix and pool, just separate it from ECS, can then have vision block info, yada, etc.); do this for background and decor as well if needed (or have some var or something that determines if, upon destorying a tile, a background should spawn in it's place, then still keep only one matrix and less data)
 
 
