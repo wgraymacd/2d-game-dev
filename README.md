@@ -1,6 +1,6 @@
 # Current State of the Game
 
-![A screenshot of the game (if not showing, go to bin/sneakPeak.png)](bin/sneakPeak.png)
+![A screenshot of the game (if not showing, open sneakPeak.png)](sneakPeak.png)
 
 # Big-Picture Goal:
 
