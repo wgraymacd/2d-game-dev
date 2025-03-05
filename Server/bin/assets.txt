@@ -1,0 +1,15 @@
+Texture Bullets ../bin/images/bullets.png
+Texture Rifles ../bin/images/riflesSmall.png
+Texture RunAnim ../bin/images/runAnimNoHeadNoArmSmall.png
+Texture ArmFront ../bin/images/armFront.png
+Texture ArmBack ../bin/images/armBack.png
+Texture Head ../bin/images/head.png
+Static Bullet Bullets 290 151 13 3
+Static Weapon Rifles 0 0 205 69
+Static ArmFront ArmFront 0 0 96 76
+Static ArmBack ArmBack 0 0 135 42
+Static Head Head 0 0 48 70
+Static Test Head 26 2 6 12
+Animation Run RunAnim 21 3
+Sound Bullet ../bin/sounds/AR.wav
+Font font ../bin/fonts/font.ttf

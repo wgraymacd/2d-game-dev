@@ -1,5 +1,7 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
+/// TODO: interate networking, load all assets into server, then just send them to clients so that other players don't have to download the textures and things (does this make sense? is this how they do it?)
+
 #pragma once
 
 #include "Animation.hpp"

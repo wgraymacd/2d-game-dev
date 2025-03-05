@@ -36,26 +36,6 @@ void GameEngine::init(const std::string& path)
 {
     m_assets.loadFromFile(path);
 
-    // std::ifstream file(path);
-    // std::string str;
-    // while (file.good())
-    // {
-    //     file >> str;
-
-    //     if (str == "Window")
-    //     {
-    //         int width, height, frameRate;
-    //         file >> width >> height >> frameRate;
-    //         m_window.create(sf::VideoMode({ width, height }), "Game");
-    //         m_window.setFramerateLimit(frameRate);
-    //     }
-    //     else
-    //     {
-    //         std::cerr << "Unknown asset type: " << str << std::endl;
-    //     }
-    // }
-    // file.close();
-
     const std::vector<sf::VideoMode>& modes = sf::VideoMode::getFullscreenModes();
     if (modes.empty())
     {
@@ -238,4 +218,10 @@ void GameEngine::addScene(const std::string& sceneName, std::shared_ptr<Scene> s
 void GameEngine::changeScene(const std::string& sceneName, bool endThisScene)
 {
     m_currentScene = sceneName;
+}
+
+/// @brief return the game's network manager
+NetworkManager& GameEngine::getNetManager()
+{
+    return m_netManager;
 }

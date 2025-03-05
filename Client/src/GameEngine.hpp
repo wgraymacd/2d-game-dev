@@ -3,8 +3,9 @@
 #pragma once
 
 #include "Assets.hpp"
-#include <SFML/Graphics.hpp>
+#include "NetworkManager.hpp"
 
+#include <SFML/Graphics.hpp>
 #include <map>
 #include <string>
 #include <memory>
@@ -14,7 +15,7 @@ class Scene; // forward declaration to resolve circular dependency, no need to i
 
 class GameEngine
 {
-protected:
+    NetworkManager m_netManager;
     sf::RenderWindow m_window;
     Assets m_assets;
     std::string m_currentScene;
@@ -35,6 +36,7 @@ public:
     void run();
 
     sf::RenderWindow& window();
+    NetworkManager& getNetManager();
     Assets& assets();
     bool isRunning() const;
 };

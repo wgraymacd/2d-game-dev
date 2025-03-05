@@ -7,13 +7,12 @@
 
 class NetworkManager
 {
-    ENetHost* host; // ENet server or client instance
-    ENetPeer* peer; // only used by clients
-    bool isServer;
+    ENetHost* client;
+    ENetPeer* peer;
 
 public:
 
-    NetworkManager(bool isServer);
+    NetworkManager();
     ~NetworkManager();
 
     void update(); // called every frame to process network events

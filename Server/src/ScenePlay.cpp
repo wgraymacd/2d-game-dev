@@ -21,8 +21,6 @@
 #include "WorldGenerator.hpp"
 #include "TileType.hpp"
 
-#include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp>
 #include <string>
 #include <vector>
 #include <array>
@@ -50,34 +48,11 @@ void ScenePlay::init()
 {
     PROFILE_FUNCTION();
 
-    // misc keybind setup
-    registerAction(static_cast<int>(sf::Keyboard::Key::P), "PAUSE");
-    registerAction(static_cast<int>(sf::Keyboard::Key::Escape), "QUIT");
-    registerAction(static_cast<int>(sf::Keyboard::Key::T), "TOGGLE_TEXTURE");
-    registerAction(static_cast<int>(sf::Keyboard::Key::C), "TOGGLE_COLLISION");
-    registerAction(static_cast<int>(sf::Keyboard::Key::M), "TOGGLE_MAP");
-
-    // player keyboard setup
-    registerAction(static_cast<int>(sf::Keyboard::Key::W), "JUMP");
-    registerAction(static_cast<int>(sf::Keyboard::Key::A), "LEFT");
-    registerAction(static_cast<int>(sf::Keyboard::Key::D), "RIGHT");
-
-    // player mouse setup
-    registerAction(static_cast<int>(sf::Mouse::Button::Left), "SHOOT", true);
-
-    // fps counter setup
-    m_fpsText.setCharacterSize(12);
-    m_fpsText.setFillColor(sf::Color::White);
-    m_fpsText.setPosition({ 10.f, 10.f }); // top-left corner
-
-    // minimap setup
-    m_miniMapView.setViewport(sf::FloatRect({ 0.75f, 0.1f }, { 0.2f, 0.3556f }));
-
     loadGame();
 }
 
-/// TODO: consider keeping this for later in case people want to save level, then can load with this function
-/// @brief loads the scene
+/// TODO: intergrate network somehow, maybe load some stuff from server
+/// @brief loads data that is individual to the specific player, generates world, spawns player
 void ScenePlay::loadGame()
 {
     PROFILE_FUNCTION();
@@ -113,13 +88,13 @@ void ScenePlay::loadGame()
     spawnPlayer();
 }
 
+/// TODO: this should all be on server so that all players get the same world
 /// @brief randomly generate the playing world
 void ScenePlay::generateWorld()
 {
     PROFILE_FUNCTION();
 
     /// TODO: mountains, caves, lakes, rivers, even terrain, biomes, etc.
-    /// TODO: consider different noise types for speed
 
     /*
         - example:
@@ -247,15 +222,12 @@ void ScenePlay::updateState(std::chrono::duration<long long, std::nano>& lag)
             sProjectiles(); // then iterations of projectile movement and collisions, then projectile spawns
             sAI();
             sAnimation(); // update all animations (could move this around)
-            sCamera(); // finally, set camera
 
             m_entityManager.update(); // add and remove all entities staged during updates above
 
             lag -= std::chrono::duration<long long, std::nano>(1000000000 / GlobalSettings::frameRate); /// TODO: will rounding be an issue here?
         }
     }
-
-    sRender();
 }
 
 /// @brief changes back to MENU scene when this scene ends
@@ -404,39 +376,39 @@ void ScenePlay::sObjectMovement()
         // weapon held by player
         weaponTrans.pos.x = playerTrans.pos.x;
         weaponTrans.pos.y = playerTrans.pos.y - 20.0f;
-        const sf::Vector2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-        const Vec2f aimVec(worldTarget.x - weaponTrans.pos.x, worldTarget.y - weaponTrans.pos.y);
-        weaponTrans.pos += aimVec.norm() * weaponBox.halfSize.x / 2.0f;
-        weaponTrans.angle = aimVec.angle();
+        // const sf::Vector2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+        // const Vec2f aimVec(worldTarget.x - weaponTrans.pos.x, worldTarget.y - weaponTrans.pos.y);
+        // weaponTrans.pos += aimVec.norm() * weaponBox.halfSize.x / 2.0f;
+        // weaponTrans.angle = aimVec.angle();
 
         // set scale based on mouse position
-        if (aimVec.x < 0)
-        {
-            playerTrans.scale.x = -abs(playerTrans.scale.x);
-            weaponTrans.scale.y = -abs(weaponTrans.scale.x);
-        }
-        else
-        {
-            playerTrans.scale.x = abs(playerTrans.scale.x);
-            weaponTrans.scale.y = abs(weaponTrans.scale.x);
-        }
-        for (Entity& part : m_entityManager.getEntities("playerPart"))
-        {
-            CTransform& partTrans = part.getComponent<CTransform>();
+        // if (aimVec.x < 0)
+        // {
+        //     playerTrans.scale.x = -abs(playerTrans.scale.x);
+        //     weaponTrans.scale.y = -abs(weaponTrans.scale.x);
+        // }
+        // else
+        // {
+        //     playerTrans.scale.x = abs(playerTrans.scale.x);
+        //     weaponTrans.scale.y = abs(weaponTrans.scale.x);
+        // }
+        // for (Entity& part : m_entityManager.getEntities("playerPart"))
+        // {
+        //     CTransform& partTrans = part.getComponent<CTransform>();
 
-            partTrans.pos.x = playerTrans.pos.x;
-            partTrans.angle = aimVec.angle();
+        //     partTrans.pos.x = playerTrans.pos.x;
+        //     partTrans.angle = aimVec.angle();
 
-            // set scale based on mouse position
-            if (aimVec.x < 0)
-            {
-                partTrans.scale.y = -abs(partTrans.scale.y);
-            }
-            else
-            {
-                partTrans.scale.y = abs(partTrans.scale.y);
-            }
-        }
+        //     // set scale based on mouse position
+        //     if (aimVec.x < 0)
+        //     {
+        //         partTrans.scale.y = -abs(partTrans.scale.y);
+        //     }
+        //     else
+        //     {
+        //         partTrans.scale.y = abs(partTrans.scale.y);
+        //     }
+        // }
     }
 
     // ragdolls
@@ -843,19 +815,7 @@ void ScenePlay::sDoAction(const Action& action)
 
     if (action.type() == START)
     {
-        if (action.name() == "TOGGLE_TEXTURE")
-        {
-            m_drawTextures = !m_drawTextures;
-        }
-        else if (action.name() == "TOGGLE_COLLISION")
-        {
-            m_drawCollision = !m_drawCollision;
-        }
-        else if (action.name() == "TOGGLE_MAP")
-        {
-            m_drawMinimap = !m_drawMinimap;
-        }
-        else if (action.name() == "PAUSE")
+        if (action.name() == "PAUSE")
         {
             setPaused(!m_paused);
         }
@@ -979,605 +939,13 @@ void ScenePlay::sAnimation()
     CState& playerState = m_player.getComponent<CState>();
     if (playerState.state == RUN)
     {
-        playerAnim.animation.updateLoop();
+        // playerAnim.animation.updateLoop();
     }
 
 
     /// TODO: if animation is not repeated, and it has ended, destroy the entity
 
     // set animation of player based on its CState component
-}
-
-/// @brief handles camera view logic; includes CTransform
-void ScenePlay::sCamera()
-{
-    PROFILE_FUNCTION();
-
-    Vec2f& pPos = m_player.getComponent<CTransform>().pos;
-
-    // center the view on the player
-    /// TODO: deal with the edge of world view, prolly make it so that view center is always at player center for competitive fairness and less disorientation, will need a way to keep players inside world bound tho (force or invisible wall with background or darkness or just more tiles that extend out of sight, could also throw in some easter eggs / secrets there
-    const Vec2i viewSize(m_game.window().getSize().x, m_game.window().getSize().y); /// TODO: is this better than just getting an unsigned Vec2 reference (Vec2ui&)? Change back when doing the data type optimizations if I add back Vec2ui and such
-    float viewCenterX = std::clamp(pPos.x, viewSize.x / 2.0f, m_worldMaxPixels.x - viewSize.x / 2.0f);
-    float viewCenterY = std::clamp(pPos.y, viewSize.y / 2.0f, m_worldMaxPixels.y - viewSize.y / 2.0f);
-    m_mainView.setCenter({ viewCenterX, viewCenterY });
-    m_miniMapView.setCenter({ viewCenterX / m_cellSizePixels, viewCenterY / m_cellSizePixels });
-
-    // move the camera slightly toward the players mouse position (capped at a max displacement)
-    // const Vec2i& mousePosOnWindow = sf::Mouse::getPosition(m_game.window());
-    // float dx = std::clamp((mousePosOnWindow.x - viewSize.x / 2.0f) * 0.15f, -25.0f, 25.0f);
-    // float dy = std::clamp((mousePosOnWindow.y - viewSize.y / 2.0f) * 0.15f, -25.0f, 25.0f);
-    // view.move({ dx, dy });
-}
-
-/// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter; includes CTransform, CAnimation, tile matrix
-void ScenePlay::sRender()
-{
-    PROFILE_FUNCTION();
-
-    sf::RenderWindow& window = m_game.window();
-    window.setView(m_mainView);
-    window.clear(sf::Color(10, 10, 10));
-
-    const CTransform& playerTrans = m_player.getComponent<CTransform>();
-    std::vector<Tile>& tiles = m_tileManager.getTiles();
-
-
-    /// draw all entity textures / animations in layers
-
-    // collidable layer (tiles, player, bullets, items), this comes last so it's always visible
-    Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
-
-    const sf::Vector2f& mainViewSize = m_mainView.getSize(); //  window size is the view size now
-
-    Vec2i checkLength(mainViewSize.x / m_cellSizePixels / 2.0f, mainViewSize.y / m_cellSizePixels / 2.0f);
-
-    // limits on grid coords to check
-    int minX = std::max(0, playerGridPos.x - checkLength.x);
-    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
-    int minY = std::max(0, playerGridPos.y - checkLength.y);
-    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
-
-    // find open air tiles method for visible tiles
-    std::vector<Vec2i> openTiles; /// TODO: use these for vertices method, might not even need it and could just use visited
-    std::stack<Vec2i> tileStack;
-    std::vector<std::vector<bool>> visited(mainViewSize.x / m_cellSizePixels + 1, std::vector<bool>(mainViewSize.y / m_cellSizePixels + 1)); // + 1 because including min and max values /// TODO: could add a visited property to each tile instead but this is good for now
-
-    /// TODO: could use rough ray tracing (fixed number of rays in all directions) to get the set of visible tiles (not all open like this) and then use those tiles with good ray tracing, then still render everything or do light prop or whatever
-    /// TODO: could even keep this and render only tiles with ray trace vertices
-    {
-        PROFILE_SCOPE("find open tiles");
-        findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
-    }
-
-    /// TODO: slow, could use some other sort of logic (either just logic same process or different entirely like lighting based on distance to player and/or light cone direction) after taking another look at the recrsive func efficiency
-    /// TODO: test rendering tiles underneath that are only along the line of sight of player, not just using the playerGridPos.x >= currentCoord.x then render below thing
-    {
-        PROFILE_SCOPE("blocks");
-
-        /// TODO: test speed with texture and sprite, drawing to a texture pixel by pixel (taking advantage of single-pixel tiles), scaling, then rendering
-        sf::VertexArray blocks(sf::PrimitiveType::Triangles);
-        sf::Color c;
-
-        // method of rendering only tiles that have a vertex in triangle fan
-        // for (const Vec2f& vert : triangleFan)
-        // {
-        //     Vec2i gridCoord = vert.to<int>() / m_cellSizePixels;
-        //     if (!(gridCoord.x <= minX || gridCoord.y <= minY || gridCoord.x >= maxX || gridCoord.y >= maxY))
-        //     {
-        //         if (tileMatrix[gridCoord.x][gridCoord.y].isActive())
-        //         {
-        //             // CColor& color = tileMatrix[gridCoord.x][gridCoord.y].getComponent<CColor>();
-        //             // color.light = 255;
-        //             // c.r = color.r;
-        //             // c.g = color.g;
-        //             // c.b = color.b;
-        //             // c.a = color.light;
-        //             // int px = gridCoord.x * m_cellSizePixels;
-        //             // int py = gridCoord.y * m_cellSizePixels;
-        //             // blocks.append({ Vec2f(px, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
-        //             propagateLight(blocks, 3, 0, gridCoord, gridCoord, minX, maxX, minY, maxY);
-        //         }
-        //         if (tileMatrix[gridCoord.x - 1][gridCoord.y].isActive())
-        //         {
-        //             // CColor& color = tileMatrix[gridCoord.x - 1][gridCoord.y].getComponent<CColor>();
-        //             // color.light = 255;
-        //             // c.r = color.r;
-        //             // c.g = color.g;
-        //             // c.b = color.b;
-        //             // c.a = color.light;
-        //             // int px = (gridCoord.x - 1) * m_cellSizePixels;
-        //             // int py = gridCoord.y * m_cellSizePixels;
-        //             // blocks.append({ Vec2f(px, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
-        //             propagateLight(blocks, 3, 0, Vec2i(gridCoord.x - 1, gridCoord.y), Vec2i(gridCoord.x - 1, gridCoord.y), minX, maxX, minY, maxY);
-        //         }
-        //         if (tileMatrix[gridCoord.x][gridCoord.y - 1].isActive())
-        //         {
-        //             // CColor& color = tileMatrix[gridCoord.x][gridCoord.y - 1].getComponent<CColor>();
-        //             // color.light = 255;
-        //             // c.r = color.r;
-        //             // c.g = color.g;
-        //             // c.b = color.b;
-        //             // c.a = color.light;
-        //             // int px = gridCoord.x * m_cellSizePixels;
-        //             // int py = (gridCoord.y - 1) * m_cellSizePixels;
-        //             // blocks.append({ Vec2f(px, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
-        //             propagateLight(blocks, 3, 0, Vec2i(gridCoord.x, gridCoord.y - 1), Vec2i(gridCoord.x, gridCoord.y - 1), minX, maxX, minY, maxY);
-        //         }
-        //         if (tileMatrix[gridCoord.x - 1][gridCoord.y - 1].isActive())
-        //         {
-        //             // CColor& color = tileMatrix[gridCoord.x - 1][gridCoord.y - 1].getComponent<CColor>();
-        //             // color.light = 255;
-        //             // c.r = color.r;
-        //             // c.g = color.g;
-        //             // c.b = color.b;
-        //             // c.a = color.light;
-        //             // int px = (gridCoord.x - 1) * m_cellSizePixels;
-        //             // int py = (gridCoord.y - 1) * m_cellSizePixels;
-        //             // blocks.append({ Vec2f(px, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py), c });
-        //             // blocks.append({ Vec2f(px + m_cellSizePixels, py + m_cellSizePixels), c });
-        //             propagateLight(blocks, 3, 0, Vec2i(gridCoord.x - 1, gridCoord.y - 1), Vec2i(gridCoord.x - 1, gridCoord.y - 1), minX, maxX, minY, maxY);
-        //         }
-        //     }
-        // }
-
-        // method of rendering all visited tiles
-        /// TODO: render tiles with no tile above them and 1 or two tiles missing to the side as ramps and deal with that accordingly in collisions
-        for (int x = minX; x <= maxX; ++x)
-        {
-            for (int y = minY; y <= maxY; ++y)
-            {
-                if (visited[x - minX][y - minY])
-                {
-                    Tile& tile = tiles[x * m_worldMaxCells.y + y];
-                    if (tile.health)
-                    {
-                        // Vec2i startCoord(x, y);
-                        // Vec2i currentCoord = startCoord;
-                        // propagateLight(blocks, 3, 0, startCoord, currentCoord, minX, maxX, minY, maxY);
-
-                        tile.light = 255;
-                        c.r = tile.r;
-                        c.g = tile.g;
-                        c.b = tile.b;
-                        c.a = tile.light;
-                        addBlock(blocks, x, y, c);
-
-                        // draw neighbors with less lighting
-                        // if (x > minX) // && playerGridPos.x >= x)
-                        // {
-                        //     Tile& neighborTile = tiles[(x - 1) * m_worldMaxCells.y + y];
-                        //     if (neighborTile.health)
-                        //     {
-                        //         if (neighborTile.light < tile.light)
-                        //         {
-                        //             neighborTile.light = tile.light - 85;
-                        //             c.a = neighborTile.light;
-                        //             addBlock(blocks, x - 1, y, c);
-
-                        //             if (x - 1 > minX)
-                        //             {
-                        //                 Tile& nextNeighborTile = tiles[(x - 2) * m_worldMaxCells.y + y];
-                        //                 if (nextNeighborTile.health)
-                        //                 {
-                        //                     if (nextNeighborTile.light < neighborTile.light)
-                        //                     {
-                        //                         nextNeighborTile.light = neighborTile.light - 85;
-                        //                         c.a = nextNeighborTile.light;
-                        //                         addBlock(blocks, x - 2, y, c);
-                        //                     }
-                        //                 }
-
-                        //                 // if (y > minY) // && playerGridPos.y >= y)
-                        //                 // {
-                        //                 //     const Entity& tile = tileMatrix[x - 2][y - 1];
-                        //                 //     if (tile.health)
-                        //                 //     {
-                        //                 //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                        //                 //         if (nextNeighborColor.light < neighborColor.light)
-                        //                 //         {
-                        //                 //             nextNeighborColor.light = neighborColor.light - 60;
-                        //                 //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
-                        //                 //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y - 1 - minY) });
-                        //                 //             m_tileTexture.draw(block);
-                        //                 //         }
-                        //                 //     }
-                        //                 // }
-
-                        //                 // if (y < maxY) // && playerGridPos.y <= y)
-                        //                 // {
-                        //                 //     const Entity& tile = tileMatrix[x - 2][y + 1];
-                        //                 //     if (tile.health)
-                        //                 //     {
-                        //                 //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                        //                 //         if (nextNeighborColor.light < neighborColor.light)
-                        //                 //         {
-                        //                 //             nextNeighborColor.light = neighborColor.light - 60;
-                        //                 //             block.setFillColor(sf::Color(nextNeighborColor.r, nextNeighborColor.g, nextNeighborColor.b, nextNeighborColor.light));
-                        //                 //             block.setPosition({ static_cast<float>(x - 2 - minX), static_cast<float>(y + 1 - minY) });
-                        //                 //             m_tileTexture.draw(block);
-                        //                 //         }
-                        //                 //     }
-                        //                 // }
-                        //             }
-
-                        //             // if (y > minY) // && playerGridPos.y >= y)
-                        //             // {
-                        //             //     const Entity& tile = tileMatrix[x - 1][y - 1];
-                        //             //     if (tile.health)
-                        //             //     {
-                        //             //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                        //             //         if (nextNeighborColor.light < neighborColor.light)
-                        //             //         {
-                        //             //             nextNeighborColor.light = neighborColor.light - 85;
-                        //             //             c.a = nextNeighborColor.light;
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py - m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py), c });
-                        //             //             blocks.append({ Vec2f(px, py - m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px, py), c });
-                        //             //         }
-                        //             //     }
-                        //             // }
-
-                        //             // if (y < maxY) // && playerGridPos.y <= y)
-                        //             // {
-                        //             //     const Entity& tile = tileMatrix[x - 1][y + 1];
-                        //             //     if (tile.health)
-                        //             //     {
-                        //             //         CColor& nextNeighborColor = tile.getComponent<CColor>();
-                        //             //         if (nextNeighborColor.light < neighborColor.light)
-                        //             //         {
-                        //             //             nextNeighborColor.light = neighborColor.light - 85;
-                        //             //             c.a = nextNeighborColor.light;
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px - m_cellSizePixels, py + 2 * m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px, py + m_cellSizePixels), c });
-                        //             //             blocks.append({ Vec2f(px, py + 2 * m_cellSizePixels), c });
-                        //             //         }
-                        //             //     }
-                        //             // }
-                        //         }
-                        //     }
-                        // }
-
-                        // if (x < maxX) // && playerGridPos.x <= x)
-                        // {
-                        //     Tile& neighborTile = tiles[(x + 1) * m_worldMaxCells.y + y];
-                        //     if (neighborTile.health)
-                        //     {
-                        //         if (neighborTile.light < tile.light)
-                        //         {
-                        //             neighborTile.light = tile.light - 85;
-                        //             c.a = neighborTile.light;
-                        //             addBlock(blocks, x + 1, y, c);
-
-                        //             if (x + 1 < maxX)
-                        //             {
-                        //                 Tile& nextNeighborTile = tiles[(x + 2) * m_worldMaxCells.y + y];
-                        //                 if (nextNeighborTile.health)
-                        //                 {
-                        //                     if (nextNeighborTile.light < neighborTile.light)
-                        //                     {
-                        //                         nextNeighborTile.light = neighborTile.light - 85;
-                        //                         c.a = nextNeighborTile.light;
-                        //                         addBlock(blocks, x + 2, y, c);
-                        //                     }
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // }
-
-                        // if (y > minY) // && playerGridPos.y >= y)
-                        // {
-                        //     Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y - 1)];
-                        //     if (neighborTile.health)
-                        //     {
-                        //         if (neighborTile.light < tile.light)
-                        //         {
-                        //             neighborTile.light = tile.light - 85;
-                        //             c.a = neighborTile.light;
-                        //             addBlock(blocks, x, y - 1, c);
-
-                        //             if (y - 1 > minY)
-                        //             {
-                        //                 Tile& nextNeighborTile = tiles[x + m_worldMaxCells.y + (y - 2)];
-                        //                 if (nextNeighborTile.health)
-                        //                 {
-                        //                     if (nextNeighborTile.light < neighborTile.light)
-                        //                     {
-                        //                         nextNeighborTile.light = neighborTile.light - 85;
-                        //                         c.a = nextNeighborTile.light;
-                        //                         addBlock(blocks, x, y - 2, c);
-                        //                     }
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // }
-
-                        // if (y < maxY) // && playerGridPos.y <= y)
-                        // {
-                        //     Tile& neighborTile = tiles[x * m_worldMaxCells.y + (y + 1)];
-                        //     if (neighborTile.health)
-                        //     {
-                        //         if (neighborTile.light < tile.light)
-                        //         {
-                        //             neighborTile.light = tile.light - 85;
-                        //             c.a = neighborTile.light;
-                        //             addBlock(blocks, x, y + 1, c);
-
-                        //             if (y + 1 < maxY)
-                        //             {
-                        //                 Tile& nextNeighborTile = tiles[x * m_worldMaxCells.y + (y + 2)];
-                        //                 if (nextNeighborTile.health)
-                        //                 {
-                        //                     if (nextNeighborTile.light < neighborTile.light)
-                        //                     {
-                        //                         nextNeighborTile.light = neighborTile.light - 85;
-                        //                         c.a = nextNeighborTile.light;
-                        //                         addBlock(blocks, x, y + 2, c);
-                        //                     }
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // }
-                    }
-                    /// TODO: render visited backgrounds and decoration and such differently if they arent 10x10 sized pixels only (static background blocks can be I suppose, but not the main parallax background)
-                    // else render other shit that's not tiles (background, etc)
-                }
-            }
-        }
-
-        window.draw(blocks);
-
-        // reset lighting for light propagation /// TODO: consider using a visited array, maybe the same as used for findOpenTiles instead of using this light thing (adds this loop)
-        // for (int x = minX; x <= maxX; ++x)
-        // {
-        //     for (int y = minY; y <= maxY; ++y)
-        //     {
-        //         tiles[x * m_worldMaxCells.y + y].light = 0;
-        //     }
-        // }
-    }
-
-    // ray casting
-    std::vector<Vec2f> triangleFan = rayCast(Vec2f(m_mainView.getCenter().x, m_mainView.getCenter().y), Vec2f(mainViewSize.x, mainViewSize.y), openTiles, playerTrans.pos, tiles, minX, maxX, minY, maxY);
-    sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
-    for (int i = 0; i < triangleFan.size(); ++i)
-    {
-        fan[i].position = sf::Vector2f(triangleFan[i].x, triangleFan[i].y);
-        fan[i].color = sf::Color(255, 255, 255, 50);
-
-        // sf::CircleShape dot(2);
-        // dot.setPosition({ static_cast<float>(triangleFan[i].x - 2), static_cast<float>(triangleFan[i].y - 2) });
-        // dot.setFillColor(sf::Color(0, 0, 255, 100));
-        // window.draw(dot);
-    }
-    window.draw(fan);
-
-    // bullets
-    for (Entity& bullet : m_entityManager.getEntities("bullet"))
-    {
-        const CTransform& transform = bullet.getComponent<CTransform>();
-
-        sf::Sprite& sprite = bullet.getComponent<CAnimation>().animation.getSprite();
-        sprite.setRotation(sf::radians(transform.angle));
-        sprite.setPosition({ transform.pos.x, transform.pos.y });
-        sprite.setScale({ transform.scale.x, transform.scale.y });
-
-        window.draw(sprite);
-    }
-
-    // ragdolls
-    for (Entity& rag : m_entityManager.getEntities("ragdoll"))
-    {
-        const CTransform& trans = rag.getComponent<CTransform>();
-        sf::Sprite& sprite = rag.getComponent<CAnimation>().animation.getSprite();
-        sprite.setPosition({ trans.pos.x, trans.pos.y });
-        sprite.setRotation(sf::radians(trans.angle));
-        window.draw(sprite);
-
-        // draw bounding box
-        const CBoundingBox& box = rag.getComponent<CBoundingBox>();
-        sf::RectangleShape rect;
-        rect.setSize({ box.size.x - 1.0f, box.size.y - 1.0f }); // - 1 cuz line thickness of 1?
-        rect.setOrigin({ box.halfSize.x, box.halfSize.y });
-        rect.setPosition({ trans.pos.x, trans.pos.y });
-        rect.setRotation(sf::radians(trans.angle));
-        rect.setFillColor(sf::Color::Transparent);
-        rect.setOutlineColor(sf::Color::White);
-        rect.setOutlineThickness(1);
-        window.draw(rect);
-    }
-
-    // player, player parts, and weapon held
-    if (m_player.isActive())
-    {
-        // back arm
-        const CTransform& backArmTrans = m_playerArmBack.getComponent<CTransform>();
-        sf::Sprite& backArmSprite = m_playerArmBack.getComponent<CAnimation>().animation.getSprite();
-        backArmSprite.setPosition({ backArmTrans.pos.x, backArmTrans.pos.y });
-        backArmSprite.setScale({ backArmTrans.scale.x, backArmTrans.scale.y });
-        backArmSprite.setRotation(sf::radians(backArmTrans.angle));
-        window.draw(backArmSprite);
-
-        // player 
-        sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
-        playerSprite.setPosition({ playerTrans.pos.x, playerTrans.pos.y });
-        playerSprite.setScale({ playerTrans.scale.x, playerTrans.scale.y });
-        window.draw(playerSprite);
-
-        // health bar
-        sf::RectangleShape healthBarOutline({ 30, 5 });
-        CBoundingBox& playerBox = m_player.getComponent<CBoundingBox>();
-        healthBarOutline.setPosition({ playerTrans.pos.x - 15, playerTrans.pos.y - playerBox.halfSize.y - 15 });
-        healthBarOutline.setOutlineColor(sf::Color::White);
-        healthBarOutline.setOutlineThickness(1);
-        healthBarOutline.setFillColor(sf::Color::Transparent);
-        CHealth& playerHealth = m_player.getComponent<CHealth>();
-        sf::RectangleShape healthBar({ static_cast<float>(playerHealth.current) / static_cast<float>(playerHealth.max) * 30, 5 });
-        healthBar.setPosition({ playerTrans.pos.x - 15, playerTrans.pos.y - playerBox.halfSize.y - 15 });
-        healthBar.setFillColor(sf::Color::Red);
-        window.draw(healthBarOutline);
-        window.draw(healthBar);
-
-        // weapon
-        const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
-        sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
-        weaponSprite.setPosition({ weaponTrans.pos.x, weaponTrans.pos.y });
-        weaponSprite.setScale({ weaponTrans.scale.x, weaponTrans.scale.y });
-        weaponSprite.setRotation(sf::radians(weaponTrans.angle));
-        window.draw(weaponSprite);
-
-        // head
-        const CTransform& headTrans = m_playerHead.getComponent<CTransform>();
-        sf::Sprite& headSprite = m_playerHead.getComponent<CAnimation>().animation.getSprite();
-        headSprite.setPosition({ headTrans.pos.x, headTrans.pos.y });
-        headSprite.setScale({ headTrans.scale.x, headTrans.scale.y });
-        headSprite.setRotation(sf::radians(headTrans.angle));
-        window.draw(headSprite);
-
-        // front arm
-        const CTransform& frontArmTrans = m_playerArmFront.getComponent<CTransform>();
-        sf::Sprite& frontArmSprite = m_playerArmFront.getComponent<CAnimation>().animation.getSprite();
-        frontArmSprite.setPosition({ frontArmTrans.pos.x, frontArmTrans.pos.y });
-        frontArmSprite.setScale({ frontArmTrans.scale.x, frontArmTrans.scale.y });
-        frontArmSprite.setRotation(sf::radians(frontArmTrans.angle));
-        window.draw(frontArmSprite);
-    }
-
-    /// normal rendering without vision lighting:
-    // for (int x = minX; x <= maxX; ++x)
-    // {
-    //     for (int y = minY; y <= maxY; ++y)
-    //     {
-    //         const Entity& tile = tileMatrix[x][y];
-    //         if (tile.isActive())
-    //         {
-    //             sf::RectangleShape block = sf::RectangleShape(GlobalSettings::cellSizePixels.to<float>());
-    //             CColor& color = tile.getComponent<CColor>();
-    //             block.setFillColor(sf::Color(color.r, color.g, color.b));
-    //             block.setPosition({ static_cast<float>(x * m_cellSizePixels.x), static_cast<float>(y * m_cellSizePixels.y) });
-    //             window.draw(block);
-    //             // CTransform& trans = tile.getComponent<CTransform>();
-    //             // sf::Sprite& sprite = tile.getComponent<CAnimation>().animation.getSprite();
-    //             // sprite.setRotation(sf::radians(trans.rotAngle)); /// TODO: may not even need this either, but may want it for better physics
-    //             // sprite.setPosition(trans.pos);
-    //             // sprite.setScale(trans.scale); /// TODO: will I even use scale?
-    //             // window.draw(sprite);
-    //         }
-    //     }
-    // }
-
-    /// fps counter
-    float elapsedTime = m_fpsClock.restart().asSeconds();
-    float fps = 1.0f / elapsedTime;
-    m_fpsText.setString("FPS: " + std::to_string(static_cast<int>(fps)));
-    window.setView(window.getDefaultView());
-    window.draw(m_fpsText);
-
-    /// crosshair /// TODO:
-
-    /// TODO: line of sight without cone? triangle fan method, ray casting
-    // ideas:
-        // 1. player's current (x, y), then do some sort of search or something to find all end nodes where tile is active and check only those
-        // 1.1. cast rays to vertices of those tiles only (can manage) and do triangle fan method
-
-        // 3. turn tile map into polygon with only outside edges (has other physics advantages as well for collisions and such and can have edges that don't align with axes and so on), only regen poly map if tile map changes, then use vertices from poly map with 3 ray per vertex method or my angle offset method implemented now, could do line segment intersections (implemented in Physics) or incremental tile checks like implemented now
-        // 3.1. https://www.youtube.com/watch?v=fc3nnG2CG8U&t=17s&ab_channel=javidx9
-
-    /// TODO: light cone: see in direction of pointer only
-    // get mouse pointer pos
-    // create 2 vectors at angles -x and x away from player-to-pointer vector
-    // line segment from player to edge of screen and check for intersection, first intersection visible, rest not
-    // could elim the findOpenTiles and just shine enough rays out in dir of pointer to hit all visible tiles, then use those with limited angle triangle fan
-    // use a shader?
-    // triangle fan with limited angle
-    // entity can see up to closest intersection point
-    // lighting effects : light travels outward in all directions
-    // cast rays at all vertices, shine two extras for each ray just to the left and right of it to have rays that go all the way to the edges of the screen, then connect all endpoints of lines and fill in the light
-    // can shine a few more rays to get a shadow look
-    // may be able to do this my own way since places where light should extend(but wouldn't with the connect-the-dots method if not using the extra two ways for every vertex-aiming ray) do not have a ray that intersects a line between them
-
-    /// minimap 
-    /// TODO: use single small texture for this and scale it or use vertexarray with points (if they're pixels) that are scaled or triangles
-    /// TODO: consider using sf::Image, look into it; if not, create small and render scaled, just like tiles in main game
-    if (m_drawMinimap)
-    {
-        PROFILE_SCOPE("rendering minimap");
-
-        window.setView(m_miniMapView);
-        const sf::Vector2f& miniViewSize = m_miniMapView.getSize();
-
-        // background
-        sf::RectangleShape minimapBackground(miniViewSize);
-        minimapBackground.setPosition({ m_miniMapView.getCenter().x - miniViewSize.x / 2.0f, m_miniMapView.getCenter().y - miniViewSize.y / 2.0f });
-        minimapBackground.setFillColor(sf::Color(50, 50, 50));
-        window.draw(minimapBackground);
-
-        // player icon
-        sf::CircleShape player(5);
-        player.setFillColor(sf::Color::Green);
-        player.setPosition({ m_miniMapView.getCenter().x - 5, m_miniMapView.getCenter().y - 5 });
-        window.draw(player);
-
-        // the rest
-        int horizontalCheckLength = static_cast<int>(miniViewSize.x / 2.0f);
-        int verticalCheckLength = static_cast<int>(miniViewSize.y / 2.0f);
-
-        int minX = std::max(0, playerGridPos.x - horizontalCheckLength);
-        int maxX = std::min(static_cast<int>(m_worldMaxCells.x) - 1, playerGridPos.x + horizontalCheckLength);
-        int minY = std::max(0, playerGridPos.y - verticalCheckLength);
-        int maxY = std::min(static_cast<int>(m_worldMaxCells.y) - 1, playerGridPos.y + verticalCheckLength);
-
-        sf::VertexArray points(sf::PrimitiveType::Points);
-        sf::Color c;
-        for (int x = minX; x <= maxX; ++x)
-        {
-            for (int y = minY; y <= maxY; ++y)
-            {
-                Tile& tile = tiles[x * m_worldMaxCells.y + y];
-
-                if (tile.blocksMovement || tile.blocksVision)
-                {
-                    c.r = tile.r;
-                    c.g = tile.g;
-                    c.b = tile.b;
-                    sf::Vertex v = { sf::Vector2f(x, y), c };
-                    points.append(v);
-                }
-            }
-        }
-        window.draw(points);
-    }
-
-    window.display();
-    window.setView(m_mainView);
 }
 
 /**
@@ -1616,7 +984,7 @@ void ScenePlay::spawnPlayer()
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
     CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     playerTrans.scale = Vec2f(0.5f, 0.5f);
-    m_player.addComponent<CAnimation>(m_game.assets().getAnimation("Run"), false);
+    // m_player.addComponent<CAnimation>(m_game.assets().getAnimation("Run"), false);
     m_player.addComponent<CState>(AIR);
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
@@ -1627,18 +995,18 @@ void ScenePlay::spawnPlayer()
     m_playerArmBack = m_entityManager.addEntity("playerPart");
     CTransform& armBackTrans = m_playerArmBack.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
     armBackTrans.scale = Vec2f(0.5f, 0.5f);
-    m_playerArmBack.addComponent<CAnimation>(m_game.assets().getAnimation("ArmBack"), false);
+    // m_playerArmBack.addComponent<CAnimation>(m_game.assets().getAnimation("ArmBack"), false);
 
     m_playerArmFront = m_entityManager.addEntity("playerPart");
     CTransform& armFrontTrans = m_playerArmFront.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
     armFrontTrans.scale = Vec2f(0.5f, 0.5f);
-    m_playerArmFront.addComponent<CAnimation>(m_game.assets().getAnimation("ArmFront"), false);
+    // m_playerArmFront.addComponent<CAnimation>(m_game.assets().getAnimation("ArmFront"), false);
 
     // player head
     m_playerHead = m_entityManager.addEntity("playerPart");
     CTransform& headTrans = m_playerHead.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
     headTrans.scale = Vec2f(0.4f, 0.4f);
-    m_playerHead.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
+    // m_playerHead.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
 
     // spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
@@ -1646,7 +1014,7 @@ void ScenePlay::spawnPlayer()
     m_weapon.addComponent<CDamage>(50);
     m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos).scale = Vec2f(0.3f, 0.3f); /// TODO: make this a lil infront of player
     m_weapon.addComponent<CBoundingBox>(Vec2i(50, 10), false, false); /// TODO: make this dynamic for each weapon
-    m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
+    // m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
     /// TODO: add animation, gravity, bounding box, transform, state, etc. since weapons will drop from player on death
 }
 
@@ -1662,17 +1030,17 @@ void ScenePlay::spawnBullet(Entity entity)
     Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.angle), sinf(entityTrans.angle)) * entityBox.halfSize.x;
     float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
 
-    const sf::Vector2f& worldTargetSFML = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-    const Vec2f worldTarget(worldTargetSFML.x, worldTargetSFML.y);
-    const Vec2f bulletVec = Vec2f(worldTarget.x - entityTrans.pos.x, worldTarget.y - entityTrans.pos.y).rotate(generateRandomFloat(entityFire.accuracy - 1, 1 - entityFire.accuracy) * M_PI);
+    // const sf::Vector2f& worldTargetSFML = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
+    // const Vec2f worldTarget(worldTargetSFML.x, worldTargetSFML.y);
+    // const Vec2f bulletVec = Vec2f(worldTarget.x - entityTrans.pos.x, worldTarget.y - entityTrans.pos.y).rotate(generateRandomFloat(entityFire.accuracy - 1, 1 - entityFire.accuracy) * M_PI);
 
     Entity bullet = m_entityManager.addEntity("bullet");
-    bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), bulletVec.angle(), 0.0f);
-    bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
+    // bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), bulletVec.angle(), 0.0f);
+    // bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
     bullet.addComponent<CLifespan>(300);
     bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
 
-    m_game.assets().playSound("Bullet");
+    // m_game.assets().playSound("Bullet");
 }
 
 /// @brief handle player-tile collisions and player state updates
@@ -1998,72 +1366,72 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
     {
         /// TODO: change to correct animations, angles, and positions, and make sizing dynamic
         // created in order of rendering
-        const Animation& tempTest = m_game.assets().getAnimation("Test");
-        Entity backForearm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
-        Entity backUpperArm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
-        Entity backCalf = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 22 }, tempTest);
-        Entity backThigh = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 15 }, tempTest);
-        Entity torso = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 30 }, tempTest);
-        Entity head = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 8 }, tempTest);
-        Entity frontCalf = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 22 }, tempTest);
-        Entity frontThigh = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 15 }, tempTest);
-        Entity frontForearm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
-        Entity frontUpperArm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
+        // const Animation& tempTest = m_game.assets().getAnimation("Test");
+        // Entity backForearm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
+        // Entity backUpperArm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
+        // Entity backCalf = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 22 }, tempTest);
+        // Entity backThigh = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 15 }, tempTest);
+        // Entity torso = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 30 }, tempTest);
+        // Entity head = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 8 }, tempTest);
+        // Entity frontCalf = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 22 }, tempTest);
+        // Entity frontThigh = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 15 }, tempTest);
+        // Entity frontForearm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
+        // Entity frontUpperArm = spawnRagdollElement(entityTrans.pos, 0.0f, { 6, 12 }, tempTest);
 
-        std::array<float, 3> positions({ 0.0f, 0.0f, 0.0f });
+        // std::array<float, 3> positions({ 0.0f, 0.0f, 0.0f });
 
         // angles defined for when player dies facing right /// TODO: flip them in sObjectMovement if player dies facing left
-        head.addComponent<CJointRelation>(torso, -M_PI_2 / 3.0f, M_PI_4);
-        backThigh.addComponent<CJointRelation>(torso, -M_PI_4, 3.0f * M_PI_4);
-        frontThigh.addComponent<CJointRelation>(torso, -M_PI_4, 3.0f * M_PI_4);
-        backUpperArm.addComponent<CJointRelation>(torso, -std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-        frontUpperArm.addComponent<CJointRelation>(torso, -std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-        backCalf.addComponent<CJointRelation>(backThigh, 0.0f, 5.0f * M_PI_2 / 3.0f);
-        frontCalf.addComponent<CJointRelation>(frontThigh, 0.0f, 5.0f * M_PI_2 / 3.0f);
-        backForearm.addComponent<CJointRelation>(backUpperArm, 0.0f, 5.0f * M_PI_2 / 3.0f);
-        frontForearm.addComponent<CJointRelation>(frontUpperArm, 0.0f, 5.0f * M_PI_2 / 3.0f);
+        // head.addComponent<CJointRelation>(torso, -M_PI_2 / 3.0f, M_PI_4);
+        // backThigh.addComponent<CJointRelation>(torso, -M_PI_4, 3.0f * M_PI_4);
+        // frontThigh.addComponent<CJointRelation>(torso, -M_PI_4, 3.0f * M_PI_4);
+        // backUpperArm.addComponent<CJointRelation>(torso, -std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+        // frontUpperArm.addComponent<CJointRelation>(torso, -std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+        // backCalf.addComponent<CJointRelation>(backThigh, 0.0f, 5.0f * M_PI_2 / 3.0f);
+        // frontCalf.addComponent<CJointRelation>(frontThigh, 0.0f, 5.0f * M_PI_2 / 3.0f);
+        // backForearm.addComponent<CJointRelation>(backUpperArm, 0.0f, 5.0f * M_PI_2 / 3.0f);
+        // frontForearm.addComponent<CJointRelation>(frontUpperArm, 0.0f, 5.0f * M_PI_2 / 3.0f);
 
         // add joint positions
-        positions[0] = head.getComponent<CBoundingBox>().halfSize.y; // to torso
-        head.addComponent<CJointInfo>(positions);
+        // positions[0] = head.getComponent<CBoundingBox>().halfSize.y; // to torso
+        // head.addComponent<CJointInfo>(positions);
 
-        positions[0] = -backForearm.getComponent<CBoundingBox>().halfSize.y; // to back upper arm
-        backForearm.addComponent<CJointInfo>(positions);
+        // positions[0] = -backForearm.getComponent<CBoundingBox>().halfSize.y; // to back upper arm
+        // backForearm.addComponent<CJointInfo>(positions);
 
-        positions[0] = -frontForearm.getComponent<CBoundingBox>().halfSize.y; // to front upper arm
-        frontForearm.addComponent<CJointInfo>(positions);
+        // positions[0] = -frontForearm.getComponent<CBoundingBox>().halfSize.y; // to front upper arm
+        // frontForearm.addComponent<CJointInfo>(positions);
 
-        positions[0] = -backCalf.getComponent<CBoundingBox>().halfSize.y; // to back thigh
-        backCalf.addComponent<CJointInfo>(positions);
+        // positions[0] = -backCalf.getComponent<CBoundingBox>().halfSize.y; // to back thigh
+        // backCalf.addComponent<CJointInfo>(positions);
 
-        positions[0] = -frontCalf.getComponent<CBoundingBox>().halfSize.y; // to front thigh
-        frontCalf.addComponent<CJointInfo>(positions);
+        // positions[0] = -frontCalf.getComponent<CBoundingBox>().halfSize.y; // to front thigh
+        // frontCalf.addComponent<CJointInfo>(positions);
 
-        CBoundingBox& ltb = backThigh.getComponent<CBoundingBox>();
-        positions[0] = ltb.halfSize.y; // to back calf
-        positions[1] = -ltb.halfSize.y; // to torso
-        backThigh.addComponent<CJointInfo>(positions);
+        // CBoundingBox& ltb = backThigh.getComponent<CBoundingBox>();
+        // positions[0] = ltb.halfSize.y; // to back calf
+        // positions[1] = -ltb.halfSize.y; // to torso
+        // backThigh.addComponent<CJointInfo>(positions);
 
-        CBoundingBox& rtb = frontThigh.getComponent<CBoundingBox>();
-        positions[0] = rtb.halfSize.y; // to front calf
-        positions[1] = -rtb.halfSize.y; // to torso
-        frontThigh.addComponent<CJointInfo>(positions);
+        // CBoundingBox& rtb = frontThigh.getComponent<CBoundingBox>();
+        // positions[0] = rtb.halfSize.y; // to front calf
+        // positions[1] = -rtb.halfSize.y; // to torso
+        // frontThigh.addComponent<CJointInfo>(positions);
 
-        CBoundingBox& luab = backUpperArm.getComponent<CBoundingBox>();
-        positions[0] = luab.halfSize.y; // to back forearm
-        positions[2] = -luab.halfSize.y; // to torso
-        backUpperArm.addComponent<CJointInfo>(positions);
+        // CBoundingBox& luab = backUpperArm.getComponent<CBoundingBox>();
+        // positions[0] = luab.halfSize.y; // to back forearm
+        // positions[2] = -luab.halfSize.y; // to torso
+        // backUpperArm.addComponent<CJointInfo>(positions);
 
-        CBoundingBox& ruab = frontUpperArm.getComponent<CBoundingBox>();
-        positions[0] = ruab.halfSize.y; // to front forearm
-        positions[2] = -ruab.halfSize.y; // to torso
-        frontUpperArm.addComponent<CJointInfo>(positions);
+        // CBoundingBox& ruab = frontUpperArm.getComponent<CBoundingBox>();
+        // positions[0] = ruab.halfSize.y; // to front forearm
+        // positions[2] = -ruab.halfSize.y; // to torso
+        // frontUpperArm.addComponent<CJointInfo>(positions);
 
-        CBoundingBox& tb = torso.getComponent<CBoundingBox>();
-        positions[0] = -tb.halfSize.y; // to head
-        positions[1] = tb.halfSize.y * 0.8f; // to thighs
-        positions[2] = -tb.halfSize.y * 0.8f; // to upper arms
-        torso.addComponent<CJointInfo>(positions);
+        // CBoundingBox& tb = torso.getComponent<CBoundingBox>();
+        // positions[0] = -tb.halfSize.y; // to head
+        // positions[1] = tb.halfSize.y * 0.8f; // to thighs
+        // positions[2] = -tb.halfSize.y * 0.8f; // to upper arms
+        // torso.addComponent<CJointInfo>(positions);
 
         // apply initial force to correct place from cause
         // if (causeTrans.pos.y <= entityTrans.pos.y) // hit top half of body
@@ -2075,7 +1443,7 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
         //     Physics::ForceEntity(torso, causeTrans.velocity * 10.0f, causeTrans.pos);
         // }
 
-        Physics::ForceEntity(torso, causeTrans.velocity * 10.0f * generateRandomFloat(0.5f, 2.0f), causeTrans.pos);
+        // Physics::ForceEntity(torso, causeTrans.velocity * 10.0f * generateRandomFloat(0.5f, 2.0f), causeTrans.pos);
     }
 }
 
@@ -2438,64 +1806,64 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 }
 
 /// TODO: memory leak or something in this scope causes game to get real slow after about 40 seconds
-void ScenePlay::propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY)
-{
-    // base case
-    if (currentDepth >= maxDepth)
-    {
-        return;
-    }
+// void ScenePlay::propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY)
+// {
+//     // base case
+//     if (currentDepth >= maxDepth)
+//     {
+//         return;
+//     }
 
-    // recursive step
-    Tile& tile = m_tileManager.getTiles()[currentCoord.x * m_worldMaxCells.y + currentCoord.y];
-    std::cout << "Processing tile at (" << currentCoord.x << ", " << currentCoord.y << ")\n";
+//     // recursive step
+//     Tile& tile = m_tileManager.getTiles()[currentCoord.x * m_worldMaxCells.y + currentCoord.y];
+//     std::cout << "Processing tile at (" << currentCoord.x << ", " << currentCoord.y << ")\n";
 
-    if (tile.health)
-    {
-        int newLight = 255 - currentDepth * (255 / maxDepth);
-        std::cout << "    light: " << static_cast<int>(tile.light) << ", newLight: " << newLight << std::endl;
-        if (tile.light < newLight)
-        {
-            tile.light = newLight;
+//     if (tile.health)
+//     {
+//         int newLight = 255 - currentDepth * (255 / maxDepth);
+//         std::cout << "    light: " << static_cast<int>(tile.light) << ", newLight: " << newLight << std::endl;
+//         if (tile.light < newLight)
+//         {
+//             tile.light = newLight;
 
-            // create block with 2 triangles
-            sf::Color c(tile.r, tile.g, tile.b, tile.light);
-            addBlock(blocks, currentCoord.x, currentCoord.y, c);
+//             // create block with 2 triangles
+//             sf::Color c(tile.r, tile.g, tile.b, tile.light);
+//             addBlock(blocks, currentCoord.x, currentCoord.y, c);
 
-            std::cout << "        Depth: " << currentDepth << std::endl;
+//             std::cout << "        Depth: " << currentDepth << std::endl;
 
-            Vec2i playerGridPos = (m_player.getComponent<CTransform>().pos / m_cellSizePixels).to<int>();
-            if (currentCoord.x > minX && playerGridPos.x >= currentCoord.x)
-            {
-                propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x - 1, currentCoord.y), minX, maxX, minY, maxY);
-            }
-            if (currentCoord.x < maxX && playerGridPos.x <= currentCoord.x)
-            {
-                propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x + 1, currentCoord.y), minX, maxX, minY, maxY);
-            }
-            if (currentCoord.y > minY && playerGridPos.y >= currentCoord.y)
-            {
-                propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x, currentCoord.y - 1), minX, maxX, minY, maxY);
-            }
-            if (currentCoord.y < maxY && playerGridPos.y <= currentCoord.y)
-            {
-                propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x, currentCoord.y + 1), minX, maxX, minY, maxY);
-            }
-        }
-    }
+//             Vec2i playerGridPos = (m_player.getComponent<CTransform>().pos / m_cellSizePixels).to<int>();
+//             if (currentCoord.x > minX && playerGridPos.x >= currentCoord.x)
+//             {
+//                 propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x - 1, currentCoord.y), minX, maxX, minY, maxY);
+//             }
+//             if (currentCoord.x < maxX && playerGridPos.x <= currentCoord.x)
+//             {
+//                 propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x + 1, currentCoord.y), minX, maxX, minY, maxY);
+//             }
+//             if (currentCoord.y > minY && playerGridPos.y >= currentCoord.y)
+//             {
+//                 propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x, currentCoord.y - 1), minX, maxX, minY, maxY);
+//             }
+//             if (currentCoord.y < maxY && playerGridPos.y <= currentCoord.y)
+//             {
+//                 propagateLight(blocks, maxDepth, currentDepth + 1, startCoord, Vec2i(currentCoord.x, currentCoord.y + 1), minX, maxX, minY, maxY);
+//             }
+//         }
+//     }
 
-    return;
-}
+//     return;
+// }
 
-void ScenePlay::addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c)
-{
-    float px = xGrid * m_cellSizePixels;
-    float py = yGrid * m_cellSizePixels;
-    blocks.append({ { px, py }, c });
-    blocks.append({ { px + m_cellSizePixels, py }, c });
-    blocks.append({ { px, py + m_cellSizePixels }, c });
-    blocks.append({ { px, py + m_cellSizePixels }, c });
-    blocks.append({ { px + m_cellSizePixels, py }, c });
-    blocks.append({ { px + m_cellSizePixels, py + m_cellSizePixels }, c });
-}
+// void ScenePlay::addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c)
+// {
+//     float px = xGrid * m_cellSizePixels;
+//     float py = yGrid * m_cellSizePixels;
+//     blocks.append({ { px, py }, c });
+//     blocks.append({ { px + m_cellSizePixels, py }, c });
+//     blocks.append({ { px, py + m_cellSizePixels }, c });
+//     blocks.append({ { px, py + m_cellSizePixels }, c });
+//     blocks.append({ { px + m_cellSizePixels, py }, c });
+//     blocks.append({ { px + m_cellSizePixels, py + m_cellSizePixels }, c });
+// }
 

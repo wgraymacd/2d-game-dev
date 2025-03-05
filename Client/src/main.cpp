@@ -2,7 +2,7 @@
 
 #include "GameEngine.hpp"
 
-int main()
+int main(int argc, char* argv[])
 {
     GameEngine g("../bin/assets.txt");
     g.run();
