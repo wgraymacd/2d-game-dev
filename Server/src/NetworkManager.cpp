@@ -1,7 +1,5 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
-/// TODO: checking for if (isServer) for now is fine, but ultimately may want to either create two classes Client and Server with high-level functions that handle related logic to separate the two, or create two entirely separate codebases, one for the server and one for the players to download (max efficiency since server doesn't need graphics, player input, UI, etc. and players don't need AI, physics, game rules, etc.); however, if I ever want a private match or something, then need ability to run your own server
-
 #include "NetworkManager.hpp"
 
 #include <iostream>
@@ -57,7 +55,7 @@ void NetworkManager::update()
             break;
         case ENET_EVENT_TYPE_RECEIVE:
             std::cout << "Received: " << (char*)event.packet->data << "\n"; // data can be of any type needed, event.packet->data is a raw pointer to binary data
-
+            // memcpy(&receivedData, event.packet->data, sizeof(PlayerData));
 
             // things received:
             /*
@@ -83,15 +81,4 @@ void NetworkManager::update()
             break;
         }
     }
-}
-
-void NetworkManager::sendMessage(const std::string& message)
-{
-    ENetPacket* packet = enet_packet_create(message.c_str(), message.size() + 1, ENET_PACKET_FLAG_RELIABLE); // reliable means guaranteed to be delivered
-
-    // send to all clients
-    enet_host_broadcast(server, 0, packet);
-
-    // send out queued packets without dispatching any events
-    enet_host_flush(server);
 }

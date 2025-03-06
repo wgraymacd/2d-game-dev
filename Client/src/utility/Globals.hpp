@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include "Vec2.hpp"
-
 // usings
 using EntityID = int; /// TODO: worry about whether I make this int or something else when worrying about all data type stuff
 // Vec2f, Vec2i, etc. in Vec2.hpp
@@ -18,9 +16,11 @@ namespace GlobalSettings
     // constexpr: constant, hardcoded, known at compile time, never changes
 
     /// TODO: change these types to minimum possible storage with uint16_t and whatever
-    inline Vec2i windowSize = { 1920, 1080 }; // default value, overriden by fullscreen mode
+    inline int windowSizeX = 1920; // default value, overriden by fullscreen mode
+    inline int windowSizeY = 1080; // default value, overriden by fullscreen mode
     inline const int frameRate = 120;
-    inline const Vec2i worldMaxCells = { 4000, 1000 };
+    inline const int worldMaxCellsX = 4000;
+    inline const int worldMaxCellsY = 1000;
     inline const int cellSizePixels = 10;
     inline const EntityID worldMaxEntities = 1000; // not including tiles or other things outside of main entity memory pool
 }

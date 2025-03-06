@@ -1,7 +1,6 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
 #include "Scene.hpp"
-// #include "GameEngine.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <string>

@@ -5,8 +5,8 @@
 /// TODO: in some cases processing a 64-bit int is faster than a 32-bit one (or 32 faster than 16), but in many cases memory is what slows down a program, so just have to test between memory efficiency and CPU efficiency
 /// TODO: render tile layer (and any other things) at the minimum resolution in it's own view, then scale the size of that view to match with others (this way the resolution of the tile map can be shit (and minimap) but still look the same, and the character and guns and all can be great, can even put back in textures for tiles probably)
 
-#include "Timer.hpp"
-#include "Globals.hpp"
+#include "utility/Timer.hpp"
+#include "utility/Globals.hpp"
 
 #include "ScenePlay.hpp"
 #include "Scene.hpp"
@@ -14,12 +14,12 @@
 #include "EntityManager.hpp"
 #include "Entity.hpp"
 #include "Components.hpp"
-#include "Vec2.hpp"
-#include "Physics.hpp"
+#include "physics/Vec2.hpp"
+#include "physics/Physics.hpp"
 #include "Animation.hpp"
 #include "Action.hpp"
-#include "WorldGenerator.hpp"
-#include "TileType.hpp"
+#include "world/WorldGenerator.hpp"
+#include "world/TileType.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
@@ -380,7 +380,7 @@ void ScenePlay::sObjectMovement()
 
         if (playerTrans.prevPos != playerTrans.pos)
         {
-            m_game.getNetManager().sendMessage("movement updated");
+            m_game.getNetManager().sendData(playerTrans.pos);
         }
 
         /// TODO: have crouching? does this then go in sUserInput?
@@ -545,8 +545,8 @@ void ScenePlay::sObjectMovement()
                         ragBTrans.pos -= correction;
 
                         // apply equal and opposite forces on each joint
-                        Physics::ForceEntity(ragA, correction / 10.0f, ragAJointPos);
-                        Physics::ForceEntity(ragB, -correction / 10.0f, ragBJointPos);
+                        Physics::ForceEntity(ragATrans.pos, ragATrans.velocity, ragATrans.angularVelocity, ragABox.size, correction / 10.0f, ragAJointPos);
+                        Physics::ForceEntity(ragBTrans.pos, ragBTrans.velocity, ragBTrans.angularVelocity, ragBBox.size, -correction / 10.0f, ragBJointPos);
                     }
 
                     break;
@@ -722,7 +722,7 @@ void ScenePlay::sObjectCollision()
                         float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.x));
                         // std::cout << "collided from top: " << normalForceMag << " " << frictionForceMag << "\n";
                         if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
-                            Physics::ForceEntity(rag, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, -normalForceMag), vert);
+                            Physics::ForceEntity(trans.pos, trans.velocity, trans.angularVelocity, box.size, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, -normalForceMag), vert);
                         else
                         {
                             // std::cout << "skipping force" << std::endl;
@@ -739,7 +739,7 @@ void ScenePlay::sObjectCollision()
                         float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.x));
                         // std::cout << "collided from bottom: " << normalForceMag << " " << frictionForceMag << "\n";
                         if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
-                            Physics::ForceEntity(rag, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, normalForceMag), vert);
+                            Physics::ForceEntity(trans.pos, trans.velocity, trans.angularVelocity, box.size, Vec2f(travel.x > 0 ? -frictionForceMag : frictionForceMag, normalForceMag), vert);
                         // else
                         // {
                         //     std::cout << "skipping force" << std::endl;
@@ -760,7 +760,7 @@ void ScenePlay::sObjectCollision()
                         float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.y));
                         // std::cout << "collided from left: " << normalForceMag << " " << frictionForceMag << "\n";
                         if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
-                            Physics::ForceEntity(rag, Vec2f(-normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert); /// TODO: add some sort of if force less than certain amount just make velocity zero so that is doesn't infinitely bounce at tiny bounce amounts
+                            Physics::ForceEntity(trans.pos, trans.velocity, trans.angularVelocity, box.size, Vec2f(-normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert); /// TODO: add some sort of if force less than certain amount just make velocity zero so that is doesn't infinitely bounce at tiny bounce amounts
                         // else
                         // {
                         //     std::cout << "skipping force" << std::endl;
@@ -777,7 +777,7 @@ void ScenePlay::sObjectCollision()
                         float frictionForceMag = std::min(normalForceMag * friction, abs(trans.velocity.y));
                         // std::cout << "collided from right: " << normalForceMag << " " << frictionForceMag << "\n";
                         if (abs(normalForceMag) >= threshold || abs(frictionForceMag) >= threshold)
-                            Physics::ForceEntity(rag, Vec2f(normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert);
+                            Physics::ForceEntity(trans.pos, trans.velocity, trans.angularVelocity, box.size, Vec2f(normalForceMag, travel.y > 0 ? -frictionForceMag : frictionForceMag), vert);
                         // else
                         // {
                         //     std::cout << "skipping force" << std::endl;
@@ -1938,7 +1938,10 @@ void ScenePlay::projectilePlayerCollisions(std::vector<Entity>& players, std::ve
         for (Entity& bullet : bullets)
         {
             int& playerInvincibilityTime = player.getComponent<CInvincibility>().timeRemaining;
-            if (playerInvincibilityTime <= 0 && Physics::IsInside(bullet.getComponent<CTransform>().pos, player))
+            Vec2f& playerPos = player.getComponent<CTransform>().pos;
+            Vec2f& playerBoxHalfSize = player.getComponent<CBoundingBox>().halfSize;
+
+            if (playerInvincibilityTime <= 0 && Physics::IsInside(bullet.getComponent<CTransform>().pos, playerPos, playerBoxHalfSize))
             {
                 playerInvincibilityTime = 10; /// TODO: maybe use another way to keep track of bullets that have already hit the player, make them unable to hit again until leaving the player, could even make no invincibility time and have that be a part of the game, where bullets do more damage the longer they're in the player or a tile, so hitting a leg isn't much compared to hitting a chest (and add a head multiplier), could be a unique aspect to the game
                 int& bulletDamage = bullet.getComponent<CDamage>().damage;
@@ -1988,6 +1991,9 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
     if (entity.hasComponent<CFire>())
     {
         Entity ragdoll = spawnRagdollElement(entityTrans.pos, entityTrans.angle, entityBox.size, entityAnim.animation);
+        CTransform& ragTrans = ragdoll.getComponent<CTransform>();
+        CBoundingBox& ragBox = ragdoll.getComponent<CBoundingBox>();
+
         Vec2f force;
         Vec2f pos;
         force.x = (causeTrans.velocity.x + generateRandomFloat(0.0f, causeTrans.velocity.length())) * 2.0f;
@@ -1995,7 +2001,7 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
         pos.x = entityTrans.pos.x + generateRandomFloat(0.0f, entityBox.halfSize.x);
         pos.y = entityTrans.pos.y + generateRandomFloat(0.0f, entityBox.halfSize.y);
 
-        Physics::ForceEntity(ragdoll, force, pos);
+        Physics::ForceEntity(ragTrans.pos, ragTrans.velocity, ragTrans.angularVelocity, ragBox.size, force, pos);
     }
     else // entity is a player
     {
@@ -2078,7 +2084,8 @@ void ScenePlay::createRagdoll(const Entity& entity, const Entity& cause)
         //     Physics::ForceEntity(torso, causeTrans.velocity * 10.0f, causeTrans.pos);
         // }
 
-        Physics::ForceEntity(torso, causeTrans.velocity * 10.0f * generateRandomFloat(0.5f, 2.0f), causeTrans.pos);
+        CTransform& tt = torso.getComponent<CTransform>();
+        Physics::ForceEntity(tt.pos, tt.velocity, tt.angularVelocity, tb.size, causeTrans.velocity * 10.0f * generateRandomFloat(0.5f, 2.0f), causeTrans.pos);
     }
 }
 

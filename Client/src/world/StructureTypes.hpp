@@ -5,7 +5,7 @@
 #include <array>
 
 #include "TileType.hpp"
-#include "Vec2.hpp"
+#include "physics/Vec2.hpp"
 
 struct StructureTypes
 {

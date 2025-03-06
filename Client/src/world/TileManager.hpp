@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Tile.hpp"
-#include "Globals.hpp"
+#include "utility/Globals.hpp"
 
 class TileManager
 {
@@ -16,7 +16,7 @@ public:
 
     TileManager()
     {
-        m_tiles = std::vector<Tile>(GlobalSettings::worldMaxCells.x * GlobalSettings::worldMaxCells.y);
+        m_tiles = std::vector<Tile>(GlobalSettings::worldMaxCellsX * GlobalSettings::worldMaxCellsY);
     }
 
     std::vector<Tile>& getTiles()
@@ -26,6 +26,6 @@ public:
 
     void addTile(const Tile& tile, const int x, const int y) /// TODO: look into adding tiles like emplace back instead of copying, if possible
     {
-        m_tiles[x * GlobalSettings::worldMaxCells.y + y] = tile;
+        m_tiles[x * GlobalSettings::worldMaxCellsY + y] = tile;
     }
 };

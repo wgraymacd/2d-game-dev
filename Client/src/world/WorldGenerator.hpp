@@ -12,14 +12,6 @@
 #include "TileType.hpp"
 #include "StructureTypes.hpp"
 
-/// define a Tile struct to store positions and types of blocks/tiles/whatever in the game grid
-/// TODO: will want to change type to int and create a big map (not in code) of word to number
-// struct TileInfo
-// {
-//     int x, y; // x, y position on grid
-//     std::string type;
-// };
-
 /// TODO: add biomes with specific rules for generation, could even define temp, humidity, etc. and calc tree density or water or weather or anything from them
 /// TODO: enum for tile types
 /// TODO: could add world evolution if I want people to be on same map for long time

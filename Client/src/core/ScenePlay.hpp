@@ -4,10 +4,10 @@
 
 #include "Scene.hpp"
 #include "EntityManager.hpp"
-#include "Vec2.hpp"
+#include "physics/Vec2.hpp"
 #include "GameEngine.hpp"
-#include "Globals.hpp"
-#include "TileManager.hpp"
+#include "utility/Globals.hpp"
+#include "world/TileManager.hpp"
 
 #include <SFML/Graphics.hpp>
 
@@ -24,12 +24,12 @@ class ScenePlay : public Scene
 
 protected:
     // tile grid
-    const Vec2i m_worldMaxCells = GlobalSettings::worldMaxCells; // bottom-right corner of world (grid coords)
+    const Vec2i m_worldMaxCells = { GlobalSettings::worldMaxCellsX, GlobalSettings::worldMaxCellsY }; // bottom-right corner of world (grid coords)
     const int m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
     const Vec2i m_worldMaxPixels = { m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
 
     // views and textures
-    sf::View m_mainView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(GlobalSettings::windowSize.x, GlobalSettings::windowSize.y)); // center, size
+    sf::View m_mainView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(GlobalSettings::windowSizeX, GlobalSettings::windowSizeY)); // center, size
     // sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
     sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(m_worldMaxCells.x, m_worldMaxCells.y) * 2.0f); // center, size
 

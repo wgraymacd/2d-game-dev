@@ -3,7 +3,7 @@
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
 #include "Components.hpp"
-#include "Globals.hpp"
+#include "utility/Globals.hpp"
 
 #include <vector>
 #include <string>

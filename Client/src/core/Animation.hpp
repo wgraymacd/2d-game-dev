@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Vec2.hpp"
+#include "physics/Vec2.hpp"
 #include <SFML/Graphics.hpp>
 #include <string>
 

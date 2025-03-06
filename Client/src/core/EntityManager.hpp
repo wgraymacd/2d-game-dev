@@ -4,9 +4,8 @@
 
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
-#include "Globals.hpp"
 
-#include "Timer.hpp"
+#include "utility/Timer.hpp"
 
 #include <string>
 #include <vector>

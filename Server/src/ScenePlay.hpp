@@ -39,9 +39,7 @@ protected:
     void loadGame(); /// TODO: may add param here to differentiate between game types or something
     void generateWorld();
     void spawnPlayer();
-    void spawnBullet(Entity entity);
     void updateProjectiles(std::vector<Entity>& bullets);
-    void playerTileCollisions(const std::vector<Tile>& tiles);
     void projectileTileCollisions(std::vector<Tile>& tiles, std::vector<Entity>& bullets);
     void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
     Entity spawnRagdollElement(const Vec2f& pos, const float angle, const Vec2i& boxSize, const Animation& animation);

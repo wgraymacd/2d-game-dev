@@ -29,7 +29,7 @@
 #include <random> // number generation for colors of blocks
 #include <unordered_set>
 
-/// @brief vonstructs a new ScenePlay object, calls ScenePlay::init
+/// @brief constructs a new ScenePlay object, calls ScenePlay::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 ScenePlay::ScenePlay(GameEngine& gameEngine)
     : Scene(gameEngine)
@@ -88,7 +88,6 @@ void ScenePlay::loadGame()
     spawnPlayer();
 }
 
-/// TODO: this should all be on server so that all players get the same world
 /// @brief randomly generate the playing world
 void ScenePlay::generateWorld()
 {
@@ -117,88 +116,8 @@ void ScenePlay::generateWorld()
     gen.generateWorld();
     const std::vector<TileType>& tileTypes = gen.getTileTypes();
 
-    // spawn tiles according to their positions in the grid
-    for (int x = 0; x < m_worldMaxCells.x; ++x)
-    {
-        // PROFILE_SCOPE("adding tiles, row x");
-
-        for (int y = 0; y < m_worldMaxCells.y; ++y)
-        {
-            TileType tileType = tileTypes[x * m_worldMaxCells.y + y];
-            if (tileType)
-            {
-                // std::cout << "adding tile " << x << ", " << y << std::endl;
-
-                Tile tile;
-                tile.type = tileType;
-                tile.light = 0; /// TODO: instead of propagating light, just make all tiles darker than usual, then render the ones in sight brighter?
-
-                float randomNumber = generateRandomFloat(0.9f, 1.1f); /// TODO: could be faster to use predetermined values or formula, like function of depth or something
-
-                if (tileType == DIRT)
-                {
-                    tile.health = 40;
-                    tile.r = 50.0f * randomNumber;
-                    tile.g = 30.0f * randomNumber;
-                    tile.b = 20.0f * randomNumber;
-                    tile.blocksMovement = true;
-                    tile.blocksVision = true;
-                }
-                else if (tileType == DIRTWALL)
-                {
-                    tile.health = 10;
-                    tile.r = 25.0f * randomNumber;
-                    tile.g = 15.0f * randomNumber;
-                    tile.b = 10.0f * randomNumber;
-                    tile.blocksMovement = false;
-                    tile.blocksVision = false;
-                }
-                else if (tileType == STONE)
-                {
-                    tile.health = 60;
-                    tile.r = 70.0f * randomNumber;
-                    tile.g = 70.0f * randomNumber;
-                    tile.b = 70.0f * randomNumber;
-                    tile.blocksMovement = true;
-                    tile.blocksVision = true;
-                }
-                else if (tileType == STONEWALL)
-                {
-                    tile.health = 10;
-                    tile.r = 35.0f * randomNumber;
-                    tile.g = 35.0f * randomNumber;
-                    tile.b = 35.0f * randomNumber;
-                    tile.blocksMovement = false;
-                    tile.blocksVision = false;
-                }
-                else if (tileType == BRICK)
-                {
-                    tile.health = 100;
-                    tile.r = 50.0f * randomNumber;
-                    tile.g = 0.0f;
-                    tile.b = 0.0f;
-                    tile.blocksMovement = true;
-                    tile.blocksVision = true;
-                }
-                else if (tileType == BRICKWALL)
-                {
-                    tile.health = 10;
-                    tile.r = 25.0f * randomNumber;
-                    tile.g = 0.0f;
-                    tile.b = 0.0f;
-                    tile.blocksMovement = false;
-                    tile.blocksVision = false;
-                }
-                else
-                {
-                    std::cerr << "invalid tile type: " << tileType << "\n";
-                    exit(-1);
-                }
-
-                m_tileManager.addTile(tile, x, y);
-            }
-        }
-    }
+    /// TODO: send tile types to clients if client just connected, client then generates entities accordingly
+    m_game.getNetManager().sendMessage(tileTypes);
 }
 
 /**
@@ -541,10 +460,6 @@ void ScenePlay::sObjectCollision()
     // cache once per frame
     const std::vector<Tile>& tiles = m_tileManager.getTiles();
 
-    playerTileCollisions(tiles);
-
-    /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
-
     // ragdoll-tile collisions /// TODO: could just do two vertices on a stick and call it a day (or give the vertices a circular distance for collisions)
     for (Entity& rag : m_entityManager.getEntities("ragdoll"))
     {
@@ -787,24 +702,6 @@ void ScenePlay::sProjectiles()
     updateProjectiles(bullets);
     updateProjectiles(bullets);
     updateProjectiles(bullets);
-
-    // then handle bullet spawning
-    CInput& input = m_player.getComponent<CInput>();
-    CFire& fire = m_weapon.getComponent<CFire>();
-    std::chrono::steady_clock::time_point now = std::chrono::high_resolution_clock::now();
-    if (input.shoot && (now - fire.lastShotTime).count() >= 1000000000 / fire.fireRate)
-    {
-        fire.lastShotTime = now;
-        if (fire.accuracy > fire.minAccuracy)
-        {
-            fire.accuracy -= 0.003f;
-        }
-        spawnBullet(m_weapon);
-    }
-    else if (fire.accuracy < fire.maxAccuracy)
-    {
-        fire.accuracy += 0.0002f;
-    }
 }
 
 /// TODO: grouping similar actions (e.g., input actions like "JUMP", "LEFT", "RIGHT", etc.) into an enum or constants to avoid potential typos and improve maintainability. This way, your if-else chains would be more scalable if new actions are added
@@ -1016,149 +913,6 @@ void ScenePlay::spawnPlayer()
     m_weapon.addComponent<CBoundingBox>(Vec2i(50, 10), false, false); /// TODO: make this dynamic for each weapon
     // m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
     /// TODO: add animation, gravity, bounding box, transform, state, etc. since weapons will drop from player on death
-}
-
-/// @brief spawn a bullet at the location of entity traveling toward cursor
-void ScenePlay::spawnBullet(Entity entity)
-{
-    PROFILE_FUNCTION();
-
-    CTransform& entityTrans = entity.getComponent<CTransform>();
-    CBoundingBox& entityBox = entity.getComponent<CBoundingBox>();
-    CFire& entityFire = entity.getComponent<CFire>();
-
-    Vec2f spawnPos = entityTrans.pos + Vec2f(cosf(entityTrans.angle), sinf(entityTrans.angle)) * entityBox.halfSize.x;
-    float bulletSpeed = 1.5f; // number of pixels added to bullet on each update
-
-    // const sf::Vector2f& worldTargetSFML = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
-    // const Vec2f worldTarget(worldTargetSFML.x, worldTargetSFML.y);
-    // const Vec2f bulletVec = Vec2f(worldTarget.x - entityTrans.pos.x, worldTarget.y - entityTrans.pos.y).rotate(generateRandomFloat(entityFire.accuracy - 1, 1 - entityFire.accuracy) * M_PI);
-
-    Entity bullet = m_entityManager.addEntity("bullet");
-    // bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / worldTarget.dist(entityTrans.pos), Vec2f(2.0f, 2.0f), bulletVec.angle(), 0.0f);
-    // bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
-    bullet.addComponent<CLifespan>(300);
-    bullet.addComponent<CDamage>(entity.getComponent<CDamage>().damage);
-
-    // m_game.assets().playSound("Bullet");
-}
-
-/// @brief handle player-tile collisions and player state updates
-/// TODO: update for ramp tiles to walk up stairs or hills
-void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
-{
-    PROFILE_FUNCTION();
-
-    CTransform& playerTrans = m_player.getComponent<CTransform>();
-    CBoundingBox& playerBounds = m_player.getComponent<CBoundingBox>();
-    CState& playerState = m_player.getComponent<CState>();
-    CInput& playerInput = m_player.getComponent<CInput>();
-
-    bool xCollision, yCollision = false;
-
-    Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // must be signed as subtraction below 0 is happening
-    Vec2i checkLength(playerBounds.halfSize.x / m_cellSizePixels + 1, playerBounds.halfSize.y / m_cellSizePixels + 1);
-
-    int minX = std::max(0, playerGridPos.x - checkLength.x);
-    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
-    int minY = std::max(0, playerGridPos.y - checkLength.y);
-    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
-
-    for (int x = minX; x <= maxX; ++x)
-    {
-        for (int y = minY; y <= maxY; ++y)
-        {
-            const Tile& tile = tiles[x * m_worldMaxCells.y + y];
-
-            if (tile.blocksMovement)
-            {
-                // finding overlap (without tile bounding boxes)
-                float xDiff = abs(playerTrans.pos.x - (x + 0.5f) * m_cellSizePixels);
-                float yDiff = abs(playerTrans.pos.y - (y + 0.5f) * m_cellSizePixels);
-                float xOverlap = playerBounds.halfSize.x + m_cellSizePixels * 0.5f - xDiff;
-                float yOverlap = playerBounds.halfSize.y + m_cellSizePixels * 0.5f - yDiff;
-
-                // there is a collision
-                if (xOverlap > 0 && yOverlap > 0)
-                {
-                    // finding previous overlap (without tile bounding boxes)
-                    float xPrevDiff = abs(playerTrans.prevPos.x - (x + 0.5f) * m_cellSizePixels);
-                    float yPrevDiff = abs(playerTrans.prevPos.y - (y + 0.5f) * m_cellSizePixels);
-                    float xPrevOverlap = playerBounds.halfSize.x + m_cellSizePixels * 0.5f - xPrevDiff;
-                    float yPrevOverlap = playerBounds.halfSize.y + m_cellSizePixels * 0.5f - yPrevDiff;
-
-                    // we are colliding in y-direction this frame since previous frame already had x-direction overlap
-                    if (xPrevOverlap > 0)
-                    {
-                        yCollision = true;
-
-                        // player moving down
-                        if (playerTrans.velocity.y > 0)
-                        {
-                            playerTrans.pos.y -= yOverlap; // player can't fall below tile
-                            playerState.state = abs(playerTrans.velocity.x) > 0 ? RUN : IDLE;
-                        }
-
-                        // player moving up
-                        else if (playerTrans.velocity.y < 0)
-                        {
-                            playerTrans.pos.y += yOverlap;
-                        }
-                        playerTrans.velocity.y = 0;
-                    }
-                    // colliding in x-direction this frame
-                    else if (yPrevOverlap > 0)
-                    {
-                        xCollision = true;
-
-                        // player moving right
-                        if (playerTrans.velocity.x > 0)
-                        {
-                            playerTrans.pos.x -= xOverlap;
-                        }
-                        // player moving left
-                        else if (playerTrans.velocity.x < 0)
-                        {
-                            playerTrans.pos.x += xOverlap;
-                        }
-                        playerTrans.velocity.x = 0;
-                    }
-
-                    /// TODO: what is neither?
-
-                    break; // found a collision and corrected, no need to do extra work
-                }
-            }
-        }
-    }
-
-    if (!yCollision)
-    {
-        playerState.state = AIR;
-    }
-
-    // restrict player movement passed top, bottom, or side of map
-    const Vec2f& bBoxHalfSize = m_player.getComponent<CBoundingBox>().halfSize;
-    if (playerTrans.pos.x < bBoxHalfSize.x)
-    {
-        playerTrans.pos.x = bBoxHalfSize.x;
-        playerTrans.velocity.x = 0;
-    }
-    else if (playerTrans.pos.x > m_worldMaxPixels.x - bBoxHalfSize.x)
-    {
-        playerTrans.pos.x = m_worldMaxPixels.x - bBoxHalfSize.x;
-        playerTrans.velocity.x = 0;
-    }
-    else if (playerTrans.pos.y < bBoxHalfSize.y)
-    {
-        playerTrans.pos.y = bBoxHalfSize.y;
-        playerTrans.velocity.y = 0;
-    }
-    else if (playerTrans.pos.y > m_worldMaxPixels.y - bBoxHalfSize.y)
-    {
-        playerTrans.pos.y = m_worldMaxPixels.y - bBoxHalfSize.y;
-        playerTrans.velocity.y = 0;
-    }
 }
 
 /// @brief handle bullet-tile collisions

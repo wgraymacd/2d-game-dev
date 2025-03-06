@@ -45,7 +45,7 @@ NetworkManager::NetworkManager()
     ENetAddress address;
     enet_address_set_host(&address, "127.0.0.1");
     address.port = 54000;
-    std::cout << "Connected to server 127.0.0.1: address.host = " << address.host << " and address.port = " << address.port << ".\n";
+    std::cout << "Defined server 127.0.0.1: address.host = " << address.host << " and address.port = " << address.port << ".\n";
 
     // send connection request to server, allocating two channels 0 and 1 (peer: connection in network, can be either a client connected to a server or a server that the client is connected to)
     peer = enet_host_connect(client, &address, 2, 0); // client's host instance, server's address, channels, no user data passed to connection
@@ -118,38 +118,4 @@ void NetworkManager::update()
             break;
         }
     }
-}
-
-void NetworkManager::sendMessage(const std::string& message)
-{
-    if (!client) {
-        std::cerr << "Client host is not initialized.\n";
-        return;
-    }
-    if (!peer || peer->state != ENET_PEER_STATE_CONNECTED) {
-        std::cerr << "No peer connection established.\n";
-        return;
-    }
-
-    ENetPacket* packet = enet_packet_create(
-        message.c_str(),
-        message.size() + 1,
-        ENET_PACKET_FLAG_RELIABLE
-    ); // reliable means guaranteed to be delivered
-
-    if (!packet)
-    {
-        std::cerr << "Packet creation failed.\n";
-        return;
-    }
-
-    // send to server
-    if (enet_peer_send(peer, 0, packet) < 0)
-    {
-        std::cerr << "Failed to send packet.\n";
-        return;
-    }
-
-    // send out queued packets without dispatching any events
-    enet_host_flush(client);
 }

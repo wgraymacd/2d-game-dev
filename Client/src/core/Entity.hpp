@@ -3,8 +3,8 @@
 #pragma once
 
 #include "EntityMemoryPool.hpp"
-#include "Globals.hpp"
-#include "Timer.hpp"
+#include "utility/Timer.hpp"
+#include "utility/Globals.hpp"
 
 /// TODO: consider adding subtypes of entities like Tiles so that entity ids (check EntityMemoryPool) don't have to be offset for different memory pools (requires taking entityID - maxTiles as index to memory pool after tile memory pool)
 

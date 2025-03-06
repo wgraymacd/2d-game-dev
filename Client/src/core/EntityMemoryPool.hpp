@@ -10,7 +10,7 @@
 #pragma once
 
 #include "Components.hpp"
-#include "Globals.hpp"
+#include "utility/Globals.hpp"
 
 #include <vector>
 #include <string>

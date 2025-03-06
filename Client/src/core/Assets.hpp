@@ -5,9 +5,9 @@
 #pragma once
 
 #include "Animation.hpp"
+
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-
 #include <cassert>
 #include <iostream>
 #include <fstream>

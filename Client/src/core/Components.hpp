@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "Vec2.hpp"
+#include "physics/Vec2.hpp"
 #include "Animation.hpp"
-#include "TileType.hpp"
-#include "Globals.hpp"
+#include "world/TileType.hpp"
 #include "State.hpp"
+#include "utility/Globals.hpp"
 
 #include <string>
 #include <array>

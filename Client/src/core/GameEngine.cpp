@@ -1,11 +1,10 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
-#include "Globals.hpp"
+#include "utility/Globals.hpp"
 #include "GameEngine.hpp"
 #include "SceneMenu.hpp"
 #include "Scene.hpp"
 #include "Assets.hpp"
-// #include "NetworkManager.hpp"
 
 #include <string>
 #include <memory>
@@ -45,7 +44,8 @@ void GameEngine::init(const std::string& path)
     // sf::VideoMode fullscreenMode = modes[0]; // 4 modes, 1st being highest resolution
     // m_window.create(fullscreenMode, "Game", sf::Style::Default);
 
-    GlobalSettings::windowSize = { static_cast<int>(modes[0].size.x), static_cast<int>(modes[0].size.y) }; /// TODO: make windowSize Vec2ui? See when doing data type shit
+    GlobalSettings::windowSizeX = static_cast<int>(modes[0].size.x);
+    GlobalSettings::windowSizeY = static_cast<int>(modes[0].size.y); /// TODO: make windowSize unsigned int? See when doing data type shit
     m_window.create(sf::VideoMode(modes[0].size), "Game", sf::Style::Default); /// TODO: should be a fullscreen option here
     std::cout << "created window: " << modes[0].size.x << " x " << modes[0].size.y << std::endl;
 
@@ -104,8 +104,9 @@ void GameEngine::sUserInput()
             // GlobalSettings::windowSize = resizedEvent->size;
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>() * scaleFactor));
 
-            GlobalSettings::windowSize = { static_cast<int>(resizedEvent->size.x), static_cast<int>(resizedEvent->size.y) };
-            m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, { static_cast<float>(GlobalSettings::windowSize.x), static_cast<float>(GlobalSettings::windowSize.y) })));
+            GlobalSettings::windowSizeX = static_cast<int>(resizedEvent->size.x);
+            GlobalSettings::windowSizeY = static_cast<int>(resizedEvent->size.y);
+            m_window.setView(sf::View(sf::FloatRect({ 0.0f, 0.0f }, { static_cast<float>(GlobalSettings::windowSizeX), static_cast<float>(GlobalSettings::windowSizeY) })));
             // m_window.setView(sf::View({ 0.0f, 0.0f }, GlobalSettings::windowSize.to<float>()));
 
             /// TODO: think about performing an action to resize view according to specific scene
