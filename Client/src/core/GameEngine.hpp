@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Assets.hpp"
-#include "networking/NetworkManager.hpp"
+#include "network/NetworkManager.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <map>

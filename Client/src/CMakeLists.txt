@@ -1,6 +1,6 @@
 # add subdirectories
 add_subdirectory(core)
-add_subdirectory(networking)
+add_subdirectory(network)
 add_subdirectory(physics)
 add_subdirectory(utility)
 add_subdirectory(world)
@@ -17,9 +17,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 # link subdirectory libraries and dependencies
 target_link_libraries(${PROJECT_NAME} PRIVATE # private makes sense since Client is an executable and not a library
-    Core
-    Network
-    Physics
-    Utility
-    World
+    core
+    network
+    physics
+    utility
+    world
 )

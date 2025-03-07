@@ -76,6 +76,7 @@ void GameEngine::run()
 void GameEngine::update(std::chrono::duration<long long, std::nano>& lag)
 {
     sUserInput();
+    m_netManager.update();
     currentScene()->updateState(lag);
 }
 

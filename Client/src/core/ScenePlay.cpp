@@ -380,7 +380,8 @@ void ScenePlay::sObjectMovement()
 
         if (playerTrans.prevPos != playerTrans.pos)
         {
-            m_game.getNetManager().sendData(playerTrans.pos);
+            NetworkData netData = { DataType::POSITION, m_game.getNetManager().getNetID(m_player.getID()), .data.floatVec = playerTrans.pos };
+            m_game.getNetManager().sendData(netData);
         }
 
         /// TODO: have crouching? does this then go in sUserInput?
@@ -1613,9 +1614,12 @@ void ScenePlay::spawnPlayer()
 {
     PROFILE_FUNCTION();
 
-    /// TODO: make sure players and weapons are deleted before new ones are created
     // set player components
     m_player = m_entityManager.addEntity("player");
+    NetworkData data = { DataType::SPAWN, m_player.getID() };
+    std::cout << "Sending: " << std::to_string(data.dataType) << ", " << data.id << "\n";
+    std::cout << "player id is " << m_player.getID() << "\n";
+    m_game.getNetManager().sendData(data);
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
     CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     playerTrans.scale = Vec2f(0.5f, 0.5f);

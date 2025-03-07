@@ -3,11 +3,17 @@
 #pragma once
 
 #include <enet/enet.h>
-#include <iostream>
+
+#include "NetEntityManager.hpp"
+#include "NetworkData.hpp"
 
 class NetworkManager
 {
-    ENetHost* server; // ENet server or client instance
+    ENetHost* m_server; // ENet server or client instance
+
+    NetworkData* m_data; // pointer to data if data received
+
+    NetEntityManager m_netEntityMan;
 
 public:
 
@@ -15,16 +21,9 @@ public:
     ~NetworkManager();
 
     void update(); // called every frame to process network events
+    // void processPosition(ENetPacket* packet);
+    // void processVelocity(const EntityID EntityID, const Vec2f& vel);
+    NetEntityID createNetEntity();
 
-    template <typename T>
-    void sendMessage(const T& message)
-    {
-        ENetPacket* packet = enet_packet_create(message.c_str(), message.size() + 1, ENET_PACKET_FLAG_RELIABLE); // reliable means guaranteed to be delivered
-
-        // send to all clients
-        enet_host_broadcast(server, 0, packet);
-
-        // send out queued packets without dispatching any events
-        enet_host_flush(server);
-    }
+    void sendData(const NetworkData& data);
 };

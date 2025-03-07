@@ -1,6 +1,0 @@
-namespace Geometry;
-
-struct Vec2 {
-    x: int32;
-    y: int32;
-}
