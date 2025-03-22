@@ -5,14 +5,14 @@
 #include "Scene.hpp"
 #include "GameEngine.hpp"
 #include "Action.hpp"
+#include "network/NetworkData.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <vector>
-#include <chrono>
+// #include <chrono>
 
-class SceneMenu : public Scene
-{
+class SceneMenu : public Scene {
     std::string m_title;
     std::vector<std::string> m_menuStrings;
     sf::Text m_menuText = sf::Text(m_game.assets().getFont("font"));
@@ -21,7 +21,8 @@ class SceneMenu : public Scene
     void init();
 
     void onEnd() override;
-    void updateState(std::chrono::duration<long long, std::nano>& lag) override;
+    // void updateState(std::chrono::duration<long long, std::nano>& lag) override;
+    void updateState() override;
     void sRender() override;
     void sDoAction(const Action& action) override;
 

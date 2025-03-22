@@ -4,8 +4,7 @@
 
 #include <cstdint>
 
-enum State : uint8_t
-{
+enum State : uint8_t {
     IDLE,
     RUN,
     AIR

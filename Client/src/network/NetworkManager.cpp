@@ -22,20 +22,18 @@ the rest is choice, should do tests for speed and such to see if it makes sense 
 #include "NetworkManager.hpp"
 
 #include <iostream>
+#include <vector>
 
 /// @brief initializes enet and creates client + connection
-NetworkManager::NetworkManager()
-{
-    if (enet_initialize() != 0)
-    {
+NetworkManager::NetworkManager() {
+    if (enet_initialize() != 0) {
         std::cerr << "Failed to initialize ENet.\n";
         exit(EXIT_FAILURE);
     }
 
     // create client
     m_client = enet_host_create(nullptr, 1, 2, 0, 0); // no specified address, so client, can handle only 1 peer (the server), 2 communication channels, and no bandwidth limits
-    if (!m_client)
-    {
+    if (!m_client) {
         std::cerr << "Failed to create client.\n";
         exit(EXIT_FAILURE);
     }
@@ -49,8 +47,7 @@ NetworkManager::NetworkManager()
 
     // send connection request to server, allocating two channels 0 and 1 (peer: connection in network, can be either a client connected to a server or a server that the client is connected to)
     m_peer = enet_host_connect(m_client, &address, 2, 0); // client's host instance, server's address, channels, no user data passed to connection
-    if (!m_peer)
-    {
+    if (!m_peer) {
         std::cerr << "Failed to connect to server.\n";
         exit(EXIT_FAILURE);
     }
@@ -59,12 +56,10 @@ NetworkManager::NetworkManager()
     // wait for connection to be established to ensure peer is fully initialized, sync mechanism
     ENetEvent event;
     if (enet_host_service(m_client, &event, 5000) > 0 &&
-        event.type == ENET_EVENT_TYPE_CONNECT)
-    {
+        event.type == ENET_EVENT_TYPE_CONNECT) {
         std::cout << "Connection to server established.\n";
     }
-    else
-    {
+    else {
         std::cerr << "Connection to server failed.\n";
         enet_peer_reset(m_peer);
         exit(EXIT_FAILURE);
@@ -72,42 +67,39 @@ NetworkManager::NetworkManager()
 }
 
 /// @brief properly cleans up network resources
-NetworkManager::~NetworkManager()
-{
+NetworkManager::~NetworkManager() {
     enet_host_destroy(m_client);
     enet_deinitialize();
 }
 
 /// @brief processes network events for the server and clients, checks for incoming connections, received messages, and disconnections
-void NetworkManager::update()
-{
+void NetworkManager::update() {
     ENetEvent event;
+
+    m_dataVec.clear(); // clear data from last call to update(), ensure that data is processed before next call to update() or data is overwritten
+
     while (enet_host_service(m_client, &event, 0) > 0) // enet_host_service polls for network events and sends queued packets (&event: stores the next network event if one exists; 0: doesn't wait for new events)
     {
-        switch (event.type)
-        {
+        switch (event.type) {
         case ENET_EVENT_TYPE_CONNECT:
             std::cout << "Connected to server.\n";
             // store client info here if needed with event.peer->data
             break;
         case ENET_EVENT_TYPE_RECEIVE:
             m_data = (NetworkData*)event.packet->data;
+            m_dataVec.push_back(*m_data);
 
-            switch (m_data->dataType)
-            {
-            case POSITION:
-                std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->id << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
-                processPosition(m_data->id, m_data->data.floatVec);
-                break;
-            case VELOCITY:
-                std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->id << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
-                processVelocity(m_data->id, m_data->data.floatVec);
-                break;
-            case SPAWN:
-                std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->id << ", " << m_data->data.netID << "\n";
-                updateIDMap(m_data->id, m_data->data.netID);
-                break;
-            }
+            // switch (m_data->dataType) {
+            // case POSITION:
+            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
+            //     break;
+            // case VELOCITY:
+            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
+            //     break;
+            // case SPAWN:
+            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
+            //     break;
+            // }
 
             // things received:
             /*
@@ -122,7 +114,6 @@ void NetworkManager::update()
             update entity components in entity map accordingly so that entity systems operate on received data
             */
 
-
             enet_packet_destroy(event.packet); // clean up memory after processing message
             m_data = nullptr;
             break;
@@ -134,17 +125,23 @@ void NetworkManager::update()
             break;
         }
     }
+
+    /// TODO: one way to make changes with the received data is to return it and get it to ScenePlay.cpp
+    /// can create a vector of NetworkData objects (each one appended in an iteration of the while loop) and perform all logic with data in ScenePlay.cpp
+    /// other method is to change things here directly before entering the ScenePlay.cpp file
+    /// would have to include Entity, Components, etc., making this library now dependent on the core library (could pull Entity and Components out of core though)
 }
 
-void NetworkManager::sendData(const NetworkData& data)
-{
-    if (!m_client)
-    {
+const std::vector<NetworkData>& NetworkManager::getData() const {
+    return m_dataVec;
+}
+
+void NetworkManager::sendData(const NetworkData& data) const {
+    if (!m_client) {
         std::cerr << "Client host is not initialized.\n";
         return;
     }
-    if (!m_peer || m_peer->state != ENET_PEER_STATE_CONNECTED)
-    {
+    if (!m_peer || m_peer->state != ENET_PEER_STATE_CONNECTED) {
         std::cerr << "No peer connection established.\n";
         return;
     }
@@ -162,8 +159,7 @@ void NetworkManager::sendData(const NetworkData& data)
         ENET_PACKET_FLAG_RELIABLE
     ); // reliable means guaranteed to be delivered
 
-    if (!packet)
-    {
+    if (!packet) {
         std::cerr << "Packet creation failed.\n";
         return;
     }
@@ -179,22 +175,15 @@ void NetworkManager::sendData(const NetworkData& data)
     enet_host_flush(m_client); // forces immediate packet transmition, no wait for enet_host_service, just gives control over send timing really
 }
 
-void NetworkManager::processPosition(const EntityID entityID, const Vec2f& pos)
-{
-    printf("Processing position.\n");
+void NetworkManager::updateIDMaps(EntityID netID, EntityID localID) {
+    m_netToLocalID[netID] = localID;
+    m_localToNetID[localID] = netID;
 }
 
-void NetworkManager::processVelocity(const EntityID entityID, const Vec2f& vel)
-{
-    printf("Processing velocity.\n");
+EntityID NetworkManager::getLocalID(EntityID netID) const {
+    return m_netToLocalID.at(netID);
 }
 
-void NetworkManager::updateIDMap(const EntityID localID, const EntityID netID)
-{
-    m_mapID[localID] = netID;
-}
-
-EntityID NetworkManager::getNetID(const EntityID localID)
-{
-    return m_mapID[localID];
+EntityID NetworkManager::getNetID(EntityID localID) const {
+    return m_localToNetID.at(localID);
 }

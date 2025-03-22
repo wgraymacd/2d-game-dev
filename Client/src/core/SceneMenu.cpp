@@ -12,14 +12,12 @@
 /// @brief constructs a new SceneMenu object, calls SceneMenu::init
 /// @param gameEngine the game's main engine; required by Scene to access the GameEngine object
 SceneMenu::SceneMenu(GameEngine& gameEngine)
-    : Scene(gameEngine)
-{
+    : Scene(gameEngine) {
     init();
 }
 
 /// @brief initialized the MENU scene: registers keybinds, sets text attributes, and defines level paths
-void SceneMenu::init()
-{
+void SceneMenu::init() {
     registerAction(static_cast<int>(sf::Keyboard::Key::W), "UP");
     registerAction(static_cast<int>(sf::Keyboard::Key::S), "DOWN");
     registerAction(static_cast<int>(sf::Keyboard::Key::Enter), "PLAY");
@@ -34,33 +32,27 @@ void SceneMenu::init()
 }
 
 /// @brief updates the scene's state
-void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
-{
+// void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
+void SceneMenu::updateState() {
     /// TODO: implement lag catching up
     sRender();
 }
 
 /// @brief performs the given action
 /// @param action an Action to perform; action has a type and a name
-void SceneMenu::sDoAction(const Action& action)
-{
-    if (action.type() == START)
-    {
-        if (action.name() == "UP")
-        {
+void SceneMenu::sDoAction(const Action& action) {
+    if (action.type() == START) {
+        if (action.name() == "UP") {
             m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : m_menuStrings.size() - 1;
         }
-        else if (action.name() == "DOWN")
-        {
+        else if (action.name() == "DOWN") {
             m_selectedMenuIndex = (m_selectedMenuIndex + 1) % m_menuStrings.size();
         }
-        else if (action.name() == "PLAY")
-        {
+        else if (action.name() == "PLAY") {
             // m_game.changeScene("PLAY", false); /// TODO: possible to change scene and handle new ones? could then switch back and forth without reseting the play scene
             m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game), true);
         }
-        else if (action.name() == "QUIT")
-        {
+        else if (action.name() == "QUIT") {
             onEnd();
         }
     }
@@ -68,8 +60,7 @@ void SceneMenu::sDoAction(const Action& action)
 
 /// TODO: since we no longer set the view to default on each frame, only setting it once in the beginning, view is gone when coming back from play scene, may be able to handle this in GameEngine or something
 /// @brief renders the scene background and text
-void SceneMenu::sRender()
-{
+void SceneMenu::sRender() {
     // clear the window to a blue
     m_game.window().clear(sf::Color(100, 100, 255));
 
@@ -81,8 +72,7 @@ void SceneMenu::sRender()
     m_game.window().draw(m_menuText);
 
     // draw all of the menu options
-    for (int i = 0; i < m_menuStrings.size(); i++)
-    {
+    for (int i = 0; i < m_menuStrings.size(); i++) {
         m_menuText.setString(m_menuStrings[i]);
         m_menuText.setFillColor(i == m_selectedMenuIndex ? sf::Color::White : sf::Color::Black);
         m_menuText.setPosition(sf::Vector2f(10, 110 + i * 72));
@@ -100,7 +90,6 @@ void SceneMenu::sRender()
 }
 
 /// @brief quits the game
-void SceneMenu::onEnd()
-{
+void SceneMenu::onEnd() {
     m_game.quit();
 }

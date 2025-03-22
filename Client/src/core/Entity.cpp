@@ -11,18 +11,15 @@
 Entity::Entity(EntityID id) : m_id(id) {}
 
 /// @brief destroy this entity
-void Entity::destroy() const
-{
+void Entity::destroy() const {
     EntityMemoryPool::Instance().removeEntity(m_id);
 }
 
 /// @brief get a bool representing this entities living status
-const bool Entity::isActive() const
-{
+bool Entity::isActive() const {
     return EntityMemoryPool::Instance().isActive(m_id);
 }
 
-const EntityID Entity::getID() const
-{
+EntityID Entity::getID() const {
     return m_id;
 }

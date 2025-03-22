@@ -4,16 +4,15 @@
 #include "Entity.hpp"
 
 CTransform::CTransform(const Vec2f& p) : pos(p), prevPos(p) {}
-CTransform::CTransform(const Vec2f& p, const float a) : pos(p), prevPos(p), angle(a), prevAngle(a) {}
+CTransform::CTransform(const Vec2f& p, float a) : pos(p), prevPos(p), angle(a), prevAngle(a) {}
 CTransform::CTransform(const Vec2f& p, const Vec2f& v, const Vec2f& sc, float angle, float angVel)
-    : pos(p), prevPos(p), velocity(v), scale(sc), angle(angle), prevAngle(angle), angularVelocity(angVel) {
-}
+    : pos(p), prevPos(p), velocity(v), scale(sc), angle(angle), prevAngle(angle), angularVelocity(angVel) {}
 
-CColor::CColor(const uint8_t r, const uint8_t g, const uint8_t b) : r(r), g(g), b(b), light(0) {}
+CColor::CColor(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b), light(0) {}
 
-CType::CType(const TileType type) : type(type) {}
+CType::CType(TileType type) : type(type) {}
 
-CLifespan::CLifespan(const int duration) : lifespan(duration) {}
+CLifespan::CLifespan(int duration) : lifespan(duration) {}
 
 CDamage::CDamage(int d) : damage(d) {}
 
@@ -29,10 +28,10 @@ CAnimation::CAnimation(const Animation& animation, bool r) : animation(animation
 
 CGravity::CGravity(float g) : gravity(g) {}
 
-CState::CState(const State s) : state(s) {}
+CState::CState(State s) : state(s) {}
 
-CFire::CFire(const int fr, const float minAcc, const float maxAcc) : fireRate(fr), minAccuracy(minAcc), accuracy(maxAcc), maxAccuracy(maxAcc) {}
+CFire::CFire(int fr, float minAcc, float maxAcc) : fireRate(fr), minAccuracy(minAcc), accuracy(maxAcc), maxAccuracy(maxAcc) {}
 
-CJointRelation::CJointRelation(const Entity& e, const float minA, const float maxA) : entityID(e.getID()), minAngle(minA), maxAngle(maxA) {}
+CJointRelation::CJointRelation(const Entity& e, float minA, float maxA) : entityID(e.getID()), minAngle(minA), maxAngle(maxA) {}
 
 CJointInfo::CJointInfo(const std::array<float, 3>& positions) : initJointOffsets(positions) {}

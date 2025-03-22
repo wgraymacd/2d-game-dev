@@ -14,19 +14,17 @@
 #include <string>
 #include <chrono>
 
-class ScenePlay : public Scene
-{
-    struct PlayerConfig
-    {
+class ScenePlay : public Scene {
+    struct PlayerConfig {
         float CW, CH, SX, SY, SM, GRAVITY; // bounding box size, speed in X and Y and max, gravity
         std::string BA; // bullet animation
     };
 
 protected:
     // tile grid
-    const Vec2i m_worldMaxCells = { GlobalSettings::worldMaxCellsX, GlobalSettings::worldMaxCellsY }; // bottom-right corner of world (grid coords)
+    const Vec2i m_worldMaxCells{ GlobalSettings::worldMaxCellsX, GlobalSettings::worldMaxCellsY }; // bottom-right corner of world (grid coords)
     const int m_cellSizePixels = GlobalSettings::cellSizePixels; // cell size (pixels)
-    const Vec2i m_worldMaxPixels = { m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
+    const Vec2i m_worldMaxPixels{ m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
 
     // views and textures
     sf::View m_mainView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(GlobalSettings::windowSizeX, GlobalSettings::windowSizeY)); // center, size
@@ -60,16 +58,17 @@ protected:
     void playerTileCollisions(const std::vector<Tile>& tiles);
     void projectileTileCollisions(std::vector<Tile>& tiles, std::vector<Entity>& bullets);
     void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
-    Entity spawnRagdollElement(const Vec2f& pos, const float angle, const Vec2i& boxSize, const Animation& animation);
+    Entity spawnRagdollElement(const Vec2f& pos, float angle, const Vec2i& boxSize, const Animation& animation);
     void createRagdoll(const Entity& entity, const Entity& cause);
-    Vec2f gridToMidPixel(const float gridX, const float gridY, const Entity entity);
+    Vec2f gridToMidPixel(float gridX, float gridY, Entity entity);
     float generateRandomFloat(float min, float max);
-    void findOpenTiles(int x, int y, const int minX, const int maxX, const int minY, const int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
+    void findOpenTiles(int x, int y, int minX, int maxX, int minY, int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
     std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY);
     void propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY);
-    void addBlock(sf::VertexArray& blocks, const int xGrid, const int yGrid, const sf::Color& c);
+    void addBlock(sf::VertexArray& blocks, int xGrid, int yGrid, const sf::Color& c);
 
-    void updateState(std::chrono::duration<long long, std::nano>& lag) override;
+    // void updateState(std::chrono::duration<long long, std::nano>& lag) override;
+    void updateState() override;
     void onEnd() override;
     // void resizeView(const Vec2f& size); /// TODO: could also have no arguments and go check globalsettings windowsize since updated first, this func used if resizing needs to be specific to each scene
 

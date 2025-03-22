@@ -1,11 +1,9 @@
 # collect all source files in this directory
 file(GLOB_RECURSE NETWORK_SOURCES "*.cpp")
-file(GLOB_RECURSE NETWORK_HEADERS "*.hpp")
 
 # create a library for this module
 add_library(network STATIC
     ${NETWORK_SOURCES}
-    ${NETWORK_HEADERS}
 )
 
 # this library needs to find headers in this directory

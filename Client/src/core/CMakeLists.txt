@@ -1,11 +1,9 @@
 # collect all source files in this directory
 file(GLOB_RECURSE CORE_SOURCES "*.cpp")
-file(GLOB_RECURSE CORE_HEADERS "*.hpp")
 
 # create a library for this module
 add_library(core STATIC
     ${CORE_SOURCES} 
-    ${CORE_HEADERS}
 )
 
 # specify where target should look for include files

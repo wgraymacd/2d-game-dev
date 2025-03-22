@@ -8,8 +8,7 @@
 
 /// TODO: consider adding subtypes of entities like Tiles so that entity ids (check EntityMemoryPool) don't have to be offset for different memory pools (requires taking entityID - maxTiles as index to memory pool after tile memory pool)
 
-class Entity
-{
+class Entity {
     EntityID m_id = -1;
     Entity(EntityID id);
     friend class EntityMemoryPool;
@@ -21,8 +20,7 @@ public:
 
     /// @brief get a component of type T from this entity
     template <typename T>
-    T& getComponent() const
-    {
+    T& getComponent() const {
         // PROFILE_FUNCTION();
 
         return EntityMemoryPool::Instance().getComponent<T>(m_id);
@@ -30,8 +28,7 @@ public:
 
     /// @brief check to see if this entity has a component of type T
     template <typename T>
-    const bool hasComponent() const
-    {
+    bool hasComponent() const {
         // PROFILE_FUNCTION();
 
         return EntityMemoryPool::Instance().hasComponent<T>(m_id);
@@ -39,14 +36,13 @@ public:
 
     /// @brief add a component of type T with argument mArgs of types TArgs to this entity
     template <typename T, typename... TArgs>
-    T& addComponent(TArgs &&...mArgs)
-    {
+    T& addComponent(TArgs &&...mArgs) {
         // PROFILE_FUNCTION();
 
         return EntityMemoryPool::Instance().addComponent<T>(m_id, std::forward<TArgs>(mArgs)...);
     }
 
     void destroy() const;
-    const bool isActive() const;
-    const EntityID getID() const;
+    bool isActive() const;
+    EntityID getID() const;
 };

@@ -2,23 +2,23 @@
 
 #pragma once
 
-#include <enet/enet.h>
-#include <unordered_map>
-
 #include "utility/Globals.hpp"
 #include "physics/Vec2.hpp"
 #include "NetworkData.hpp"
 
-// #include "NetworkSerializer.hpp"
+#include <enet/enet.h>
+#include <unordered_map>
+#include <vector>
 
-class NetworkManager
-{
+class NetworkManager {
     ENetHost* m_client;
     ENetPeer* m_peer;
 
-    NetworkData* m_data = nullptr; // pointer to data received if received, else nullptr
+    NetworkData* m_data; // pointer to single data element received if received, else nullptr
+    std::vector<NetworkData> m_dataVec;
 
-    std::unordered_map<EntityID, EntityID> m_mapID; // map[local] = net
+    std::unordered_map<EntityID, EntityID> m_netToLocalID; // map[net] = local
+    std::unordered_map<EntityID, EntityID> m_localToNetID; // map[local] = net
 
 public:
 
@@ -26,13 +26,16 @@ public:
     ~NetworkManager();
 
     void update(); // called every frame to process network events
-    void processPosition(const EntityID entityID, const Vec2f& pos);
-    void processVelocity(const EntityID entityID, const Vec2f& vel);
-    void updateIDMap(const EntityID localID, const EntityID netID);
+
+    /// @brief get data received from server
+    const std::vector<NetworkData>& getData() const;
 
     /// TODO: test this with different OSs, check for endianness, same floating-point rep, padding
     /// @brief send data to server, only works with POD
-    void sendData(const NetworkData& data);
+    void sendData(const NetworkData& data) const;
 
-    EntityID getNetID(const EntityID localID);
+    void updateIDMaps(EntityID netID, EntityID localID);
+
+    EntityID getLocalID(EntityID netID) const;
+    EntityID getNetID(EntityID localID) const;
 };

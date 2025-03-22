@@ -10,6 +10,12 @@ add_executable(${PROJECT_NAME}
     main.cpp
 )
 
+# set the output directory
+set_target_properties(${PROJECT_NAME}
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
 # include directories
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} # Client/src
