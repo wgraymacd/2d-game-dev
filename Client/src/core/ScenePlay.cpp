@@ -220,6 +220,8 @@ void ScenePlay::updateState() {
         // {
             // this can be infinite loop if it takes longer to do all this than the time per frame
             /// TODO: think about order here if it even matters
+        m_game.getNetManager().update(); // update network data /// TODO: may want to move this to the top/bottom of each function if data isn't arriving in time or something
+
         sStatus(); // lifespan and invincibility time calculations first to not waste calculations on dead entities
         sObjectMovement(); // object movement
         sObjectCollision(); // then object collisions
@@ -270,7 +272,7 @@ void ScenePlay::sObjectMovement() {
 
         switch (netDatum.dataType) {
         case POSITION:
-            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.floatVec.x << ", " << netDatum.data.floatVec.y << "\n";
+            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.x << ", " << netDatum.data.y << "\n";
 
             localID = m_game.getNetManager().getLocalID(netDatum.netID);
             entity = m_entityManager.getEntity(localID);
@@ -278,7 +280,7 @@ void ScenePlay::sObjectMovement() {
             /// TODO: update entity's position
             break;
         case VELOCITY:
-            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.floatVec.x << ", " << netDatum.data.floatVec.y << "\n";
+            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.x << ", " << netDatum.data.y << "\n";
 
             localID = m_game.getNetManager().getLocalID(netDatum.netID);
             entity = m_entityManager.getEntity(localID);
@@ -286,12 +288,16 @@ void ScenePlay::sObjectMovement() {
             /// TODO: update entity's velocity
             break;
         case SPAWN:
-            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.floatVec.x << ", " << netDatum.data.floatVec.y << "\n";
+            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.netID << ", " << netDatum.data.x << ", " << netDatum.data.y << "\n";
 
             /// TODO: this
             // Entity entity = m_entityManager.addEntity("CHANGE THIS");
             // m_game.getNetManager().updateIDMaps(netDatum.netID, entity.getID());
             break;
+        case LOCAL_SPAWN:
+            std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.localID << netDatum.netID << "\n";
+
+            m_game.getNetManager().updateIDMaps(netDatum.netID, netDatum.localID);
         }
     }
 
@@ -381,7 +387,7 @@ void ScenePlay::sObjectMovement() {
         playerTrans.pos += playerTrans.velocity;
 
         if (playerTrans.prevPos != playerTrans.pos) {
-            NetworkData netData = { DataType::POSITION, m_game.getNetManager().getNetID(m_player.getID()), .data.floatVec = playerTrans.pos };
+            NetworkData netData{ DataType::POSITION, m_player.getID(), m_game.getNetManager().getNetID(m_player.getID()), playerTrans.pos };
             m_game.getNetManager().sendData(netData);
         }
 
@@ -1554,10 +1560,6 @@ void ScenePlay::spawnPlayer() {
 
     // set player components
     m_player = m_entityManager.addEntity("player");
-    NetworkData data = { DataType::SPAWN, m_player.getID() };
-    std::cout << "Sending: " << std::to_string(data.dataType) << ", " << data.netID << "\n";
-    std::cout << "player id is " << m_player.getID() << "\n";
-    m_game.getNetManager().sendData(data);
     m_player.addComponent<CBoundingBox>(Vec2i(m_playerConfig.CW, m_playerConfig.CH), true, true);
     CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     playerTrans.scale = Vec2f(0.5f, 0.5f);
@@ -1567,6 +1569,10 @@ void ScenePlay::spawnPlayer() {
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
     m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
     m_player.addComponent<CHealth>(100);
+
+    // send spawn to network
+    NetworkData data{ DataType::SPAWN, m_player.getID(), -1, m_player.getComponent<CTransform>().pos };
+    m_game.getNetManager().sendData(data);
 
     // spawn player arms
     m_playerArmBack = m_entityManager.addEntity("playerPart");

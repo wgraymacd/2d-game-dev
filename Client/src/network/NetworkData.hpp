@@ -6,14 +6,13 @@
 enum DataType : uint8_t {
     POSITION,
     VELOCITY,
-    SPAWN
+    SPAWN,
+    LOCAL_SPAWN
 };
 
 struct NetworkData {
     DataType dataType;
-    EntityID netID; // sent and received to and from client
-    union { // send and receive different data types with union
-        Vec2i intVec;
-        Vec2f floatVec;
-    } data;
+    EntityID localID;
+    EntityID netID;
+    Vec2f data;
 };

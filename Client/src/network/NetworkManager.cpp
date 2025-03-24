@@ -87,6 +87,7 @@ void NetworkManager::update() {
             break;
         case ENET_EVENT_TYPE_RECEIVE:
             m_data = (NetworkData*)event.packet->data;
+            // std::cout << "Received: " << m_data->dataType << ", " << m_data->netID << ", " << m_data->data.x << ", " << m_data->data.y << "\n";
             m_dataVec.push_back(*m_data);
 
             // switch (m_data->dataType) {
@@ -137,6 +138,8 @@ const std::vector<NetworkData>& NetworkManager::getData() const {
 }
 
 void NetworkManager::sendData(const NetworkData& data) const {
+    std::cout << "Sending: " << std::to_string(data.dataType) << ", " << data.netID << ", " << data.data.x << ", " << data.data.y << "\n";
+
     if (!m_client) {
         std::cerr << "Client host is not initialized.\n";
         return;
@@ -176,6 +179,7 @@ void NetworkManager::sendData(const NetworkData& data) const {
 }
 
 void NetworkManager::updateIDMaps(EntityID netID, EntityID localID) {
+    std::cout << "Mapping netID " << netID << " to localID " << localID << ".\n";
     m_netToLocalID[netID] = localID;
     m_localToNetID[localID] = netID;
 }
