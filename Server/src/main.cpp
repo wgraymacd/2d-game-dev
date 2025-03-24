@@ -2,10 +2,9 @@
 
 #include "ServerEngine.hpp"
 
-int main()
-{
+int main() {
     ServerEngine server;
     server.run();
 
-    return EXIT_SUCCESS;
+    return 0;
 }

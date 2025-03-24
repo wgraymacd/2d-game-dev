@@ -3,46 +3,32 @@
 #include "Globals.hpp"
 
 #include <vector>
-#include <stack>
+#include <cassert>
 
-class NetEntityManager
-{
-    // std::vector<bool> m_netEntities = std::vector<bool>(GlobalSettings::worldMaxEntities); // true if active, false if not, where ID = index
-    std::vector<NetEntityID> m_freeList; // dynamic list tracking free spaces in m_netEntities
+class NetEntityManager {
+    std::vector<EntityID> m_freeList; // dynamic list tracking free IDs
 
 public:
 
-    NetEntityManager()
-    {
-        for (int i = 0; i < GlobalSettings::worldMaxEntities; ++i)
-        {
+    /// @brief construct a NetEntityManager with a list of free IDs
+    NetEntityManager() {
+        for (int i = 0; i < GlobalSettings::worldMaxEntities; ++i) {
             m_freeList.push_back(i);
         }
     }
 
-    NetEntityID addNetEntity()
-    {
-        NetEntityID id;
+    /// @brief find and remove a free ID from the list of free IDs, return the ID
+    EntityID addNetEntity() {
+        assert(!m_freeList.empty());
 
-        // find index
-        if (!m_freeList.empty())
-        {
-            id = m_freeList.back();
-            m_freeList.pop_back();
-        }
-        else
-        {
-            printf("Free list empty.");
-            exit(EXIT_FAILURE);
-        }
+        EntityID id{ m_freeList.back() };
+        m_freeList.pop_back();
 
-        // m_netEntities[id] = true;
         return id;
     }
 
-    void removeNetEntity(const NetEntityID id)
-    {
-        // m_netEntities[id] = false;
+    /// @brief add id to the list of free IDs
+    void makeFree(const EntityID id) {
         m_freeList.push_back(id);
     }
 };

@@ -22,38 +22,31 @@
 #include <fstream>
 #include <thread>
 
-struct ProfileResult
-{
+struct ProfileResult {
     std::string name = "Default";
     long long start = 0;
     long long end = 0;
     int threadID = 0;
 };
 
-class Profiler
-{
-    std::ofstream m_fout = std::ofstream("result.json");
+class Profiler {
+    std::ofstream m_fout{ std::ofstream("result.json") };
     bool m_firstEntry = true;
 
-    Profiler()
-    {
+    Profiler() {
         m_fout << "{\n    \"traceEvents\":\n    [\n";
     }
 
 public:
-    static Profiler& Instance()
-    {
+    static Profiler& Instance() {
         static Profiler instance;
         return instance;
     }
-    void writeProfile(const ProfileResult& r)
-    {
-        if (!m_firstEntry)
-        {
+    void writeProfile(const ProfileResult& r) {
+        if (!m_firstEntry) {
             m_fout << ",\n";
         }
-        else
-        {
+        else {
             m_firstEntry = false;
         }
 
@@ -67,25 +60,22 @@ public:
             << "\"tid\": " << r.threadID << " }";
     }
 
-    ~Profiler()
-    {
+    ~Profiler() {
         // flush();
         m_fout << "\n    ]\n}";
         m_fout.close();
     }
 }; // singleton will destruct when program exists normally, when Timer stops, call Profiler::Instance().writeProfile() 
 
-class ProfileTimer
-{
+class ProfileTimer {
     ProfileResult m_result;
     bool m_stopped = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_stp;
 
-    void stop()
-    {
+    void stop() {
         using namespace std::chrono;
 
-        if (m_stopped) { return; }
+        if (m_stopped) return;
         m_stopped = true;
 
         auto etp = high_resolution_clock::now();
@@ -97,8 +87,7 @@ class ProfileTimer
     }
 
 public:
-    ProfileTimer(const std::string& name)
-    {
+    ProfileTimer(const std::string& name) {
         m_result.name = name;
         m_stp = std::chrono::high_resolution_clock::now();
     }

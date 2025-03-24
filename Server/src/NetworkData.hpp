@@ -5,21 +5,16 @@
 #include "Vec2.hpp"
 #include "Globals.hpp"
 
-enum DataType : uint8_t
-{
+enum DataType : uint8_t {
     POSITION,
     VELOCITY,
-    SPAWN
+    SPAWN,
+    LOCAL_SPAWN
 };
 
-struct NetworkData
-{
+struct NetworkData {
     DataType dataType;
-    NetEntityID id; // is SPAWN, this is a local entity ID, else it's a net ID
-    union
-    {
-        NetEntityID netId; // if SPAWN, this is sent to client
-        Vec2i intVec;
-        Vec2f floatVec;
-    } data;
+    EntityID localID;
+    EntityID netID;
+    Vec2f data;
 };

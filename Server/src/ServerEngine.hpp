@@ -4,11 +4,7 @@
 
 #include "NetworkManager.hpp"
 
-#include <string>
-#include <chrono>
-
-class ServerEngine
-{
+class ServerEngine {
     NetworkManager m_netManager;
     bool m_running = true;
 
