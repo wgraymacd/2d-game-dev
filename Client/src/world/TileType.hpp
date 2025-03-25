@@ -12,6 +12,7 @@ enum TileType : uint8_t {
     STONEWALL,
     BRICK,
     BRICKWALL,
-    GLASS, // same health as rock but does not block vision, ricochet changes with angle 
-    BEDROCK // cannot break
+    GLASS, // little health but does not block vision, ricochet chance changes with angle 
+    BULLETPROOFGLASS, // immune to bullets but not explosives for e.g., does not block vision, same ricochet as normal glass
+    BEDROCK // cannot break at all
 };

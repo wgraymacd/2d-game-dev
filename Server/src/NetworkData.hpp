@@ -2,19 +2,25 @@
 
 #pragma once
 
-#include "Vec2.hpp"
 #include "Globals.hpp"
+
+#include <cstdint>
 
 enum DataType : uint8_t {
     POSITION,
     VELOCITY,
     SPAWN,
-    LOCAL_SPAWN
+    LOCAL_SPAWN,
+    WORLD_SEED,
+    LOBBY_CONNECT
 };
 
 struct NetworkData {
     DataType dataType;
+
     EntityID localID;
     EntityID netID;
-    Vec2f data;
+
+    float first;
+    float second;
 };

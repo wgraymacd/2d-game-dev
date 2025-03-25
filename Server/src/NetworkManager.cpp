@@ -2,8 +2,6 @@
 
 #include "NetworkManager.hpp"
 
-#include "Vec2.hpp"
-
 #include <iostream>
 
 /// @brief initializes enet and creates server
@@ -13,7 +11,7 @@ NetworkManager::NetworkManager() {
         exit(EXIT_FAILURE);
     }
 
-    // creat server
+    // create server
     ENetAddress address;
     address.host = ENET_HOST_ANY; // accept connections from any IP address (host: device connected to a network, both server and client are hosts)
     address.port = 54000; // listen for incoming connections on this port (port: number that IDs a specific process or service running on a host, clients must connects to this port)
@@ -45,10 +43,12 @@ void NetworkManager::update() {
     {
         switch (event.type) {
         case ENET_EVENT_TYPE_CONNECT: /// TODO: this event is not processed until the first message is sent from the client, could be a localhost thing, idk, but look into it later
-            std::cout << "Client connected (host = "
-                << event.peer->address.host
-                << ", port = " << event.peer->address.port << ").\n";
+            std::cout << "Client connected (host = " << event.peer->address.host << ", port = " << event.peer->address.port << ").\n";
             // store client info here if needed with event.peer->data
+
+            // join open lobby or create new one
+            // send lobby address to client
+
             break;
 
         case ENET_EVENT_TYPE_RECEIVE:
@@ -75,13 +75,25 @@ void NetworkManager::update() {
                 std::cout << "Creating new net entity.\n";
                 m_data->netID = createNetEntity(); // network ID
                 m_data->dataType = LOCAL_SPAWN;
-                sendNetID(event.peer, *m_data);
+                sendData(event.peer, *m_data);
                 m_data->dataType = SPAWN;
                 broadcastData(*m_data);
                 enet_packet_destroy(event.packet); // clean up memory after processing message, careful not to clean memory in use or already cleaned memory cuz will seg fault
                 break;
 
+            case LOBBY_CONNECT:
+                std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->localID << "\n";
+
+                /// @todo
+                // find free lobby or create new one
+                // send lobby info (address) to client
+                // client attempts to connect to lobby
+                // lobby creates unique client ID for lobby and sends to client
+
+                break;
+
             case LOCAL_SPAWN:
+            case WORLD_SEED:
                 break;
             }
 
@@ -132,7 +144,7 @@ void NetworkManager::broadcastData(const NetworkData& data) {
     enet_host_flush(m_server);
 }
 
-void NetworkManager::sendNetID(ENetPeer* clientPeer, const NetworkData& data) {
+void NetworkManager::sendData(ENetPeer* clientPeer, const NetworkData& data) {
     std::cout << "Sending net ID to client: " << data.netID << ".\n";
 
     ENetPacket* packet = enet_packet_create(

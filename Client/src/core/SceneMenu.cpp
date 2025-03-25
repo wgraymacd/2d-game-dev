@@ -34,7 +34,17 @@ void SceneMenu::init() {
 /// @brief updates the scene's state
 // void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
 void SceneMenu::updateState() {
-    /// TODO: implement lag catching up
+    m_game.getNetManager().update();
+    const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
+    for (const NetworkData& netDatum : netData) { /// @todo this is only one item of data as of now, think about this
+        if (netDatum.dataType == LOBBY_CONNECT) {
+            int lobbyPort = netDatum.netID; // I made it netID in this case since lobbyPort is of type int
+            /// @todo either pass information to ScenePlay object and ScenePlay object will handle lobby connection
+            // or connect to lobby here, get world seed, then pass that to ScenePlay and join game
+            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game), true);
+        }
+    }
+
     sRender();
 }
 
@@ -49,8 +59,9 @@ void SceneMenu::sDoAction(const Action& action) {
             m_selectedMenuIndex = (m_selectedMenuIndex + 1) % m_menuStrings.size();
         }
         else if (action.name() == "PLAY") {
-            // m_game.changeScene("PLAY", false); /// TODO: possible to change scene and handle new ones? could then switch back and forth without reseting the play scene
-            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game), true);
+            // attempt to connect to a lobby
+            NetworkData data{ .dataType = LOBBY_CONNECT };
+            m_game.getNetManager().sendData(data);
         }
         else if (action.name() == "QUIT") {
             onEnd();
@@ -58,7 +69,7 @@ void SceneMenu::sDoAction(const Action& action) {
     }
 }
 
-/// TODO: since we no longer set the view to default on each frame, only setting it once in the beginning, view is gone when coming back from play scene, may be able to handle this in GameEngine or something
+/// @todo since we no longer set the view to default on each frame, only setting it once in the beginning, view is gone when coming back from play scene, may be able to handle this in GameEngine or something
 /// @brief renders the scene background and text
 void SceneMenu::sRender() {
     // clear the window to a blue

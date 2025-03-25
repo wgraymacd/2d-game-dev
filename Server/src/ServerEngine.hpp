@@ -2,16 +2,21 @@
 
 #pragma once
 
-#include "NetworkManager.hpp"
+#include <thread> // added by chat
+#include <vector>
+#include "MatchmakingServer.hpp"
+#include "LobbyServer.hpp" // added by chat
 
 class ServerEngine {
-    NetworkManager m_netManager;
-    bool m_running = true;
-
-    void update();
+    MatchmakingServer m_matchmakingServer; // matchmaking thread
+    std::vector<std::thread> m_lobbyThreads; // added by chat
+    bool m_isRunning = true;
+    // void update(); // removed by chat
+    void runLobby(LobbyServer& lobby); // added by chat
 
 public:
-    ServerEngine() = default;
+    ServerEngine();
+    ~ServerEngine();
 
     void run();
 };

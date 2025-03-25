@@ -3,7 +3,6 @@
 #pragma once
 
 #include "NetEntityManager.hpp"
-
 #include "NetworkData.hpp"
 
 #include <enet/enet.h>
@@ -24,11 +23,11 @@ public:
     // void processPosition(ENetPacket* packet);
     // void processVelocity(const EntityID EntityID, const Vec2f& vel);
 
-    /// @brief creates a new net entity and returns its net ID
     EntityID createNetEntity();
 
+    /// @brief send data to all connected clients
     void broadcastData(const NetworkData& data);
 
-    /// @brief send a single client the id of the client's entity spawned, for use with DataType::SPAWN
-    void sendNetID(ENetPeer* clientPeer, const NetworkData& data);
+    /// @brief send data to a single client
+    void sendData(ENetPeer* clientPeer, const NetworkData& data);
 };

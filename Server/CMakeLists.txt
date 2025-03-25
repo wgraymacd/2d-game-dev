@@ -3,16 +3,15 @@ project(Server)
 
 # C++ standard
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # debug
 set(CMAKE_BUILD_TYPE Debug)
 
-# executable
-add_executable(Server 
-    src/main.cpp 
-    src/ServerEngine.cpp
-    src/NetworkManager.cpp
-)
+# build type if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug)
+endif()
 
 # enet
 find_library(ENET_LIB enet REQUIRED PATHS /opt/homebrew/lib) # find the library in one of these directory paths
@@ -26,5 +25,5 @@ if(ENET_LIB)
     include_directories(${ENET_INCLUDE_DIR})
 endif()
 
-# link libraries
-target_link_libraries(Server PRIVATE ${ENET_LIB})
+# add subdirectories
+add_subdirectory(src)

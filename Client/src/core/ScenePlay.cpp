@@ -23,6 +23,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+
 #include <string>
 #include <vector>
 #include <array>
@@ -31,7 +32,6 @@
 #include <random> // number generation for colors of blocks
 #include <unordered_set>
 
-/// @brief vonstructs a new ScenePlay object, calls ScenePlay::init
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 ScenePlay::ScenePlay(GameEngine& gameEngine)
     : Scene(gameEngine) {
@@ -44,7 +44,7 @@ ScenePlay::ScenePlay(GameEngine& gameEngine)
  * scene initialization functions
  */
 
- /// @brief initializes the scene: registers keybinds, sets grid and fps text attributes, and calls loadGame
+ /// @brief registers keybinds, sets fps text attributes, minimap viewport, and calls loadGame()
 void ScenePlay::init() {
     PROFILE_FUNCTION();
 
@@ -72,7 +72,6 @@ void ScenePlay::init() {
     loadGame();
 }
 
-/// TODO: intergrate network somehow, maybe load some stuff from server
 /// @brief loads data that is individual to the specific player, generates world, spawns player
 void ScenePlay::loadGame() {
     PROFILE_FUNCTION();
@@ -88,7 +87,6 @@ void ScenePlay::loadGame() {
     std::string type;
 
     while (file >> type) {
-        /// TODO: consider position decorations w.r.t. their top-left corner using gridToPixel instead of center (things with collisions implemented with centered positions)
         if (type == "Player") {
             file >> m_playerConfig.CW >> m_playerConfig.CH >> m_playerConfig.SX >> m_playerConfig.SY >> m_playerConfig.SM >> m_playerConfig.GRAVITY >> m_playerConfig.BA;
         }
@@ -104,10 +102,14 @@ void ScenePlay::loadGame() {
     spawnPlayer();
 }
 
-/// TODO: this should all be on server so that all players get the same world
 /// @brief randomly generate the playing world
 void ScenePlay::generateWorld() {
     PROFILE_FUNCTION();
+
+    // connect to a lobby and get world gen seed
+    NetworkData data{ .dataType = LOBBY_CONNECT, .localID = m_player.getID() };
+    m_game.getNetManager().sendData(data);
+    m_game.getNetManager().update();
 
     /// TODO: mountains, caves, lakes, rivers, even terrain, biomes, etc.
 
@@ -298,6 +300,9 @@ void ScenePlay::sObjectMovement() {
             std::cout << "Received: " << std::to_string(netDatum.dataType) << ", " << netDatum.localID << netDatum.netID << "\n";
 
             m_game.getNetManager().updateIDMaps(netDatum.netID, netDatum.localID);
+
+        default:
+            std::cerr << "Invalid data type received: " << netDatum.dataType << "\n";
         }
     }
 
@@ -386,6 +391,7 @@ void ScenePlay::sObjectMovement() {
         playerTrans.prevPos = playerTrans.pos;
         playerTrans.pos += playerTrans.velocity;
 
+        /// send network updates to server
         if (playerTrans.prevPos != playerTrans.pos) {
             NetworkData netData{ DataType::POSITION, m_player.getID(), m_game.getNetManager().getNetID(m_player.getID()), playerTrans.pos };
             m_game.getNetManager().sendData(netData);

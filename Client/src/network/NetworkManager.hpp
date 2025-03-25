@@ -38,4 +38,6 @@ public:
 
     EntityID getLocalID(EntityID netID) const;
     EntityID getNetID(EntityID localID) const;
+
+    void findLobby();
 };

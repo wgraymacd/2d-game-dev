@@ -42,7 +42,7 @@ NetworkManager::NetworkManager() {
     // connect to server 127.0.0.1, localhost
     ENetAddress address;
     enet_address_set_host(&address, "127.0.0.1");
-    address.port = 54000;
+    address.port = 5000; // must match the server one for matchmaking
     std::cout << "Defined server 127.0.0.1: address.host = " << address.host << " and address.port = " << address.port << ".\n";
 
     // send connection request to server, allocating two channels 0 and 1 (peer: connection in network, can be either a client connected to a server or a server that the client is connected to)
@@ -88,32 +88,7 @@ void NetworkManager::update() {
         case ENET_EVENT_TYPE_RECEIVE:
             m_data = (NetworkData*)event.packet->data;
             // std::cout << "Received: " << m_data->dataType << ", " << m_data->netID << ", " << m_data->data.x << ", " << m_data->data.y << "\n";
-            m_dataVec.push_back(*m_data);
-
-            // switch (m_data->dataType) {
-            // case POSITION:
-            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
-            //     break;
-            // case VELOCITY:
-            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
-            //     break;
-            // case SPAWN:
-            //     std::cout << "Received: " << std::to_string(m_data->dataType) << ", " << m_data->netID << ", " << m_data->data.floatVec.x << ", " << m_data->data.floatVec.y << "\n";
-            //     break;
-            // }
-
-            // things received:
-            /*
-            everything that must be the same for all players:
-            player positions and aiming directions (and vel and all that if doing local calculation corrected by server simulation)
-            ragdoll positions (if they are interactable or explosive or anything that affects gameplay)
-            bullet spawn positions (and maybe even updated positions as traveling, but could update locally)
-            */
-
-            // what to do with them:
-            /*
-            update entity components in entity map accordingly so that entity systems operate on received data
-            */
+            m_dataVec.push_back(*m_data); /// TODO: consider adding things to multiple vectors, one for each type of data so that I can access each one at separate times in ScenePlay.cpp
 
             enet_packet_destroy(event.packet); // clean up memory after processing message
             m_data = nullptr;
@@ -126,11 +101,6 @@ void NetworkManager::update() {
             break;
         }
     }
-
-    /// TODO: one way to make changes with the received data is to return it and get it to ScenePlay.cpp
-    /// can create a vector of NetworkData objects (each one appended in an iteration of the while loop) and perform all logic with data in ScenePlay.cpp
-    /// other method is to change things here directly before entering the ScenePlay.cpp file
-    /// would have to include Entity, Components, etc., making this library now dependent on the core library (could pull Entity and Components out of core though)
 }
 
 const std::vector<NetworkData>& NetworkManager::getData() const {

@@ -5,14 +5,14 @@
 #include <vector>
 #include <cassert>
 
-class NetEntityManager {
+class LobbyEntityManager {
     std::vector<EntityID> m_freeList; // dynamic list tracking free IDs
 
 public:
 
-    /// @brief construct a NetEntityManager with a list of free IDs
-    NetEntityManager() {
-        for (int i = 0; i < GlobalSettings::worldMaxEntities; ++i) {
+    /// @brief construct a LobbyEntityManager with a list of free IDs
+    LobbyEntityManager() {
+        for (int i = 0; i < Settings::worldMaxEntities; ++i) {
             m_freeList.push_back(i);
         }
     }
