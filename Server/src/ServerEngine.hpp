@@ -2,12 +2,16 @@
 
 #pragma once
 
-#include <thread> // added by chat
-#include <vector>
+// Server
 #include "MatchmakingServer.hpp"
 #include "LobbyServer.hpp" // added by chat
 
-class ServerEngine {
+// C++ standard library
+#include <thread> // added by chat
+#include <vector>
+
+class ServerEngine
+{
     MatchmakingServer m_matchmakingServer; // matchmaking thread
     std::vector<std::thread> m_lobbyThreads; // added by chat
     bool m_isRunning = true;

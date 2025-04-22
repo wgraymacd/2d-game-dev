@@ -1,5 +1,6 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
+// Core
 #include "SceneMenu.hpp"
 #include "ScenePlay.hpp"
 #include "Scene.hpp"
@@ -7,21 +8,27 @@
 #include "GameEngine.hpp"
 #include "Action.hpp"
 
+// Global
+#include "NetworkData.hpp"
+
+// Exernal libraries
 #include <SFML/Graphics.hpp>
 
 /// @brief constructs a new SceneMenu object, calls SceneMenu::init
 /// @param gameEngine the game's main engine; required by Scene to access the GameEngine object
 SceneMenu::SceneMenu(GameEngine& gameEngine)
-    : Scene(gameEngine) {
+    : Scene(gameEngine)
+{
     init();
 }
 
 /// @brief initialized the MENU scene: registers keybinds, sets text attributes, and defines level paths
-void SceneMenu::init() {
-    registerAction(static_cast<int>(sf::Keyboard::Key::W), "UP");
-    registerAction(static_cast<int>(sf::Keyboard::Key::S), "DOWN");
-    registerAction(static_cast<int>(sf::Keyboard::Key::Enter), "PLAY");
-    registerAction(static_cast<int>(sf::Keyboard::Key::Escape), "QUIT");
+void SceneMenu::init()
+{
+    registerAction(static_cast<unsigned int>(sf::Keyboard::Key::W), "UP");
+    registerAction(static_cast<unsigned int>(sf::Keyboard::Key::S), "DOWN");
+    registerAction(static_cast<unsigned int>(sf::Keyboard::Key::Enter), "PLAY");
+    registerAction(static_cast<unsigned int>(sf::Keyboard::Key::Escape), "QUIT");
 
     m_title = "2D Platformer";
     m_menuStrings.push_back("Level 1");
@@ -33,15 +40,31 @@ void SceneMenu::init() {
 
 /// @brief updates the scene's state
 // void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
-void SceneMenu::updateState() {
+void SceneMenu::updateState()
+{
     m_game.getNetManager().update();
     const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
-    for (const NetworkData& netDatum : netData) { /// @todo this is only one item of data as of now, think about this
-        if (netDatum.dataType == LOBBY_CONNECT) {
-            int lobbyPort = netDatum.netID; // I made it netID in this case since lobbyPort is of type int
-            /// @todo either pass information to ScenePlay object and ScenePlay object will handle lobby connection
-            // or connect to lobby here, get world seed, then pass that to ScenePlay and join game
-            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game), true);
+    for (const NetworkData& netDatum : netData)
+    { /// @todo this is only one item of data as of now, think about this
+        std::cout << "Got some data: " << netDatum << "\n";
+
+        if (netDatum.dataType == NetworkData::DataType::LOBBY_CONNECT)
+        {
+            std::cout << "Connecting to lobby\n";
+            // connect to lobby here (so that if it fails we still in menu scene)
+            m_game.getNetManager().connectTo(
+                netDatum.first.i,
+                netDatum.second.i,
+                netDatum.third.i,
+                netDatum.fourth.i,
+                netDatum.fifth.i
+            );
+        }
+        else if (netDatum.dataType == NetworkData::DataType::WORLD_SEED)
+        {
+            std::cout << "Initializing world with seed\n";
+            // get world seed, then pass that to ScenePlay and join game
+            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game, netDatum.first.i));
         }
     }
 
@@ -50,20 +73,26 @@ void SceneMenu::updateState() {
 
 /// @brief performs the given action
 /// @param action an Action to perform; action has a type and a name
-void SceneMenu::sDoAction(const Action& action) {
-    if (action.type() == START) {
-        if (action.name() == "UP") {
-            m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : m_menuStrings.size() - 1;
+void SceneMenu::sDoAction(const Action& action)
+{
+    if (action.type() == START)
+    {
+        if (action.name() == "UP")
+        {
+            m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : static_cast<unsigned int>(m_menuStrings.size()) - 1u;
         }
-        else if (action.name() == "DOWN") {
+        else if (action.name() == "DOWN")
+        {
             m_selectedMenuIndex = (m_selectedMenuIndex + 1) % m_menuStrings.size();
         }
-        else if (action.name() == "PLAY") {
+        else if (action.name() == "PLAY")
+        {
             // attempt to connect to a lobby
-            NetworkData data{ .dataType = LOBBY_CONNECT };
+            NetworkData data { .dataType = NetworkData::DataType::LOBBY_CONNECT };
             m_game.getNetManager().sendData(data);
         }
-        else if (action.name() == "QUIT") {
+        else if (action.name() == "QUIT")
+        {
             onEnd();
         }
     }
@@ -71,7 +100,8 @@ void SceneMenu::sDoAction(const Action& action) {
 
 /// @todo since we no longer set the view to default on each frame, only setting it once in the beginning, view is gone when coming back from play scene, may be able to handle this in GameEngine or something
 /// @brief renders the scene background and text
-void SceneMenu::sRender() {
+void SceneMenu::sRender()
+{
     // clear the window to a blue
     m_game.window().clear(sf::Color(100, 100, 255));
 
@@ -83,10 +113,11 @@ void SceneMenu::sRender() {
     m_game.window().draw(m_menuText);
 
     // draw all of the menu options
-    for (int i = 0; i < m_menuStrings.size(); i++) {
+    for (size_t i = 0; i < m_menuStrings.size(); ++i)
+    {
         m_menuText.setString(m_menuStrings[i]);
         m_menuText.setFillColor(i == m_selectedMenuIndex ? sf::Color::White : sf::Color::Black);
-        m_menuText.setPosition(sf::Vector2f(10, 110 + i * 72));
+        m_menuText.setPosition(sf::Vector2f(10.f, 110.f + i * 72.f));
         m_game.window().draw(m_menuText);
     }
 
@@ -101,6 +132,7 @@ void SceneMenu::sRender() {
 }
 
 /// @brief quits the game
-void SceneMenu::onEnd() {
+void SceneMenu::onEnd()
+{
     m_game.quit();
 }

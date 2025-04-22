@@ -1,13 +1,16 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
+// Core
 #include "Entity.hpp"
 #include "EntityMemoryPool.hpp"
 #include "Components.hpp"
-#include "utility/Globals.hpp"
 
+// Utility
+#include "utility/ClientGlobals.hpp"
+
+// C++ standard libraries
 #include <vector>
 #include <string>
-
 #include <iostream>
 
 /// @brief construct the entity memory pools (under one EntityMemoryPool object) and associated member variables
@@ -68,15 +71,14 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxEntities)
 /// @return same, persistent instance of the class
 EntityMemoryPool& EntityMemoryPool::Instance()
 {
-    static EntityMemoryPool pool(GlobalSettings::worldMaxEntities);
-    // static EntityMemoryPool pool(GlobalSettings::worldMaxCells.x * GlobalSettings::worldMaxCells.y, GlobalSettings::worldMaxEntities);
+    static EntityMemoryPool pool(Settings::worldMaxEntities);
+    // static EntityMemoryPool pool(Settings::worldMaxCells.x * Settings::worldMaxCells.y, Settings::worldMaxEntities);
     return pool;
 } // a singleton, globally acces in safe way, only one instance ever
 
 /// TODO: could consider just returning IDs everywhere instead of entity objects
 
-/// @brief add an entity to the corresponding pool based on tag
-Entity EntityMemoryPool::addEntity(const std::string& tag)
+Entity EntityMemoryPool::addEntity()
 {
     EntityID index;
 

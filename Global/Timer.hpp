@@ -1,7 +1,7 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
 // use a singleton for this
-// singleton class insures that only one instance of the class can be created  
+// singleton class insures that only one instance of the class can be created
 // typical use case is for global functionality, like this case
 
 // #define PROFILING
@@ -27,12 +27,12 @@ struct ProfileResult
     std::string name = "Default";
     long long start = 0;
     long long end = 0;
-    int threadID = 0;
+    size_t threadID = 0;
 };
 
 class Profiler
 {
-    std::ofstream m_fout = std::ofstream("result.json");
+    std::ofstream m_fout { std::ofstream("result.json") };
     bool m_firstEntry = true;
 
     Profiler()
@@ -73,7 +73,7 @@ public:
         m_fout << "\n    ]\n}";
         m_fout.close();
     }
-}; // singleton will destruct when program exists normally, when Timer stops, call Profiler::Instance().writeProfile() 
+}; // singleton will destruct when program exists normally, when Timer stops, call Profiler::Instance().writeProfile()
 
 class ProfileTimer
 {
@@ -85,13 +85,13 @@ class ProfileTimer
     {
         using namespace std::chrono;
 
-        if (m_stopped) { return; }
+        if (m_stopped) return;
         m_stopped = true;
 
         auto etp = high_resolution_clock::now();
         m_result.start = time_point_cast<microseconds>(m_stp).time_since_epoch().count();
         m_result.end = time_point_cast<microseconds>(etp).time_since_epoch().count();
-        m_result.threadID = std::hash<std::thread::id>{}(std::this_thread::get_id());
+        m_result.threadID = std::hash<std::thread::id> { } (std::this_thread::get_id());
 
         Profiler::Instance().writeProfile(m_result);
     }

@@ -2,10 +2,16 @@
 
 #pragma once
 
+// Core
 #include "Assets.hpp"
+
+// Network
 #include "network/NetworkManager.hpp"
 
+// External libraries
 #include <SFML/Graphics.hpp>
+
+// C++ standard libraries
 #include <map>
 #include <string>
 #include <memory>
@@ -13,7 +19,8 @@
 
 class Scene; // forward declaration to resolve circular dependency, no need to include Scene.hpp here since GameEngine.hpp doesn't need to know the details
 
-class GameEngine {
+class GameEngine
+{
     NetworkManager m_netManager;
     sf::RenderWindow m_window;
     Assets m_assets;
@@ -30,8 +37,8 @@ class GameEngine {
 public:
     GameEngine();
 
-    void addScene(const std::string& sceneName, std::shared_ptr<Scene> scene, bool endThisScene = false);
-    void changeScene(const std::string& sceneName, bool endThisScene = false);
+    void addScene(const std::string& sceneName, std::shared_ptr<Scene> scene);
+    void changeScene(const std::string& sceneName);
     void quit();
     void run();
 

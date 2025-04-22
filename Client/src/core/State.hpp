@@ -2,10 +2,14 @@
 
 #pragma once
 
+// C++ standard libraries
 #include <cstdint>
 
-enum State : uint8_t {
+enum class State
+{
+    NONE,
     IDLE,
     RUN,
-    AIR
+    AIR,
+    NUM_STATES
 };

@@ -5,12 +5,19 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
+// World
 #include "FastNoiseLite.h"
 #include "TileType.hpp"
 #include "StructureTypes.hpp"
+
+// Global
+#include "Timer.hpp"
+#include "Random.hpp"
+
+// C++ standard libraries
+#include <string>
+#include <vector>
+#include <iostream>
 
 /// TODO: add biomes with specific rules for generation, could even define temp, humidity, etc. and calc tree density or water or weather or anything from them
 /// TODO: enum for tile types
@@ -18,10 +25,40 @@
 /// NOTE: if I use a certain seed, shit never changes, so can always get back to the same world
 class WorldGenerator
 {
+public:
+
+    WorldGenerator(int numTilesX, int numTilesY, int worldSeed)
+        : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY), m_seed(worldSeed)
+    {
+        m_noise.SetSeed(m_seed);
+        m_tileTypes.reserve(static_cast<size_t>(numTilesX + numTilesY));
+    }
+
+    void generateWorld()
+    {
+        PROFILE_FUNCTION();
+
+        generateBaseLayer();
+        createBlockPatches();
+        // addBedrock();
+        addCaves();
+        addBuildings();
+        // createSkyline();
+    }
+
+    std::vector<TileType>& getTileTypes()
+    {
+        return m_tileTypes;
+    }
+
+private:
+
     int m_worldTilesX;
     int m_worldTilesY;
-    int m_dirtToStone = 2;
-    int m_seed = std::time(0);
+
+    float m_dirtToStone = 0.5f; // point (0 to 1) at which base layer switches from dirt to stone
+
+    int m_seed;
 
     FastNoiseLite m_noise;
 
@@ -36,19 +73,19 @@ class WorldGenerator
     {
         PROFILE_FUNCTION();
 
-        std::cout << "creating base layer..." << std::endl;
+        std::cout << "Creating base layer..." << std::endl;
 
         for (int y = 0; y < m_worldTilesY; ++y)
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
-                if (y <= m_worldTilesY / m_dirtToStone)
+                if (y <= m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = DIRT;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::DIRT;
                 }
                 else
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = STONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::STONE;
                 }
             }
         }
@@ -59,7 +96,7 @@ class WorldGenerator
     {
         PROFILE_FUNCTION();
 
-        std::cout << "creating block patches..." << std::endl;
+        std::cout << "Creating block patches..." << std::endl;
 
         m_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
         m_noise.SetFrequency(0.02f);
@@ -79,13 +116,13 @@ class WorldGenerator
             for (int x = 0; x < m_worldTilesX; ++x)
             {
                 float patchNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y));
-                if (patchNoise > stoneThreshold && y <= m_worldTilesY / m_dirtToStone)
+                if (patchNoise > stoneThreshold && y <= m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = STONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::STONE;
                 }
-                else if (patchNoise > dirtThreshold && y > m_worldTilesY / m_dirtToStone)
+                else if (patchNoise > dirtThreshold && y > m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = DIRT;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::DIRT;
                 }
             }
         }
@@ -97,7 +134,7 @@ class WorldGenerator
     {
         PROFILE_FUNCTION();
 
-        std::cout << "adding bedrock..." << std::endl;
+        std::cout << "Adding bedrock..." << std::endl;
 
     }
 
@@ -107,7 +144,7 @@ class WorldGenerator
     {
         PROFILE_FUNCTION();
 
-        std::cout << "adding caves..." << std::endl;
+        std::cout << "Adding caves..." << std::endl;
 
         // could do same as block patches but with m_noise.SetFrequency(0.01f) and m_noise.SetSeed(m_seed + 1)
 
@@ -126,17 +163,17 @@ class WorldGenerator
         {
             for (int x = 0; x < m_worldTilesX; ++x)
             {
-                float caveNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y * 1.5)); // TODO: mess with multiplying x or y by scalar to stretch or squish noise along an axis
-                if (caveNoise * (1 + 0.5f * y / m_worldTilesY) > caveThreshold)
+                float caveNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y * 1.5f));
+                if (caveNoise * (1.0f + 0.5f * y / m_worldTilesY) > caveThreshold)
                 {
-                    TileType& type = m_tileTypes[x * m_worldTilesY + y];
-                    if (type == DIRT)
+                    TileType& type = m_tileTypes.data()[x * m_worldTilesY + y];
+                    if (type == TileType::DIRT)
                     {
-                        type = DIRTWALL;
+                        type = TileType::DIRTWALL;
                     }
-                    else if (type == STONE)
+                    else if (type == TileType::STONE)
                     {
-                        type = STONEWALL;
+                        type = TileType::STONEWALL;
                     }
                 }
             }
@@ -151,9 +188,9 @@ class WorldGenerator
         int numberOfBuildings = (m_worldTilesX * m_worldTilesY) / 50000;
         for (int i = 0; i < numberOfBuildings; ++i)
         {
-            // int structType = rand() % numberOfBuildings;
-            int xPos = rand() % m_worldTilesX; // left
-            int yPos = rand() % m_worldTilesY; // top
+            // int structType = random % numberOfBuildings;
+            int xPos = Random::getIntegral(0, m_worldTilesX); // left
+            int yPos = Random::getIntegral(0, m_worldTilesY); // top
 
             int structSizeX = structures.hallway.size();
             int structSizeY = structures.hallway[0].size();
@@ -166,13 +203,13 @@ class WorldGenerator
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
             }
 
-            // int structType = rand() % numberOfBuildings;
+            // int structType = random % numberOfBuildings;
             xPos += structSizeX - 1;
 
             for (int x = xPos; x < xPos + structSizeX; ++x)
@@ -183,7 +220,7 @@ class WorldGenerator
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -199,7 +236,7 @@ class WorldGenerator
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -215,7 +252,7 @@ class WorldGenerator
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -228,25 +265,28 @@ class WorldGenerator
     {
         PROFILE_FUNCTION();
 
-        std::cout << "creating skyline..." << std::endl;
+        std::cout << "Creating skyline..." << std::endl;
 
         // 1D noise for skyline along x-axis
-        std::vector<int> terrainHeight(m_worldTilesX);
+        std::vector<int> terrainHeights; // unsigned int not as large as size_t, less memory
+        terrainHeights.reserve(static_cast<size_t>(m_worldTilesX));
+
         float terrainDelta = 50.0f; // controls max deviation from sea level
         float noiseScale = 1.0f;
-        float seaLevel = m_worldTilesY / 5; // number of tiles below the top of the screen
+        float seaLevel = m_worldTilesY / 5.0f; // number of tiles below the top of the screen
+
         for (int x = 0; x < m_worldTilesX; ++x)
         {
             float noiseVal = m_noise.GetNoise(static_cast<float>(x) * noiseScale, 0.0f);
             float extraNoise = m_noise.GetNoise(0.0f, static_cast<float>(x) * noiseScale);
             noiseVal += extraNoise;
-            terrainHeight[x] = noiseVal * terrainDelta + seaLevel;
+            terrainHeights.data()[x] = static_cast<int>(noiseVal * terrainDelta + seaLevel);
 
             for (int y = 0; y < m_worldTilesY; ++y)
             {
-                if (y < terrainHeight[x])
+                if (y < terrainHeights.data()[x])
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = NONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::NONE;
                 }
             }
         }
@@ -288,33 +328,5 @@ class WorldGenerator
         //     //     }
         //     // }
         // }
-    }
-
-public:
-    /// @brief constructs WorldGenerator object, defines noise type as Perlin
-    /// @param width the width of the game world (in grid units)
-    /// @param height the height of the game world (in grid units)
-    WorldGenerator(int numTilesX, int numTilesY)
-        : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY)
-    {
-        m_noise.SetSeed(m_seed);
-        m_tileTypes = std::vector<TileType>(m_worldTilesX * m_worldTilesY);
-    }
-
-    void generateWorld()
-    {
-        PROFILE_FUNCTION();
-
-        generateBaseLayer();
-        createBlockPatches();
-        // addBedrock();
-        addCaves();
-        addBuildings();
-        // createSkyline();
-    }
-
-    std::vector<TileType>& getTileTypes()
-    {
-        return m_tileTypes;
     }
 };

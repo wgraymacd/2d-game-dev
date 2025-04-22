@@ -1,12 +1,12 @@
 // Copyright 2025, William MacDonald, All Rights Reserved.
 
+// Core
 #include "core/GameEngine.hpp"
 
-int main(int argc, char* argv[]) {
-    int x = 5;
-
+int main()
+{
     GameEngine g;
     g.run();
 
-    return EXIT_SUCCESS;
+    return 0;
 }

@@ -2,21 +2,28 @@
 
 #pragma once
 
+// Core
 #include "Scene.hpp"
 #include "GameEngine.hpp"
 #include "Action.hpp"
-#include "network/NetworkData.hpp"
 
+// Global
+#include "NetworkData.hpp"
+
+// External libraries
 #include <SFML/Graphics.hpp>
+
+// C++ standard libraries
 #include <string>
 #include <vector>
 // #include <chrono>
 
-class SceneMenu : public Scene {
+class SceneMenu : public Scene
+{
     std::string m_title;
     std::vector<std::string> m_menuStrings;
     sf::Text m_menuText = sf::Text(m_game.assets().getFont("font"));
-    int m_selectedMenuIndex = 0;
+    unsigned int m_selectedMenuIndex = 0;
 
     void init();
 

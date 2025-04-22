@@ -9,9 +9,13 @@
 
 #pragma once
 
+// Core
 #include "Components.hpp"
-#include "utility/Globals.hpp"
 
+// Utility
+#include "utility/ClientGlobals.hpp"
+
+// C++ standard libraries
 #include <vector>
 #include <string>
 #include <queue>
@@ -62,7 +66,6 @@ class Entity; // forward declaration
 
 class EntityMemoryPool
 {
-    // EntityID m_maxTiles;
     EntityID m_maxEntities;
 
     // std::queue<EntityID> m_tileFreeList; // stores indices of inactive tiles to accelerate searching
@@ -320,9 +323,8 @@ public:
         // return container[entityID];
     }
 
-    /// @brief add an entity with tag tag
-    /// @return the added entity
-    Entity addEntity(const std::string& tag);
+    /// @brief add an entity
+    Entity addEntity();
 
     /// @brief remove an entity from the memory pool
     void removeEntity(EntityID entityID);

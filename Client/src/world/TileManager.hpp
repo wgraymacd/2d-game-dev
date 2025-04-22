@@ -2,10 +2,14 @@
 
 #pragma once
 
-#include <vector>
-
+// World
 #include "Tile.hpp"
-#include "utility/Globals.hpp"
+
+// Utility
+#include "utility/ClientGlobals.hpp"
+
+// C++ standard libraries
+#include <vector>
 
 class TileManager
 {
@@ -16,7 +20,9 @@ public:
 
     TileManager()
     {
-        m_tiles = std::vector<Tile>(GlobalSettings::worldMaxCellsX * GlobalSettings::worldMaxCellsY);
+        m_tiles = std::vector<Tile>(Settings
+            ::worldMaxCellsX * Settings
+            ::worldMaxCellsY);
     }
 
     std::vector<Tile>& getTiles()
@@ -24,8 +30,9 @@ public:
         return m_tiles;
     }
 
-    void addTile(const Tile& tile, const int x, const int y) /// TODO: look into adding tiles like emplace back instead of copying, if possible
+    void addTile(const Tile& tile, int x, int y) /// TODO: look into adding tiles like emplace back instead of copying, if possible
     {
-        m_tiles[x * GlobalSettings::worldMaxCellsY + y] = tile;
+        m_tiles.data()[x * Settings
+            ::worldMaxCellsY + y] = tile;
     }
 };

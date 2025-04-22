@@ -2,10 +2,15 @@
 
 #pragma once
 
+// World
+#include "TileType.hpp"
+
+// Physics
+#include "physics/Vec2.hpp"
+
+// C++ standard libraries
 #include <array>
 
-#include "TileType.hpp"
-#include "physics/Vec2.hpp"
 
 struct StructureTypes
 {
@@ -18,25 +23,25 @@ struct StructureTypes
     StructureTypes()
     {
         // hallway
-        for (int x = 0; x < 80; ++x)
+        for (size_t x = 0; x < 80; ++x)
         {
-            for (int y = 0; y < 20; ++y)
+            for (size_t y = 0; y < 20; ++y)
             {
                 if (x == 0 || x == 79 || y == 0 || y == 19)
                 {
-                    hallway[x][y] = BRICK;
+                    hallway[x][y] = TileType::BRICK;
                 }
                 else
                 {
-                    hallway[x][y] = BRICKWALL;
+                    hallway[x][y] = TileType::BRICKWALL;
                 }
             }
         }
 
         // small room
-        // for (int x = 0; x < 20; ++x)
+        // for (size_t x = 0; x < 20; ++x)
         // {
-        //     for (int y = 0; y < 20; ++y)
+        //     for (size_t y = 0; y < 20; ++y)
         //     {
         //         if (x == 0 || x == 19 || y == 0 || y == 19)
         //         {
@@ -58,9 +63,9 @@ struct StructureTypes
         // }
 
         // elevator shaft
-        // for (int x = 0; x < 10; ++x)
+        // for (size_t x = 0; x < 10; ++x)
         // {
-        //     for (int y = 0; y < 40; ++y)
+        //     for (size_t y = 0; y < 40; ++y)
         //     {
         //         if (x == 0 || x == 9)
         //         {
@@ -81,9 +86,9 @@ struct StructureTypes
         // }
 
         // grand hall
-        // for (int x = 0; x < 60; ++x)
+        // for (size_t x = 0; x < 60; ++x)
         // {
-        //     for (int y = 0; y < 30; ++y)
+        //     for (size_t y = 0; y < 30; ++y)
         //     {
         //         if (x == 0 || x == 59 || y == 0 || y == 29)
         //         {
@@ -105,9 +110,9 @@ struct StructureTypes
         // }
 
         // bunker
-        // for (int x = 0; x < 30; ++x)
+        // for (size_t x = 0; x < 30; ++x)
         // {
-        //     for (int y = 0; y < 20; ++y)
+        //     for (size_t y = 0; y < 20; ++y)
         //     {
         //         if (x == 0 || x == 29 || y == 0 || y == 19)
         //         {

@@ -2,10 +2,13 @@
 
 #pragma once
 
+// Physics
 #include "Vec2.hpp"
 
-#include "utility/Timer.hpp"
+// Global
+#include "Timer.hpp"
 
+// C++ standard libraries
 #include <memory>
 
 struct Intersect
@@ -48,8 +51,8 @@ namespace Physics
         Vec2f s = d - c;
         float rxs = r.cross(s);
         Vec2 cma = c - a;
-        float t = (cma.cross(s)) / r.cross(s);
-        float u = (cma.cross(r)) / r.cross(s);
+        float t = (cma.cross(s)) / rxs;
+        float u = (cma.cross(r)) / rxs;
         if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
         {
             return { true, Vec2f(a.x + t * r.x, a.y + t * r.y) };
@@ -61,10 +64,10 @@ namespace Physics
     }
 
     /// TODO: implement this function
-    bool EntityIntersect(const Vec2f& a, const Vec2f& b /* entity e */)
-    {
-        return false;
-    }
+    // bool EntityIntersect(const Vec2f& a, const Vec2f& b /* entity e */)
+    // {
+    //     return false;
+    // }
 
     /// @brief check for overlap among two convex polygons
     // bool OverlapSAT()

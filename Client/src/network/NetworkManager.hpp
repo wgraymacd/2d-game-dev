@@ -2,15 +2,22 @@
 
 #pragma once
 
-#include "utility/Globals.hpp"
+// Physics
 #include "physics/Vec2.hpp"
+
+// Utility
+#include "utility/ClientGlobals.hpp"
+
+// Global
 #include "NetworkData.hpp"
 
+// C++ standard libraries
 #include <enet/enet.h>
 #include <unordered_map>
 #include <vector>
 
-class NetworkManager {
+class NetworkManager
+{
     ENetHost* m_client;
     ENetPeer* m_peer;
 
@@ -34,10 +41,11 @@ public:
     /// @brief send data to server, only works with POD
     void sendData(const NetworkData& data) const;
 
-    void updateIDMaps(EntityID netID, EntityID localID);
+    void updateIDMaps(EntityID localID, EntityID netID);
 
     EntityID getLocalID(EntityID netID) const;
     EntityID getNetID(EntityID localID) const;
 
-    void findLobby();
+    void connectTo(int addressP1, int addressP2, int addressP3, int addressP4, int port);
+    void disconnect();
 };
