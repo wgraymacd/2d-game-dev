@@ -39,12 +39,11 @@ protected:
         std::string BA; // bullet animation
     };
 
-    // tile grid
-    const Vec2i m_worldMaxCells { Settings::worldMaxCellsX, Settings::worldMaxCellsY }; // bottom-right corner of world (grid coords)
-    const int m_cellSizePixels = Settings::cellSizePixels; // cell size (pixels)
-    const Vec2i m_worldMaxPixels { m_cellSizePixels * m_worldMaxCells.x, m_cellSizePixels * m_worldMaxCells.y };
+    const Vec2uz m_worldMaxCells { Settings::worldMaxCellsX, Settings::worldMaxCellsY };
+    const int m_cellSizePixels = Settings::cellSizePixels;
+    const Vec2i m_worldMaxPixels { m_cellSizePixels * static_cast<int>(m_worldMaxCells.x),
+                                   m_cellSizePixels * static_cast<int>(m_worldMaxCells.y) };
 
-    // views and textures
     sf::View m_mainView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(Settings::windowSizeX, Settings::windowSizeY)); // center, size
     // sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
     sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(m_worldMaxCells.x, m_worldMaxCells.y) * 2.0f); // center, size
@@ -79,9 +78,9 @@ protected:
     Entity spawnRagdollElement(const Vec2f& pos, float angle, const Vec2i& boxSize, const Animation& animation);
     void createRagdoll(const Entity& entity, const Entity& cause);
     Vec2f gridToMidPixel(float gridX, float gridY, Entity entity);
-    void findOpenTiles(int x, int y, int minX, int maxX, int minY, int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
-    std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY);
-    void propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY);
+    void findOpenTiles(size_t x, size_t y, size_t minX, size_t maxX, size_t minY, size_t maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited);
+    std::vector<Vec2f> rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, size_t minX, size_t maxX, size_t minY, size_t maxY);
+    // void propagateLight(sf::VertexArray& blocks, int maxDepth, int currentDepth, const Vec2i& startCoord, Vec2i currentCoord, int minX, int maxX, int minY, int maxY);
     void addBlock(sf::VertexArray& blocks, int xGrid, int yGrid, const sf::Color& c);
 
     // void updateState(std::chrono::duration<long long, std::nano>& lag) override;

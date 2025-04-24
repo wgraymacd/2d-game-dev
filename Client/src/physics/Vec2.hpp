@@ -25,7 +25,7 @@ public:
     /// @param vec a reference to an sf::Vector2 object
     // Vec2(const sf::Vector2<T>& vec) : x(vec.x), y(vec.y) {}
 
-    // /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
+    /// @brief automatic conversion to sf::Vector2, allows passing Vec2 objects to SFML functions
     // operator sf::Vector2<T>() const
     // {
     //     return sf::Vector2<T>(x, y);
@@ -148,7 +148,8 @@ std::ostream& operator<<(std::ostream& out, const Vec2<T>& vec)
 
 using Vec2f = Vec2<float>;
 using Vec2i = Vec2<int>;
-// using Vec2ui = Vec2<unsigned int>;
+using Vec2ui = Vec2<unsigned int>;
+using Vec2uz = Vec2<size_t>;
 
 /// @brief add hash functions for Vec2i and Vec2f to allow them to be used as keys in std::unordered_map
 namespace std

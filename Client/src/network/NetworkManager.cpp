@@ -72,11 +72,11 @@ void NetworkManager::update()
                 // store client info here if needed with event.peer->data
                 break;
             case ENET_EVENT_TYPE_RECEIVE:
-                m_data = (NetworkData*)event.packet->data;
-                m_dataVec.push_back(*m_data); /// TODO: consider adding things to multiple vectors, one for each type of data so that I can access each one at separate times in ScenePlay.cpp
+                std::memcpy(&m_data, event.packet->data, sizeof(NetworkData));
+                std::cout << "Received data: " << m_data << "\n";
+                m_dataVec.push_back(m_data); /// TODO: consider adding things to multiple vectors, one for each type of data so that I can access each one at separate times in ScenePlay.cpp
 
                 enet_packet_destroy(event.packet); // clean up memory after processing message
-                m_data = nullptr;
                 break;
             case ENET_EVENT_TYPE_DISCONNECT:
                 std::cout << "Disconnected from " << m_peer->address.host << ":" << m_peer->address.port << "\n";
@@ -95,7 +95,7 @@ const std::vector<NetworkData>& NetworkManager::getData() const
 
 void NetworkManager::sendData(const NetworkData& data) const
 {
-    std::cout << "Sending: " << std::to_string(data.dataType) << "\n";
+    std::cout << "Sending data: " << data << "\n";
 
     if (!m_client)
     {
@@ -167,7 +167,11 @@ void NetworkManager::connectTo(int addressP1, int addressP2, int addressP3, int 
         std::to_string(addressP4);
 
     ENetAddress address;
-    enet_address_set_host(&address, addressString.c_str());
+    if (enet_address_set_host(&address, addressString.c_str()) != 0)
+    {
+        std::cerr << "Failed to resolve host: " << addressString << "\n";
+        return; // Exit early if address resolution fails
+    }
     address.port = static_cast<enet_uint16>(port);
 
     // send connection request to server, allocating two channels 0 and 1 (peer: connection in network, can be either a client connected to a server or a server that the client is connected to)
@@ -179,7 +183,7 @@ void NetworkManager::connectTo(int addressP1, int addressP2, int addressP3, int 
     }
     std::cout << "Initialized connection to " << m_peer->address.host << ":" << m_peer->address.port << "\n";
 
-    // wait for connection to be established to ensure peer is fully initialized, sync mechanism
+    // wait for connection to be established to ensure peer is fully initialized, sync
     ENetEvent event;
     if (enet_host_service(m_client, &event, 5000) > 0 &&
         event.type == ENET_EVENT_TYPE_CONNECT)
@@ -190,6 +194,7 @@ void NetworkManager::connectTo(int addressP1, int addressP2, int addressP3, int 
     {
         std::cerr << "Connection to " << address.host << ":" << address.port << " failed\n";
         enet_peer_reset(m_peer);
+        m_peer = nullptr;
         exit(1);
     }
 }

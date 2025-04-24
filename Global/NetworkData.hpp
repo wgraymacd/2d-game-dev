@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <ostream>
+#include <array>
+#include <string_view>
 
 struct NetworkData
 {
@@ -83,10 +85,17 @@ struct NetworkData
     fifth { };
 };
 
+/// @todo remove this for release builds, this is just for debugging
+namespace Network
+{
+    constexpr std::array<std::string_view, NetworkData::DataType::NUM_TYPES> dataTypes = { "NONE", "POSITION", "VELOCITY", "SPAWN", "LOCAL_SPAWN", "WORLD_SEED", "LOBBY_CONNECT" };
+}
+
 /// @todo change this to a .cpp file maybe, inline is not great since this is a semi-complex function, making this inline will allow multiple definitions of it, remove for release builds
+/// @todo remove this for release builds, this is just for debugging
 inline std::ostream& operator<<(std::ostream& out, const NetworkData& netData)
 {
-    out << "Data Type: " << std::to_string(netData.dataType);
+    out << "Data Type: " << Network::dataTypes[netData.dataType];
 
     if (netData.dataType == NetworkData::DataType::POSITION ||
         netData.dataType == NetworkData::DataType::VELOCITY ||

@@ -17,48 +17,65 @@
 #include <vector>
 #include <iostream>
 #include <limits>
+#include <cstring> // for std::memcpy
 
+/// @todo might need to add mutexes to this class for thread safety, but not sure yet
 class LobbyServer
 {
 public:
 
-    LobbyServer(int port) : m_port(port)
+    LobbyServer(enet_uint16 port) : m_port(port)
     {
         m_clientIDs.reserve(m_maxPlayers);
 
-        std::cout << "World seed initialized to: " << m_worldSeed << "\n";
+        ENetAddress address;
+        address.host = ENET_HOST_ANY; // Accept connections from any IP address
+        address.port = m_port;
+
+        m_server = enet_host_create(&address, m_maxPlayers, 2, 0, 0); // Create the ENet server
+        if (!m_server)
+        {
+            std::cerr << "LOBBY: Failed to create ENet server on port " << m_port << "\n";
+            exit(1);
+        }
+
+        std::cout << "LOBBY: Created, world seed initialized to: " << m_worldSeed << "\n";
+    }
+
+    ~LobbyServer()
+    {
+        if (m_server)
+        {
+            enet_host_destroy(m_server);
+        }
+
+        std::cout << "LOBBY: Server stopped\n";
     }
 
     void update()
     {
         ENetEvent event;
-        enet_uint32 waitTime = 0; // ms, time to pause program until event received or time runs out (-1 for indefinite pause), will skip over events if they occur between checks, lower timout = more frequent calls to this function
-        // enet_host_service checks for pending network events in a short time window and returns 0 if no events found during that window
-        // polls events from an internal event queue maintained by ENet, network events are added to this queue
-        // if queue empty and 0 timeout, immediately returns
-        // if one event missed, then upon receiving next, both are processed
-        while (enet_host_service(m_server, &event, waitTime) > 0) // enet_host_service polls for network events (&event: stores the next network event if one exists; 0: doesn't wait for new events)
+
+        while (enet_host_service(m_server, &event, 0) > 0) // enet_host_service polls for network events (&event: stores the next network event if one exists; 0: doesn't wait for new events)
         {
             switch (event.type)
             {
                 case ENET_EVENT_TYPE_CONNECT: /// @todo this event is not processed until the first message is sent from the client, could be a localhost thing, idk, but look into it later
-                    std::cout << "Client connected (host = " << event.peer->address.host << ", port = " << event.peer->address.port << ")\n";
+                    std::cout << "LOBBY: Client connected from " << event.peer->address.host << ":" << event.peer->address.port << "\n";
                     // store client info here if needed with event.peer->data
 
-                    std::cout << "Sending world seed\n";
-
-                    sendData(event.peer, NetworkData { NetworkData::DataType::WORLD_SEED, { .i = m_worldSeed } });
+                    sendData(event.peer, NetworkData { NetworkData::DataType::WORLD_SEED, .first.i = m_worldSeed });
 
                     break;
 
                 case ENET_EVENT_TYPE_RECEIVE:
                 {
-                    NetworkData* received = (NetworkData*)event.packet->data;
+                    NetworkData received;
+                    std::memcpy(&received, event.packet->data, sizeof(NetworkData));
+                    std::cout << "LOBBY: Received data: " << received << " from " << event.peer->address.host << ":" << event.peer->address.port << "\n";
 
-                    switch (received->dataType)
+                    switch (received.dataType)
                     {
-                        std::cout << received << "\n";
-
                         case NetworkData::DataType::POSITION:
                             enet_host_broadcast(m_server, 0, event.packet);
                             enet_host_flush(m_server); // automatically handles memory cleanup, cannot use with enet_packet_destroy
@@ -73,18 +90,18 @@ public:
                         {
                             float tempStorage;
 
-                            tempStorage = received->second.f;
+                            tempStorage = received.second.f;
 
                             // send out LOCAL_SPAWN to specific client
-                            received->dataType = NetworkData::DataType::LOCAL_SPAWN;
-                            received->second.id = createNetEntity();
-                            sendData(event.peer, *received);
+                            received.dataType = NetworkData::DataType::LOCAL_SPAWN;
+                            received.second.id = createNetEntity();
+                            sendData(event.peer, received);
 
                             // send SPAWN to everyone
-                            received->dataType = NetworkData::DataType::SPAWN;
-                            received->first.id = received->second.id;
-                            received->second.f = tempStorage;
-                            broadcastData(*received);
+                            received.dataType = NetworkData::DataType::SPAWN;
+                            received.first.id = received.second.id;
+                            received.second.f = tempStorage;
+                            broadcastData(received);
 
                             // clean up memory after processing message, careful not to clean memory in use or already cleaned memory cuz will seg fault
                             enet_packet_destroy(event.packet);
@@ -104,7 +121,7 @@ public:
                 }
 
                 case ENET_EVENT_TYPE_DISCONNECT:
-                    std::cout << "Client disconnected\n";
+                    std::cout << "LOBBY: Client " << event.peer->address.host << ":" << event.peer->address.port << " disconnected\n";
                     // reset peer's client info here if stored above with event.peer->data = nullptr;
                     break;
 
@@ -127,7 +144,7 @@ public:
 private:
 
     ENetHost* m_server;
-    int m_port;
+    enet_uint16 m_port;
 
     LobbyEntityManager m_lobbyEntityMan;
     std::vector<EntityID> m_clientIDs;
@@ -142,7 +159,7 @@ private:
 
     void broadcastData(const NetworkData& data)
     {
-        std::cout << "Broadcasting data\n";
+        std::cout << "LOBBY: Broadcasting data\n";
 
         ENetPacket* packet = enet_packet_create(
             &data,
@@ -152,7 +169,7 @@ private:
 
         if (!packet)
         {
-            std::cerr << "Packet creation failed\n";
+            std::cerr << "LOBBY: Packet creation failed\n";
             return;
         }
 
@@ -165,7 +182,7 @@ private:
 
     void sendData(ENetPeer* clientPeer, const NetworkData& data)
     {
-        std::cout << "Sending data to client\n";
+        std::cout << "LOBBY: Sending data to client " << clientPeer->address.host << ":" << clientPeer->address.port << ": " << data << "\n";
 
         ENetPacket* packet = enet_packet_create(
             &data,
@@ -175,7 +192,7 @@ private:
 
         if (!packet)
         {
-            std::cerr << "Packet creation failed\n";
+            std::cerr << "LOBBY: Packet creation failed\n";
             return;
         }
 

@@ -21,7 +21,7 @@ class NetworkManager
     ENetHost* m_client;
     ENetPeer* m_peer;
 
-    NetworkData* m_data; // pointer to single data element received if received, else nullptr
+    NetworkData m_data;
     std::vector<NetworkData> m_dataVec;
 
     std::unordered_map<EntityID, EntityID> m_netToLocalID; // map[net] = local

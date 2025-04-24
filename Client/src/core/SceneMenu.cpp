@@ -42,31 +42,7 @@ void SceneMenu::init()
 // void SceneMenu::updateState(std::chrono::duration<long long, std::nano>& lag)
 void SceneMenu::updateState()
 {
-    m_game.getNetManager().update();
-    const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
-    for (const NetworkData& netDatum : netData)
-    { /// @todo this is only one item of data as of now, think about this
-        std::cout << "Got some data: " << netDatum << "\n";
-
-        if (netDatum.dataType == NetworkData::DataType::LOBBY_CONNECT)
-        {
-            std::cout << "Connecting to lobby\n";
-            // connect to lobby here (so that if it fails we still in menu scene)
-            m_game.getNetManager().connectTo(
-                netDatum.first.i,
-                netDatum.second.i,
-                netDatum.third.i,
-                netDatum.fourth.i,
-                netDatum.fifth.i
-            );
-        }
-        else if (netDatum.dataType == NetworkData::DataType::WORLD_SEED)
-        {
-            std::cout << "Initializing world with seed\n";
-            // get world seed, then pass that to ScenePlay and join game
-            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game, netDatum.first.i));
-        }
-    }
+    updateFromNetwork();
 
     sRender();
 }
@@ -79,7 +55,7 @@ void SceneMenu::sDoAction(const Action& action)
     {
         if (action.name() == "UP")
         {
-            m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : static_cast<unsigned int>(m_menuStrings.size()) - 1u;
+            m_selectedMenuIndex = (m_selectedMenuIndex > 0) ? --m_selectedMenuIndex : m_menuStrings.size() - 1;
         }
         else if (action.name() == "DOWN")
         {
@@ -135,4 +111,32 @@ void SceneMenu::sRender()
 void SceneMenu::onEnd()
 {
     m_game.quit();
+}
+
+void SceneMenu::updateFromNetwork()
+{
+    m_game.getNetManager().update();
+
+    const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
+
+    for (const NetworkData& netDatum : netData)
+    { /// @todo this is only one item of data as of now, think about this
+        if (netDatum.dataType == NetworkData::DataType::LOBBY_CONNECT)
+        {
+            // connect to lobby here (so that if it fails we still in menu scene)
+            m_game.getNetManager().connectTo(
+                netDatum.first.i,
+                netDatum.second.i,
+                netDatum.third.i,
+                netDatum.fourth.i,
+                netDatum.fifth.i
+            );
+        }
+        else if (netDatum.dataType == NetworkData::DataType::WORLD_SEED)
+        {
+            std::cout << "Initializing world with seed from lobby\n";
+            // get world seed, then pass that to ScenePlay and join game
+            m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game, netDatum.first.i));
+        }
+    }
 }

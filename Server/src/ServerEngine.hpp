@@ -12,15 +12,18 @@
 
 class ServerEngine
 {
-    MatchmakingServer m_matchmakingServer; // matchmaking thread
-    std::vector<std::thread> m_lobbyThreads; // added by chat
-    bool m_isRunning = true;
-    // void update(); // removed by chat
-    void runLobby(LobbyServer& lobby); // added by chat
-
 public:
+
     ServerEngine();
     ~ServerEngine();
 
     void run();
+
+private:
+
+    MatchmakingServer m_matchmakingServer;
+    std::vector<std::thread> m_lobbyThreads;
+    bool m_isRunning = true;
+
+    void runMatchmaking();
 };
