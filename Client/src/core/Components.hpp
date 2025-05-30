@@ -12,6 +12,9 @@
 // Physics
 #include "physics/Vec2.hpp"
 
+// character
+#include "character/SkelAnim.hpp"
+
 // Utility
 #include "utility/ClientGlobals.hpp"
 
@@ -193,10 +196,20 @@ public:
 class CJointInfo : public Component
 {
 public:
-    std::array<float, 3> initJointOffsets; // y offset only, 4-element array of positions, match indices to determine which joint matches with which entities; 4 is minimum size since thighs and upper arms will have 1 joint with limb and 1 of 2 possible joints positions (left and right the same) with torso and head with have another
+    std::array<float, 3> initJointOffsets;
 
     CJointInfo() = default;
     CJointInfo(const std::array<float, 3>& positions);
+};
+
+/// @brief holds a vector of SkelAnim objects, uses CState to determine which one to use
+class CSkelAnim : public Component
+{
+public:
+    std::vector<SkelAnim> skelAnims; // skeletal animations for each CState
+
+    CSkelAnim() = default;
+    CSkelAnim(const std::vector<SkelAnim>& skelAnims);
 };
 
 // class CFollowPlayer : public Component

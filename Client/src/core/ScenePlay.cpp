@@ -19,6 +19,9 @@
 #include "physics/Vec2.hpp"
 #include "physics/Physics.hpp"
 
+// Character
+#include "character/SkelAnim.hpp"
+
 // World
 #include "world/WorldGenerator.hpp"
 #include "world/TileType.hpp"
@@ -38,6 +41,7 @@
 #include <fstream>
 #include <chrono>
 #include <unordered_set>
+#include <algorithm>
 
 /// @param gameEngine the game's main engine which handles scene switching and adding, and other top-level functions; required by Scene to set m_game
 ScenePlay::ScenePlay(GameEngine& gameEngine, int worldSeed) : Scene(gameEngine)
@@ -137,13 +141,13 @@ void ScenePlay::generateWorld(int worldSeed)
     const std::vector<TileType>& tileTypes = gen.getTileTypes();
 
     // Spawn tiles according to their positions in the grid
-    for (size_t x = 0; x < m_worldMaxCells.x; ++x)
+    for (int x = 0; x < m_worldMaxCells.x; ++x)
     {
         // PROFILE_SCOPE("adding tiles, row x");
 
-        for (size_t y = 0; y < m_worldMaxCells.y; ++y)
+        for (int y = 0; y < m_worldMaxCells.y; ++y)
         {
-            TileType tileType = tileTypes[x * m_worldMaxCells.y + y];
+            TileType tileType = tileTypes.data()[x * m_worldMaxCells.y + y];
             if (tileType != TileType::NONE)
             {
                 // std::cout << "adding tile " << x << ", " << y << std::endl;
@@ -466,14 +470,6 @@ void ScenePlay::sObjectMovement()
         //     }
         // }
 
-        // player head and arms
-        CTransform& headTrans = m_playerHead.getComponent<CTransform>();
-        headTrans.pos.y = playerTrans.pos.y - 30.0f;
-        CTransform& backArmTrans = m_playerArmBack.getComponent<CTransform>();
-        backArmTrans.pos.y = playerTrans.pos.y - 20.0f;
-        CTransform& frontArmTrans = m_playerArmFront.getComponent<CTransform>();
-        frontArmTrans.pos.y = playerTrans.pos.y - 25.0f;
-
         // weapon held by player
         weaponTrans.pos.x = playerTrans.pos.x;
         weaponTrans.pos.y = playerTrans.pos.y - 20.0f;
@@ -579,13 +575,13 @@ void ScenePlay::sObjectMovement()
             std::cout << "angleDiff: " << angleDiff << "\n";
             std::cout << "angleError: " << angleError << "\n";
 
-            for (size_t i = 2; i >= 0; --i) // 3 is the size of the joint positions array
+            for (int i = 2; i >= 0; --i) // 3 is the size of the joint positions array
             {
                 std::cout << "connecting rag A to ragB with pos " << i << std::endl;
-                float jointAOffset = ragAInfo.initJointOffsets[i];
+                float jointAOffset = ragAInfo.initJointOffsets.data()[i];
                 if (jointAOffset != 0.0f) // found a joint pos /// TODO: may want to add some theshold or something
                 {
-                    float jointBOffset = ragBInfo.initJointOffsets[i]; // must be a joint in rag B joint info at same index
+                    float jointBOffset = ragBInfo.initJointOffsets.data()[i]; // must be a joint in rag B joint info at same index
 
                     Vec2f ragAJointPos = ragATrans.pos + Vec2f(0.0f, jointAOffset).rotate(ragATrans.angle);
                     Vec2f ragBJointPos = ragBTrans.pos + Vec2f(0.0f, jointBOffset).rotate(ragBTrans.angle);
@@ -682,17 +678,17 @@ void ScenePlay::sObjectCollision()
         //     std::cout << "vertex " << i << ": " << vertices[i].x << " " << vertices[i].y << std::endl;
         // }
 
-        for (size_t i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
-            Vec2f vert = vertices[i];
-            Vec2f prevVert = prevVertices[i];
-            Vec2uz gridPos = vert.to<size_t>() / static_cast<size_t>(m_cellSizePixels);
+            Vec2f vert = vertices.data()[i];
+            Vec2f prevVert = prevVertices.data()[i];
+            Vec2i gridPos = vert.to<int>() / m_cellSizePixels;
 
             // std::cout << "vertex " << i << ": " << vert << std::endl;
 
             /// TODO: edge case: vert x = 1300 so grid pos = 130, but no resolutions needs to happen
             /// TODO: maybe check multiple times per frame for more accuracy
-            if (tiles[gridPos.x * m_worldMaxCells.y + gridPos.y].blocksMovement) // vertex inside tile /// TODO: possible seg faults
+            if (tiles.data()[gridPos.x * m_worldMaxCells.y + gridPos.y].blocksMovement) // vertex inside tile /// TODO: possible seg faults
             {
                 // std::cout << "collision with tile" << std::endl;
 
@@ -783,9 +779,9 @@ void ScenePlay::sObjectCollision()
                 // }
                 // else
                 // {
-                if (yPrevOverlap <= 0) // collided from top or bottom
+                if (yPrevOverlap <= 0.0f) // collided from top or bottom
                 {
-                    if (travel.y > 0) // collided from the top
+                    if (travel.y > 0.0f) // collided from the top
                     {
                         trans.pos.y -= yOverlap; /// TODO: could add dampening like * 0.5f
 
@@ -802,7 +798,7 @@ void ScenePlay::sObjectCollision()
                             // trans.angularVelocity = 0;
                         }
                     }
-                    else if (travel.y < 0) // collided from the bottom
+                    else if (travel.y < 0.0f) // collided from the bottom
                     {
                         trans.pos.y += yOverlap;
 
@@ -821,9 +817,9 @@ void ScenePlay::sObjectCollision()
                     }
                     /// TODO: travel.y == 0?
                 }
-                else if (xPrevOverlap <= 0) // collided from left or right
+                else if (xPrevOverlap <= 0.0f) // collided from left or right
                 {
-                    if (travel.x > 0) // collided from the left
+                    if (travel.x > 0.0f) // collided from the left
                     {
                         trans.pos.x -= xOverlap;
 
@@ -840,7 +836,7 @@ void ScenePlay::sObjectCollision()
                         //     trans.angularVelocity = 0;
                         // }
                     }
-                    else if (travel.x < 0) // collided from the right
+                    else if (travel.x < 0.0f) // collided from the right
                     {
                         trans.pos.x += xOverlap;
 
@@ -1048,12 +1044,12 @@ void ScenePlay::sStatus()
 void ScenePlay::sAnimation()
 {
     PROFILE_FUNCTION();
-    /// TODO: could create an "animation" which is just data on where each limb should be and what angle it should be at, and could then use this data to control rigid bodies when alive by forcing them toward the angle and position needed. Easy transition to ragdoll from there by just letting the entity bodies fall (they're already created, in the right places, and have the right velocities to have a smooth transition)
-    CAnimation& playerAnim = m_player.getComponent<CAnimation>();
+    /// TODO: create an "animation" which is just data on where each limb should be and what angle it should be at, and could then use this data to control rigid bodies when alive by forcing them toward the angle and position needed. Easy transition to ragdoll from there by just letting the entity bodies fall (they're already created, in the right places, and have the right velocities to have a smooth transition)
+    // CSkelAnim& playerSkelAnim = m_player.getComponent<CSkelAnim>();
     CState& playerState = m_player.getComponent<CState>();
-    if (playerState.state == State::RUN)
+    if (playerState.state == State::WALK)
     {
-        playerAnim.animation.updateLoop();
+        /// @todo tweening to get correct current frame
     }
 
 
@@ -1099,28 +1095,24 @@ void ScenePlay::sRender()
     Vec2i playerGridPos = (playerTrans.pos / m_cellSizePixels).to<int>(); // signed, for operations below /// NOTE: grid pos 0 means pixel 0 through 9
 
     const Vec2f mainViewSize { m_mainView.getSize().x, m_mainView.getSize().y }; //  window size is the view size now
-
     Vec2i checkLength { (mainViewSize / m_cellSizePixels / 2.0f).to<int>() }; // half the view size in grid coords /// TODO: could use a different method to get the size of the view, this is just a quick fix for now
 
     // limits on grid coords to check, arguments to std::min and max must be signed for proper logic
-    size_t minX = static_cast<size_t>(std::max(0, playerGridPos.x - checkLength.x));
-    size_t maxX = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.x) - 1, playerGridPos.x + checkLength.x));
-    size_t minY = static_cast<size_t>(std::max(0, playerGridPos.y - checkLength.y));
-    size_t maxY = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.y) - 1, playerGridPos.y + checkLength.y));
+    int minX = std::max(0, playerGridPos.x - checkLength.x);
+    int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
+    int minY = std::max(0, playerGridPos.y - checkLength.y);
+    int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
 
     // find open air tiles method for visible tiles
     std::vector<Vec2i> openTiles; /// TODO: use these for vertices method, might not even need it and could just use visited
-    std::stack<Vec2i> tileStack;
-    /// @todo use of vector<bool> for visited tiles is not the best, could use a bitset or something else
-    /// @todo could also consider not initializing it but just reserving it to the size needed
-    std::vector<std::vector<bool>> visited { static_cast<size_t>(mainViewSize.x / m_cellSizePixels + 1),
-                                             std::vector<bool>(static_cast<size_t>(mainViewSize.y / m_cellSizePixels + 1)) }; // + 1 because including min and max values /// TODO: could add a visited property to each tile instead but this is good for now
+    std::vector<Vec2i> tileStack;
+    std::vector<char> visited(static_cast<size_t>((maxX - minX + 1) * (maxY - minY + 1))); // + 1 since we include both the min and max values
 
     /// TODO: could use rough ray tracing (fixed number of rays in all directions) to get the set of visible tiles (not all open like this) and then use those tiles with good ray tracing, then still render everything or do light prop or whatever
     /// TODO: could even keep this and render only tiles with ray trace vertices
     {
         PROFILE_SCOPE("find open tiles");
-        findOpenTiles(static_cast<size_t>(playerGridPos.x), static_cast<size_t>(playerGridPos.y), minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
+        findOpenTiles(playerGridPos.x, playerGridPos.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
     }
 
     /// TODO: slow, could use some other sort of logic (either just logic same process or different entirely like lighting based on distance to player and/or light cone direction) after taking another look at the recrsive func efficiency
@@ -1215,13 +1207,13 @@ void ScenePlay::sRender()
 
         // method of rendering all visited tiles
         /// TODO: render tiles with no tile above them and 1 or two tiles missing to the side as ramps and deal with that accordingly in collisions
-        for (size_t x = minX; x <= maxX; ++x)
+        for (int x = minX; x <= maxX; ++x)
         {
-            for (size_t y = minY; y <= maxY; ++y)
+            for (int y = minY; y <= maxY; ++y)
             {
-                if (visited[x - minX][y - minY])
+                if (visited.data()[(x - minX) * (maxY - minY + 1) + (y - minY)])
                 {
-                    Tile& tile = tiles[x * m_worldMaxCells.y + y];
+                    Tile& tile = tiles.data()[x * m_worldMaxCells.y + y];
                     if (tile.health)
                     {
                         // Vec2i startCoord(x, y);
@@ -1438,7 +1430,7 @@ void ScenePlay::sRender()
         // }
     }
 
-    // ray casting
+    // Ray casting
     std::vector<Vec2f> triangleFan = rayCast(Vec2f(m_mainView.getCenter().x, m_mainView.getCenter().y), Vec2f(mainViewSize.x, mainViewSize.y), openTiles, playerTrans.pos, tiles, minX, maxX, minY, maxY);
     sf::VertexArray fan(sf::PrimitiveType::TriangleFan, triangleFan.size());
     for (size_t i = 0; i < triangleFan.size(); ++i)
@@ -1453,7 +1445,7 @@ void ScenePlay::sRender()
     }
     window.draw(fan);
 
-    // bullets
+    // Bullets
     for (Entity& bullet : m_entityManager.getEntities("bullet"))
     {
         const CTransform& transform = bullet.getComponent<CTransform>();
@@ -1466,7 +1458,7 @@ void ScenePlay::sRender()
         window.draw(sprite);
     }
 
-    // ragdolls
+    // Ragdolls
     for (Entity& rag : m_entityManager.getEntities("ragdoll"))
     {
         const CTransform& trans = rag.getComponent<CTransform>();
@@ -1488,24 +1480,70 @@ void ScenePlay::sRender()
         window.draw(rect);
     }
 
-    // player, player parts, and weapon held
+    // Player parts and weapon held
     if (m_player.isActive())
     {
-        // back arm
-        const CTransform& backArmTrans = m_playerArmBack.getComponent<CTransform>();
-        sf::Sprite& backArmSprite = m_playerArmBack.getComponent<CAnimation>().animation.getSprite();
-        backArmSprite.setPosition({ backArmTrans.pos.x, backArmTrans.pos.y });
-        backArmSprite.setScale({ backArmTrans.scale.x, backArmTrans.scale.y });
-        backArmSprite.setRotation(sf::radians(backArmTrans.angle));
-        window.draw(backArmSprite);
+        // Player head and arms
+        // sf::Sprite& lForearm = m_game.assets().getAnimation("LeftForearm").getSprite();
+        // sf::Sprite& lUpperArm = m_game.assets().getAnimation("LeftUpperArm").getSprite();
+        // sf::Sprite& head = m_game.assets().getAnimation("Head").getSprite();
+        // sf::Sprite& rForearm = m_game.assets().getAnimation("RightForearm").getSprite();
+        // sf::Sprite& rUpperArm = m_game.assets().getAnimation("RightUpperArm").getSprite();
+        /// TODO: add in hands too
 
-        // player
-        sf::Sprite& playerSprite = m_player.getComponent<CAnimation>().animation.getSprite();
-        playerSprite.setPosition({ playerTrans.pos.x, playerTrans.pos.y });
-        playerSprite.setScale({ playerTrans.scale.x, playerTrans.scale.y });
-        window.draw(playerSprite);
+        /// TODO: position, rotate, scale
 
-        // health bar
+        // window.draw(lForearm);
+        // window.draw(lUpperArm);
+        // window.draw(head);
+        // window.draw(rForearm);
+        // window.draw(rUpperArm);
+
+        // Player SkelAnim
+        // CSkelAnim& playerAnim = m_player.getComponent<CSkelAnim>();
+        // const CState& playerState = m_player.getComponent<CState>();
+        sf::Sprite& lFoot = m_leftFoot.getComponent<CAnimation>().animation.getSprite();
+        // sf::Sprite& lCalf = m_leftCalf.getComponent<CAnimation>().animation.getSprite();
+        // sf::Sprite& lThigh = m_leftThigh.getComponent<CAnimation>().animation.getSprite();
+        // sf::Sprite& rFoot = m_rightFoot.getComponent<CAnimation>().animation.getSprite();
+        // sf::Sprite& rCalf = m_rightCalf.getComponent<CAnimation>().animation.getSprite();
+        // sf::Sprite& rThigh = m_rightThigh.getComponent<CAnimation>().animation.getSprite();
+
+        /// TODO: consider having CKeyFrame instead of storing everything in a component (memory pool for each entity) and use the SkelAnim class in sAnimation to update CKeyFrame (would also not have to check CState then), would also make things cleaner
+
+        // const Bone& bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_FOOT];
+        lFoot.setPosition({ playerTrans.pos.x, playerTrans.pos.y });
+        lFoot.setRotation(sf::radians(0));
+        lFoot.setScale({ .1f, .1f });
+
+        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_CALF];
+        // lCalf.setPosition({ bone.pos.x, bone.pos.y });
+        // lCalf.setRotation(sf::radians(bone.angle));
+
+        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_THIGH];
+        // lThigh.setPosition({ bone.pos.x, bone.pos.y });
+        // lThigh.setRotation(sf::radians(bone.angle));
+
+        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_FOOT];
+        // rFoot.setPosition({ bone.pos.x, bone.pos.y });
+        // rFoot.setRotation(sf::radians(bone.angle));
+
+        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_CALF];
+        // rCalf.setPosition({ bone.pos.x, bone.pos.y });
+        // rCalf.setRotation(sf::radians(bone.angle));
+
+        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_THIGH];
+        // rThigh.setPosition({ bone.pos.x, bone.pos.y });
+        // rThigh.setRotation(sf::radians(bone.angle));
+
+        window.draw(lFoot);
+        // window.draw(lCalf);
+        // window.draw(lThigh);
+        // window.draw(rFoot);
+        // window.draw(rCalf);
+        // window.draw(rThigh);
+
+        // Health bar
         sf::RectangleShape healthBarOutline({ 30, 5 });
         CBoundingBox& playerBox = m_player.getComponent<CBoundingBox>();
         healthBarOutline.setPosition({ playerTrans.pos.x - 15, playerTrans.pos.y - playerBox.halfSize.y - 15 });
@@ -1519,29 +1557,13 @@ void ScenePlay::sRender()
         window.draw(healthBarOutline);
         window.draw(healthBar);
 
-        // weapon
+        // Weapon
         const CTransform& weaponTrans = m_weapon.getComponent<CTransform>();
         sf::Sprite& weaponSprite = m_weapon.getComponent<CAnimation>().animation.getSprite();
         weaponSprite.setPosition({ weaponTrans.pos.x, weaponTrans.pos.y });
         weaponSprite.setScale({ weaponTrans.scale.x, weaponTrans.scale.y });
         weaponSprite.setRotation(sf::radians(weaponTrans.angle));
         window.draw(weaponSprite);
-
-        // head
-        const CTransform& headTrans = m_playerHead.getComponent<CTransform>();
-        sf::Sprite& headSprite = m_playerHead.getComponent<CAnimation>().animation.getSprite();
-        headSprite.setPosition({ headTrans.pos.x, headTrans.pos.y });
-        headSprite.setScale({ headTrans.scale.x, headTrans.scale.y });
-        headSprite.setRotation(sf::radians(headTrans.angle));
-        window.draw(headSprite);
-
-        // front arm
-        const CTransform& frontArmTrans = m_playerArmFront.getComponent<CTransform>();
-        sf::Sprite& frontArmSprite = m_playerArmFront.getComponent<CAnimation>().animation.getSprite();
-        frontArmSprite.setPosition({ frontArmTrans.pos.x, frontArmTrans.pos.y });
-        frontArmSprite.setScale({ frontArmTrans.scale.x, frontArmTrans.scale.y });
-        frontArmSprite.setRotation(sf::radians(frontArmTrans.angle));
-        window.draw(frontArmSprite);
     }
 
     /// normal rendering without vision lighting:
@@ -1620,19 +1642,18 @@ void ScenePlay::sRender()
         window.draw(player);
 
         /// @todo change this later to use some set zoom or something for the minimap (have a separate view for opening the whole map)
-        minX = static_cast<size_t>(std::max(0, playerGridPos.x - checkLength.x * 10));
-        maxX = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.x) - 1, playerGridPos.x + checkLength.x * 10));
-        minY = static_cast<size_t>(std::max(0, playerGridPos.y - checkLength.y * 10));
-        maxY = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.y) - 1, playerGridPos.y + checkLength.y * 10));
+        minX = std::max(0, playerGridPos.x - checkLength.x * 10);
+        maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x * 10);
+        minY = std::max(0, playerGridPos.y - checkLength.y * 10);
+        maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y * 10);
 
         sf::VertexArray points(sf::PrimitiveType::Points);
         sf::Color c;
-        for (size_t x = minX; x <= maxX * 10; ++x)
+        for (int x = minX; x <= maxX; ++x)
         {
-            for (size_t y = minY; y <= maxY; ++y)
+            for (int y = minY; y <= maxY; ++y)
             {
-                Tile& tile = tiles[x * m_worldMaxCells.y + y];
-
+                Tile& tile = tiles.data()[x * m_worldMaxCells.y + y];
                 if (tile.blocksMovement || tile.blocksVision)
                 {
                     c.r = tile.r;
@@ -1680,19 +1701,69 @@ void ScenePlay::spawnPlayer()
 {
     PROFILE_FUNCTION();
 
-    // set player components
+    // Set player components (like the hip of the player skeleton)
     m_player = m_entityManager.addEntity("player");
-    m_player.addComponent<CBoundingBox>(Vec2i { m_playerConfig.CW, m_playerConfig.CH }, true, true);
-    CTransform& playerTrans = m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
-    playerTrans.scale = Vec2f(0.5f, 0.5f);
-    m_player.addComponent<CAnimation>(m_game.assets().getAnimation("Run"), false);
+    m_player.addComponent<CBoundingBox>(Vec2i { m_playerConfig.CW, m_playerConfig.CH }, true, false);
+    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
     m_player.addComponent<CState>(State::AIR);
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
     m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
     m_player.addComponent<CHealth>(100);
+    m_player.addComponent<CSkelAnim>(std::vector<SkelAnim> { SkelAnim { AnimConfig::walkKeyFrames } });
 
-    // send spawn to network
+    /// @todo set scales of parts here
+    // Set player body parts components
+    m_head = m_entityManager.addEntity("bodyPart");
+    m_head.addComponent<CTransform>();
+    m_head.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
+    m_torso = m_entityManager.addEntity("bodyPart");
+    m_torso.addComponent<CTransform>();
+    m_torso.addComponent<CAnimation>(m_game.assets().getAnimation("Torso"), false);
+    m_leftUpperArm = m_entityManager.addEntity("bodyPart");
+    m_leftUpperArm.addComponent<CTransform>();
+    m_leftUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftUpperArm"), false);
+    m_leftForearm = m_entityManager.addEntity("bodyPart");
+    m_leftForearm.addComponent<CTransform>();
+    m_leftForearm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftForearm"), false);
+    m_leftHandBack = m_entityManager.addEntity("bodyPart");
+    m_leftHandBack.addComponent<CTransform>();
+    m_leftHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("LeftHandBack"), false);
+    m_leftHandFront = m_entityManager.addEntity("bodyPart");
+    m_leftHandFront.addComponent<CTransform>();
+    m_leftHandFront.addComponent<CAnimation>(m_game.assets().getAnimation("LeftHandFront"), false);
+    m_rightUpperArm = m_entityManager.addEntity("bodyPart");
+    m_rightUpperArm.addComponent<CTransform>();
+    m_rightUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("RightUpperArm"), false);
+    m_rightForearm = m_entityManager.addEntity("bodyPart");
+    m_rightForearm.addComponent<CTransform>();
+    m_rightForearm.addComponent<CAnimation>(m_game.assets().getAnimation("RightForearm"), false);
+    m_rightHandBack = m_entityManager.addEntity("bodyPart");
+    m_rightHandBack.addComponent<CTransform>();
+    m_rightHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandBack"), false);
+    m_rightHandFront = m_entityManager.addEntity("bodyPart");
+    m_rightHandFront.addComponent<CTransform>();
+    m_rightHandFront.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandFront"), false);
+    m_leftThigh = m_entityManager.addEntity("bodyPart");
+    m_leftThigh.addComponent<CTransform>();
+    m_leftThigh.addComponent<CAnimation>(m_game.assets().getAnimation("LeftThigh"), false);
+    m_leftCalf = m_entityManager.addEntity("bodyPart");
+    m_leftCalf.addComponent<CTransform>();
+    m_leftCalf.addComponent<CAnimation>(m_game.assets().getAnimation("LeftCalf"), false);
+    m_leftFoot = m_entityManager.addEntity("bodyPart");
+    m_leftFoot.addComponent<CTransform>();
+    m_leftFoot.addComponent<CAnimation>(m_game.assets().getAnimation("LeftFoot"), false);
+    m_rightThigh = m_entityManager.addEntity("bodyPart");
+    m_rightThigh.addComponent<CTransform>();
+    m_rightThigh.addComponent<CAnimation>(m_game.assets().getAnimation("RightThigh"), false);
+    m_rightCalf = m_entityManager.addEntity("bodyPart");
+    m_rightCalf.addComponent<CTransform>();
+    m_rightCalf.addComponent<CAnimation>(m_game.assets().getAnimation("RightCalf"), false);
+    m_rightFoot = m_entityManager.addEntity("bodyPart");
+    m_rightFoot.addComponent<CTransform>();
+    m_rightFoot.addComponent<CAnimation>(m_game.assets().getAnimation("RightFoot"), false);
+
+    /// @todo send spawn to network
     // NetworkData data {
     //     .dataType = NetworkData::DataType::SPAWN,
     //     .first.id = m_player.getID(),
@@ -1701,24 +1772,7 @@ void ScenePlay::spawnPlayer()
     // };
     // m_game.getNetManager().sendData(data);
 
-    // spawn player arms
-    m_playerArmBack = m_entityManager.addEntity("playerPart");
-    CTransform& armBackTrans = m_playerArmBack.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
-    armBackTrans.scale = Vec2f(0.5f, 0.5f);
-    m_playerArmBack.addComponent<CAnimation>(m_game.assets().getAnimation("ArmBack"), false);
-
-    m_playerArmFront = m_entityManager.addEntity("playerPart");
-    CTransform& armFrontTrans = m_playerArmFront.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
-    armFrontTrans.scale = Vec2f(0.5f, 0.5f);
-    m_playerArmFront.addComponent<CAnimation>(m_game.assets().getAnimation("ArmFront"), false);
-
-    // player head
-    m_playerHead = m_entityManager.addEntity("playerPart");
-    CTransform& headTrans = m_playerHead.addComponent<CTransform>(); // must be after bounding box /// TODO: make spawning in dynamic
-    headTrans.scale = Vec2f(0.4f, 0.4f);
-    m_playerHead.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
-
-    // spawn player weapon
+    // Spawn player weapon
     m_weapon = m_entityManager.addEntity("weapon");
     m_weapon.addComponent<CFire>(50, 0.97f, 1.0f);
     m_weapon.addComponent<CDamage>(50);
@@ -1771,16 +1825,17 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
     Vec2i checkLength { static_cast<int>(playerBounds.halfSize.x / m_cellSizePixels + 1),
                         static_cast<int>(playerBounds.halfSize.y / m_cellSizePixels + 1) };
 
-    const size_t minX = static_cast<size_t>(std::max(0, playerGridPos.x - checkLength.x));
-    const size_t maxX = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.x) - 1, playerGridPos.x + checkLength.x));
-    const size_t minY = static_cast<size_t>(std::max(0, playerGridPos.y - checkLength.y));
-    const size_t maxY = static_cast<size_t>(std::min(static_cast<int>(m_worldMaxCells.y) - 1, playerGridPos.y + checkLength.y));
+    /// @todo caluclating this again, maybe pass these as arguments or something, refactoring needed for sure (or make it it's own function)
+    const int minX = std::max(0, playerGridPos.x - checkLength.x);
+    const int maxX = std::min(m_worldMaxCells.x - 1, playerGridPos.x + checkLength.x);
+    const int minY = std::max(0, playerGridPos.y - checkLength.y);
+    const int maxY = std::min(m_worldMaxCells.y - 1, playerGridPos.y + checkLength.y);
 
-    for (size_t x = minX; x <= maxX; ++x)
+    for (int x = minX; x <= maxX; ++x)
     {
-        for (size_t y = minY; y <= maxY; ++y)
+        for (int y = minY; y <= maxY; ++y)
         {
-            const Tile& tile = tiles[x * m_worldMaxCells.y + y];
+            const Tile& tile = tiles.data()[x * m_worldMaxCells.y + y];
 
             if (tile.blocksMovement)
             {
@@ -1892,12 +1947,13 @@ void ScenePlay::projectileTileCollisions(std::vector<Tile>& tiles, std::vector<E
         // int verticalCheckLenght = bulletBounds.halfSize.y / m_cellSizePixels.y + 1;
         /// TODO: if no bounding box, don't even need any internal loop, can just get bullet pos (pixels), see if tile active at grid coord, then say there's a collision and handle it, no isInside or overlap or anything either (already done below)
 
-        if (bulletGridPos.x < 0 || bulletGridPos.x >= static_cast<int>(m_worldMaxCells.x) || bulletGridPos.y < 0 || bulletGridPos.y >= static_cast<int>(m_worldMaxCells.y))
+        if (bulletGridPos.x < 0 || bulletGridPos.x >= m_worldMaxCells.x ||
+            bulletGridPos.y < 0 || bulletGridPos.y >= m_worldMaxCells.y)
         {
             continue;
         }
 
-        Tile& tile = tiles[static_cast<size_t>(bulletGridPos.x) * m_worldMaxCells.y + static_cast<size_t>(bulletGridPos.y)];
+        Tile& tile = tiles.data()[bulletGridPos.x * m_worldMaxCells.y + bulletGridPos.y];
 
         if (tile.blocksMovement) /// TODO: get a blocksProjectiles member? maybe blocks movement but not projectiles, or other way around
         {
@@ -2217,7 +2273,7 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
 
 /// @brief find tile grid coords that are reachable from (x, y) grid coords without breaking other tiles and add them to openTiles
 /// TODO: way to only update visible tiles on certain events like destroy tile, move, place tile, etc.?
-void ScenePlay::findOpenTiles(size_t x, size_t y, size_t minX, size_t maxX, size_t minY, size_t maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::stack<Vec2i>& tileStack, std::vector<std::vector<bool>>& visited)
+void ScenePlay::findOpenTiles(int x, int y, int minX, int maxX, int minY, int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::vector<Vec2i>& tileStack, std::vector<char>& visited)
 {
     // base case - off game world or rendering screen
     /// TODO: seg fault on world edge case, just make world bounds so that camera always in middle and player never reaches "edge"
@@ -2227,7 +2283,7 @@ void ScenePlay::findOpenTiles(size_t x, size_t y, size_t minX, size_t maxX, size
     }
 
     // base case - active tile found
-    const Tile& tile = tiles[x * m_worldMaxCells.y + y];
+    const Tile& tile = tiles.data()[x * m_worldMaxCells.y + y];
     if (tile.blocksVision)
     {
         openTiles.emplace_back(x, y);
@@ -2235,36 +2291,36 @@ void ScenePlay::findOpenTiles(size_t x, size_t y, size_t minX, size_t maxX, size
     }
 
     // recursive step - add all neighbors and call function on next tile
-    if (x < maxX && !visited[x - minX + 1][y - minY])
+    if (x < maxX && !visited.data()[(x - minX + 1) * (maxY - minY + 1) + (y - minY)])
     {
-        tileStack.emplace(x + 1, y);
-        visited[x - minX + 1][y - minY] = true;
+        tileStack.emplace_back(x + 1, y);
+        visited.data()[(x - minX + 1) * (maxY - minY + 1) + (y - minY)] = true;
     }
-    if (y > minY && !visited[x - minX][y - minY - 1])
+    if (y > minY && !visited.data()[(x - minX) * (maxY - minY + 1) + (y - minY - 1)])
     {
-        tileStack.emplace(x, y - 1);
-        visited[x - minX][y - minY - 1] = true;
+        tileStack.emplace_back(x, y - 1);
+        visited.data()[(x - minX) * (maxY - minY + 1) + (y - minY - 1)] = true;
     }
-    if (x > minX && !visited[x - minX - 1][y - minY])
+    if (x > minX && !visited.data()[(x - minX - 1) * (maxY - minY + 1) + (y - minY)])
     {
-        tileStack.emplace(x - 1, y);
-        visited[x - minX - 1][y - minY] = true;
+        tileStack.emplace_back(x - 1, y);
+        visited.data()[(x - minX - 1) * (maxY - minY + 1) + (y - minY)] = true;
     }
-    if (y < maxY && !visited[x - minX][y - minY + 1])
+    if (y < maxY && !visited.data()[(x - minX) * (maxY - minY + 1) + (y - minY + 1)])
     {
-        tileStack.emplace(x, y + 1);
-        visited[x - minX][y - minY + 1] = true;
+        tileStack.emplace_back(x, y + 1);
+        visited.data()[(x - minX) * (maxY - minY + 1) + (y - minY + 1)] = true;
     }
 
     while (!tileStack.empty())
     {
-        Vec2uz topVal = tileStack.top().to<size_t>();
-        tileStack.pop();
+        Vec2i topVal = tileStack.back();
+        tileStack.pop_back();
         findOpenTiles(topVal.x, topVal.y, minX, maxX, minY, maxY, tiles, openTiles, tileStack, visited);
     }
 }
 
-std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, size_t minX, size_t maxX, size_t minY, size_t maxY)
+std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& viewSize, const std::vector<Vec2i>& openTiles, const Vec2f& origin, const std::vector<Tile>& tiles, int minX, int maxX, int minY, int maxY)
 {
     PROFILE_FUNCTION();
 
@@ -2365,7 +2421,7 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                 yTravel += yMoveHypDist * m_cellSizePixels;
             }
 
-            const Tile& tile = tiles[static_cast<size_t>(gridCoord.x) * m_worldMaxCells.y + static_cast<size_t>(gridCoord.y)];
+            const Tile& tile = tiles.data()[gridCoord.x * m_worldMaxCells.y + gridCoord.y];
             if (tile.blocksVision) // tile hit /// TODO: seg fault on edges of world or if second check fails and this goes on
             {
                 tileHit = true;
@@ -2393,10 +2449,11 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
             /// if vertex reached and if just passed there is no tile, expand line to next intersection or end of screen and create new point there for triangle fan
 
             // check for tile just passed the vertex in the direction of the ray
-            Vec2uz checkCoord = ((vertex + rayUnitVec) / m_cellSizePixels).to<size_t>();
+            Vec2i checkCoord = ((vertex + rayUnitVec) / m_cellSizePixels).to<int>();
 
-            const Tile& tile = tiles[checkCoord.x * m_worldMaxCells.y + checkCoord.y];
-            if (!(checkCoord.x < minX || checkCoord.x > maxX || checkCoord.y < minY || checkCoord.y > maxY || tile.blocksVision))
+            const Tile& tile = tiles.data()[checkCoord.x * m_worldMaxCells.y + checkCoord.y];
+            if (!(checkCoord.x < minX || checkCoord.x > maxX ||
+                checkCoord.y < minY || checkCoord.y > maxY || tile.blocksVision))
             {
                 /// add small angle to ray
                 /// NOTE: angle starts at 0 on +x-axis and increases in a CW manner up to 2π (since +y-axis points down)
@@ -2405,45 +2462,48 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
                 float dTheta = 0.0001f;
                 float newAngle;
-                Vec2uz gridCoordUZ = gridCoord.to<size_t>();
 
                 if (rayUnitVec.x < 0 && rayUnitVec.y < 0) // came from bottom right
                 {
-                    /// @todo ensure gridCoord > (0, 0) or we'll get size_t wrap around
-                    if (tiles[(gridCoordUZ.x - 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision && tiles[gridCoordUZ.x * m_worldMaxCells.y + gridCoordUZ.y - 1].blocksVision) // shared vertex
+                    /// @todo ensure gridCoord > (0, 0)
+                    if (tiles.data()[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision &&
+                        tiles.data()[gridCoord.x * m_worldMaxCells.y + gridCoord.y - 1].blocksVision) // shared vertex
                         continue; // don't want ray shining through diagonal lines of tiles
 
-                    if (tiles[(gridCoordUZ.x - 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision) // tile to the left active
+                    if (tiles.data()[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision) // tile to the left active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile above active
                         newAngle = rayAngle - dTheta; // CCW
                 }
-                else if (rayUnitVec.x > 0 && rayUnitVec.y < 0) // came from bottom left
+                else if (rayUnitVec.x > 0.0f && rayUnitVec.y < 0.0f) // came from bottom left
                 {
-                    if (tiles[gridCoordUZ.x * m_worldMaxCells.y + (gridCoordUZ.y - 1)].blocksVision && tiles[(gridCoordUZ.x + 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision)
+                    if (tiles.data()[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].blocksVision &&
+                        tiles.data()[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         continue;
 
-                    if (tiles[gridCoordUZ.x * m_worldMaxCells.y + (gridCoordUZ.y - 1)].blocksVision) // tile above active
+                    if (tiles.data()[gridCoord.x * m_worldMaxCells.y + (gridCoord.y - 1)].blocksVision) // tile above active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the right active
                         newAngle = rayAngle - dTheta;; // CCW
                 }
                 else if (rayUnitVec.x > 0 && rayUnitVec.y > 0) // came from top left
                 {
-                    if (tiles[(gridCoordUZ.x + 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision && tiles[gridCoordUZ.x * m_worldMaxCells.y + (gridCoordUZ.y + 1)].blocksVision)
+                    if (tiles.data()[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision &&
+                        tiles.data()[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision)
                         continue;
 
-                    if (tiles[(gridCoordUZ.x + 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision) // tile to the right
+                    if (tiles.data()[(gridCoord.x + 1) * m_worldMaxCells.y + gridCoord.y].blocksVision) // tile to the right
                         newAngle = rayAngle + dTheta; // CW
                     else // tile below is active
                         newAngle = rayAngle - dTheta; // CCW
                 }
                 else // came from top right or /// TODO: a horizontal/vertical ray case
                 {
-                    if (tiles[gridCoordUZ.x * m_worldMaxCells.y + (gridCoordUZ.y + 1)].blocksVision && tiles[(gridCoordUZ.x - 1) * m_worldMaxCells.y + gridCoordUZ.y].blocksVision)
+                    if (tiles.data()[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision &&
+                        tiles.data()[(gridCoord.x - 1) * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         continue;
 
-                    if (tiles[gridCoordUZ.x * m_worldMaxCells.y + (gridCoordUZ.y + 1)].blocksVision) // tile below is active
+                    if (tiles.data()[gridCoord.x * m_worldMaxCells.y + (gridCoord.y + 1)].blocksVision) // tile below is active
                         newAngle = rayAngle + dTheta; // CW
                     else // tile to the left is active
                         newAngle = rayAngle - dTheta; // CCW
@@ -2467,8 +2527,8 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
 
                         // at this point, the endpoint of the line formed by vertex + xTravelNew * newRayUnitVec is the collision point on tile (gridCoord.x, gridCoord.y) if tile is active there
 
-                        gridCoordUZ = gridCoord.to<size_t>();
-                        if (gridCoordUZ.x < minX || gridCoordUZ.x > maxX || tiles[gridCoordUZ.x * m_worldMaxCells.y + gridCoordUZ.y].blocksVision)
+                        if (gridCoord.x < minX || gridCoord.x > maxX ||
+                            tiles.data()[gridCoord.x * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * xTravelNew);
@@ -2482,8 +2542,8 @@ std::vector<Vec2f> ScenePlay::rayCast(const Vec2f& viewCenter, const Vec2f& view
                     {
                         gridCoord.y += rayStep.y;
 
-                        gridCoordUZ = gridCoord.to<size_t>();
-                        if (gridCoordUZ.y < minY || gridCoordUZ.y > maxY || tiles[gridCoordUZ.x * m_worldMaxCells.y + gridCoordUZ.y].blocksVision)
+                        if (gridCoord.y < minY || gridCoord.y > maxY ||
+                            tiles.data()[gridCoord.x * m_worldMaxCells.y + gridCoord.y].blocksVision)
                         {
                             tileHit = true;
                             verticesToAdd.push_back(vertex + newRayUnitVec * yTravelNew);

@@ -13,18 +13,6 @@
 
 class Animation
 {
-    std::string m_name;
-    int m_frameCount; // number of animation frames in the animation
-    int m_frameDuration; // number of game frames in one animation frame
-    Vec2i m_atlasPosition; // for regions of texture atlases
-    Vec2i m_size; // dimensions of one animation frame
-
-    int m_currentFrame; // current frame of the animation
-    int m_gameFramesPassed; // number of game frames passed since created
-    sf::Texture m_texture; // texture used for sprite
-    sf::Sprite m_sprite = sf::Sprite(m_texture);
-    /// TODO: may be a better way to fix this defualt constructor problem than using a default texture and just replacing it
-
 public:
     /// @brief default constructor needed for memory pool initialization (Animation part of CAnimation)
     Animation() = default;
@@ -39,7 +27,7 @@ public:
         m_sprite.setTextureRect(sf::IntRect { { m_currentFrame * m_size.x, 0 }, { m_size.x, m_size.y } });
     }
 
-    /// @brief construct a "static" animation with only 1 frame from a region in a texture atlas
+    /// @brief construct a 1-frame "animation" from a region in a texture atlas
     Animation(const std::string& name, const sf::Texture& texture, const Vec2i& atlasPosition, const Vec2i& size)
         : m_name(name), m_atlasPosition(atlasPosition), m_size(size), m_texture(texture)
     {
@@ -51,7 +39,7 @@ public:
     /// @brief advances an animation by one frame
     void updateLoop()
     {
-        m_gameFramesPassed++;
+        ++m_gameFramesPassed;
         m_currentFrame = (m_gameFramesPassed / m_frameDuration) % m_frameCount; // if frameCount < (m_gameFramesPassed / m_frameDuration), then this animation is looping
         m_sprite.setTextureRect(sf::IntRect({ m_currentFrame * m_size.x, 0 }, { m_size.x, m_size.y }));
     }
@@ -76,4 +64,16 @@ public:
     {
         return m_size;
     }
+
+private:
+
+    std::string m_name;
+    int m_frameCount; // number of animation frames in the animation
+    int m_frameDuration; // number of game frames in one animation frame
+    Vec2i m_atlasPosition; // for regions of texture atlases
+    Vec2i m_size; // dimensions of one animation frame
+    int m_currentFrame = 0; // current frame of the animation
+    int m_gameFramesPassed; // number of game frames passed since created
+    sf::Texture m_texture; // texture used for sprite
+    sf::Sprite m_sprite = sf::Sprite(m_texture); /// TODO: may be a better way to fix this defualt constructor problem than using a default texture and just replacing it
 };

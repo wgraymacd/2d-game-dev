@@ -37,7 +37,8 @@ EntityMemoryPool::EntityMemoryPool(EntityID maxEntities)
         std::vector<CState>(maxEntities),
         std::vector<CFire>(maxEntities),
         std::vector<CJointRelation>(maxEntities),
-        std::vector<CJointInfo>(maxEntities)
+        std::vector<CJointInfo>(maxEntities),
+        std::vector<CSkelAnim>(maxEntities)
     );
 
     // m_pool = std::make_tuple(

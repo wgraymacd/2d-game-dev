@@ -40,3 +40,5 @@ CFire::CFire(int fr, float minAcc, float maxAcc) : fireRate(fr), minAccuracy(min
 CJointRelation::CJointRelation(const Entity& e, float minA, float maxA) : entityID(e.getID()), minAngle(minA), maxAngle(maxA) { }
 
 CJointInfo::CJointInfo(const std::array<float, 3>& positions) : initJointOffsets(positions) { }
+
+CSkelAnim::CSkelAnim(const std::vector<SkelAnim>& skelAnims) : skelAnims(skelAnims) { }

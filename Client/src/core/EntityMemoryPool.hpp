@@ -113,7 +113,8 @@ class EntityMemoryPool
         std::vector<CState>, // "air", "stand", "run"
         std::vector<CFire>,
         std::vector<CJointRelation>,
-        std::vector<CJointInfo>
+        std::vector<CJointInfo>,
+        std::vector<CSkelAnim>
         // std::vector<CFollowPlayer>, // NPC behavior
         // std::vector<CPatrol> // NPC behavior
     > m_pool;

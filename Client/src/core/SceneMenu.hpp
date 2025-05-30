@@ -22,7 +22,7 @@ class SceneMenu : public Scene
 {
     std::string m_title;
     std::vector<std::string> m_menuStrings;
-    sf::Text m_menuText = sf::Text(m_game.assets().getFont("font"));
+    sf::Text m_menuText = sf::Text(m_game.assets().getFont("Default"));
 
     size_t m_selectedMenuIndex = 0;
 

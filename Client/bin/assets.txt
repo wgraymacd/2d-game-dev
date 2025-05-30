@@ -1,15 +1,23 @@
 Texture Bullets bin/images/bullets.png
 Texture Rifles bin/images/riflesSmall.png
-Texture RunAnim bin/images/runAnimNoHeadNoArmSmall.png
-Texture ArmFront bin/images/armFront.png
-Texture ArmBack bin/images/armBack.png
-Texture Head bin/images/head.png
-Static Bullet Bullets 290 151 13 3
-Static Weapon Rifles 0 0 205 69
-Static ArmFront ArmFront 0 0 96 76
-Static ArmBack ArmBack 0 0 135 42
-Static Head Head 0 0 48 70
-Static Test Head 26 2 6 12
-Animation Run RunAnim 21 3
+Texture BodyParts bin/images/maleSoldierLimbs.png
+Sprite Bullet Bullets 290 151 13 3
+Sprite Weapon Rifles 0 0 205 69
+Sprite Head BodyParts 0 0 210 238
+Sprite Torso BodyParts 210 0 270 500
+Sprite LeftCalf BodyParts 530 0 138 444
+Sprite LeftThigh BodyParts 668 0 196 543
+Sprite LeftForearm BodyParts 864 0 100 260
+Sprite LeftUpperArm BodyParts 964 0 107 343
+Sprite RightCalf BodyParts 1071 0 133 444
+Sprite RightThigh BodyParts 1204 0 224 541
+Sprite RightForearm BodyParts 1428 0 87 256
+Sprite RightUpperArm BodyParts 1515 0 112 346
+Sprite LeftFoot BodyParts 1627 0 237 132
+Sprite RightFoot BodyParts 1684 0 237 132
+Sprite LeftHandBack BodyParts 2101 0 67 41
+Sprite LeftHandFront BodyParts 2168 0 153 89
+Sprite RightHandBack BodyParts 2321 0 54 29
+Sprite RightHandFront BodyParts 2375 0 148 76
 Sound Bullet bin/sounds/AR.wav
-Font font bin/fonts/font.ttf
+Font Default bin/fonts/font.ttf

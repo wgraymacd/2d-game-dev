@@ -7,6 +7,9 @@
 // Core
 #include "Animation.hpp"
 
+// Physics
+// #include "physics/SkelAnim.hpp"
+
 // External libraries
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
@@ -20,77 +23,6 @@
 
 class Assets
 {
-    std::map<std::string, sf::Texture> m_textureMap;
-    std::map<std::string, Animation> m_animationMap;
-    std::map<std::string, sf::Font> m_fontMap;
-    std::map<std::string, sf::SoundBuffer> m_soundBufferMap;
-    std::map<std::string, std::optional<sf::Sound>> m_soundMap; // made this optional because of the lack of a default constructor
-    /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance, maybe replace with std::unique_pointer (chatGPT rec)?
-
-    /// @brief add a texture to the texture map
-    void addTexture(const std::string& textureName, const std::string& path, bool smooth)
-    {
-        m_textureMap[textureName] = sf::Texture();
-
-        if (!m_textureMap[textureName].loadFromFile(path))
-        {
-            std::cerr << "Could not load texture file: " << path << '\n';
-            m_textureMap.erase(textureName);
-        }
-        else
-        {
-            m_textureMap[textureName].setSmooth(smooth);
-        }
-    }
-
-    // animations with their own texture file
-
-    /// @brief add an animation to the animation map
-    /// @param textureName texture used for animation, single file with frames from left to right equally spaced
-    /// @param frameCount number of animation frames in the texture
-    /// @param frameDuration number of game frames to maintain each animation frame
-    void addAnimation(const std::string& animationName, const std::string& textureName, int frameCount, int frameDuration)
-    {
-        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
-    }
-
-    /// @brief add a static animation (region of texture atlas) to the animation map
-    /// @param textureName texture atlas used
-    /// @param position top left corner of texture region to be used
-    /// @param size size in pixels of texture region
-    void addAnimation(const std::string& animationName, const std::string& textureName, const Vec2i& position, const Vec2i& size)
-    {
-        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), position, size);
-    }
-
-    /// ERROR: figure out why the debugger is so slow and doesn't work well
-    /// @brief add a font to the font map
-    void addFont(const std::string& fontName, const std::string& path)
-    {
-        m_fontMap[fontName] = sf::Font();
-        if (!m_fontMap[fontName].openFromFile(path))
-        {
-            std::cerr << "Could not load font file: " << path << '\n';
-            m_fontMap.erase(fontName);
-        }
-    }
-
-    /// @brief add a sound buffer and sound to the sound buffer and sound maps
-    void addSound(const std::string& soundName, const std::string& path)
-    {
-        m_soundBufferMap[soundName] = sf::SoundBuffer();
-        if (!m_soundBufferMap[soundName].loadFromFile(path))
-        {
-            std::cerr << "Could not load sound file: " << path << '\n';
-            m_soundBufferMap.erase(soundName);
-        }
-        else
-        {
-            m_soundMap[soundName] = sf::Sound(m_soundBufferMap[soundName]);
-            // m_soundMap[soundName].value().setVolume(25);
-        }
-    }
-
 public:
 
     /// @brief loads all assets from asset configuration file
@@ -113,7 +45,7 @@ public:
                 file >> name >> texPath;
                 addTexture(name, texPath, false);
             }
-            else if (str == "Static")
+            else if (str == "Sprite") // 1-frame "animation" from a region in a texture atlas
             {
                 std::string name, texture;
                 Vec2i pos, size;
@@ -155,11 +87,17 @@ public:
         return m_textureMap.at(textureName);
     }
 
-    const Animation& getAnimation(const std::string& animationName) const
+    Animation& getAnimation(const std::string& animationName)
     {
         assert(m_animationMap.find(animationName) != m_animationMap.end());
         return m_animationMap.at(animationName);
     }
+
+    // const SkelAnim& getSkelAnim(const std::string& animationName) const
+    // {
+    //     assert(m_skelAnimMap.find(animationName) != m_skelAnimMap.end());
+    //     return m_skelAnimMap.at(animationName);
+    // }
 
     const sf::Font& getFont(const std::string& fontName) const
     {
@@ -187,5 +125,78 @@ public:
     {
         assert(m_soundMap.find(soundName) != m_soundMap.end());
         m_soundMap.at(soundName).value().play();
+    }
+
+private:
+
+    std::map<std::string, sf::Texture> m_textureMap;
+    std::map<std::string, Animation> m_animationMap;
+    // std::map<std::string, SkelAnim> m_skelAnimMap;
+    std::map<std::string, sf::Font> m_fontMap;
+    std::map<std::string, sf::SoundBuffer> m_soundBufferMap;
+    std::map<std::string, std::optional<sf::Sound>> m_soundMap; // made this optional because of the lack of a default constructor
+    /// TODO: could consider other methods for the sound map without std::optional, also check this file in general in light of optional usage, this was just a quick fix, haven't checked performance, maybe replace with std::unique_pointer (chatGPT rec)?
+
+    /// @brief add a texture to the texture map
+    void addTexture(const std::string& textureName, const std::string& path, bool smooth)
+    {
+        m_textureMap[textureName] = sf::Texture();
+
+        if (!m_textureMap[textureName].loadFromFile(path))
+        {
+            std::cerr << "Could not load texture file: " << path << '\n';
+            m_textureMap.erase(textureName);
+        }
+        else
+        {
+            m_textureMap[textureName].setSmooth(smooth);
+        }
+    }
+
+    // animations with their own texture file
+
+    /// @brief add an animation to the animation map
+    /// @param textureName texture used for animation, single file with frames from left to right equally spaced
+    /// @param frameCount number of animation frames in the texture
+    /// @param frameDuration number of game frames to maintain each animation frame
+    void addAnimation(const std::string& animationName, const std::string& textureName, int frameCount, int frameDuration)
+    {
+        m_animationMap[animationName] = Animation(animationName, getTexture(textureName), frameCount, frameDuration);
+    }
+
+    /// @brief add a sprite to the animation map
+    /// @param textureName texture atlas used
+    /// @param position top left corner of texture region to be used
+    /// @param size size in pixels of texture region
+    void addAnimation(const std::string& spriteName, const std::string& textureName, const Vec2i& position, const Vec2i& size)
+    {
+        m_animationMap[spriteName] = Animation(spriteName, getTexture(textureName), position, size);
+    }
+
+    /// @brief add a font to the font map
+    void addFont(const std::string& fontName, const std::string& path)
+    {
+        m_fontMap[fontName] = sf::Font();
+        if (!m_fontMap[fontName].openFromFile(path))
+        {
+            std::cerr << "Could not load font file: " << path << '\n';
+            m_fontMap.erase(fontName);
+        }
+    }
+
+    /// @brief add a sound buffer and sound to the sound buffer and sound maps
+    void addSound(const std::string& soundName, const std::string& path)
+    {
+        m_soundBufferMap[soundName] = sf::SoundBuffer();
+        if (!m_soundBufferMap[soundName].loadFromFile(path))
+        {
+            std::cerr << "Could not load sound file: " << path << '\n';
+            m_soundBufferMap.erase(soundName);
+        }
+        else
+        {
+            m_soundMap[soundName] = sf::Sound(m_soundBufferMap[soundName]);
+            // m_soundMap[soundName].value().setVolume(25);
+        }
     }
 };

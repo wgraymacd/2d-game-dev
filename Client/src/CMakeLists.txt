@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(Client VERSION 1.0)
 
 # TODO: will want to set this based on code for individual libraries, see CMake tutorial step 3
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # dependencies and checks
@@ -85,6 +85,7 @@ add_subdirectory(network)
 add_subdirectory(physics)
 add_subdirectory(utility)
 add_subdirectory(world)
+add_subdirectory(character)
 
 add_executable(${PROJECT_NAME}
     main.cpp
@@ -96,4 +97,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     physics
     utility
     world
+    character
 )

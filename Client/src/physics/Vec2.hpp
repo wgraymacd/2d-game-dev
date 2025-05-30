@@ -17,9 +17,9 @@ public:
     T y = 0;
 
     /// @brief default constructor for easy member initialization of classes that use Vec2
-    Vec2() = default;
+    constexpr Vec2() = default;
 
-    Vec2(T xin, T yin) : x(xin), y(yin) { }
+    constexpr Vec2(T xin, T yin) : x(xin), y(yin) { }
 
     /// @brief constructor to convert from sf::Vector2
     /// @param vec a reference to an sf::Vector2 object
@@ -148,8 +148,8 @@ std::ostream& operator<<(std::ostream& out, const Vec2<T>& vec)
 
 using Vec2f = Vec2<float>;
 using Vec2i = Vec2<int>;
-using Vec2ui = Vec2<unsigned int>;
-using Vec2uz = Vec2<size_t>;
+// using Vec2ui = Vec2<unsigned int>;
+// using Vec2uz = Vec2<size_t>;
 
 /// @brief add hash functions for Vec2i and Vec2f to allow them to be used as keys in std::unordered_map
 namespace std

@@ -10,6 +10,7 @@ enum class State
     NONE,
     IDLE,
     RUN,
+    WALK, // ADS + RUN input = WALK
     AIR,
     NUM_STATES
 };

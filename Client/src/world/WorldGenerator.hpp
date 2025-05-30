@@ -27,11 +27,11 @@ class WorldGenerator
 {
 public:
 
-    WorldGenerator(size_t numTilesX, size_t numTilesY, int worldSeed)
+    WorldGenerator(int numTilesX, int numTilesY, int worldSeed)
         : m_worldTilesX(numTilesX), m_worldTilesY(numTilesY), m_seed(worldSeed)
     {
         m_noise.SetSeed(m_seed);
-        m_tileTypes.resize(m_worldTilesX * m_worldTilesY);
+        m_tileTypes.resize(static_cast<size_t>(m_worldTilesX * m_worldTilesY));
     }
 
     void generateWorld()
@@ -53,8 +53,8 @@ public:
 
 private:
 
-    size_t m_worldTilesX;
-    size_t m_worldTilesY;
+    int m_worldTilesX;
+    int m_worldTilesY;
 
     float m_dirtToStone = 0.5f; // point (0 to 1) at which base layer switches from dirt to stone
 
@@ -75,17 +75,17 @@ private:
 
         std::cout << "Creating base layer..." << std::endl;
 
-        for (size_t y = 0; y < m_worldTilesY; ++y)
+        for (int y = 0; y < m_worldTilesY; ++y)
         {
-            for (size_t x = 0; x < m_worldTilesX; ++x)
+            for (int x = 0; x < m_worldTilesX; ++x)
             {
                 if (y <= m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = TileType::DIRT;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::DIRT;
                 }
                 else
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = TileType::STONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::STONE;
                 }
             }
         }
@@ -111,18 +111,18 @@ private:
         float dirtThreshold = 0.6f; // threshold for creating dirt vein
         float stoneThreshold = 0.8f; // threshold for creating stone patch
 
-        for (size_t y = 0; y < m_worldTilesY; ++y)
+        for (int y = 0; y < m_worldTilesY; ++y)
         {
-            for (size_t x = 0; x < m_worldTilesX; ++x)
+            for (int x = 0; x < m_worldTilesX; ++x)
             {
                 float patchNoise = m_noise.GetNoise(static_cast<float>(x), static_cast<float>(y));
                 if (patchNoise > stoneThreshold && y <= m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = TileType::STONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::STONE;
                 }
                 else if (patchNoise > dirtThreshold && y > m_worldTilesY * m_dirtToStone)
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = TileType::DIRT;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::DIRT;
                 }
             }
         }
@@ -159,14 +159,14 @@ private:
         m_noise.SetFractalOctaves(4);
 
         float caveThreshold = 0.05f; // threshold for creating caves
-        for (size_t y = 0; y < m_worldTilesY; ++y)
+        for (int y = 0; y < m_worldTilesY; ++y)
         {
-            for (size_t x = 0; x < m_worldTilesX; ++x)
+            for (int x = 0; x < m_worldTilesX; ++x)
             {
                 float caveNoise = m_noise.GetNoise(static_cast<float>(x), y * 1.5f);
                 if (caveNoise * (1.0f + 0.5f * y / m_worldTilesY) > caveThreshold)
                 {
-                    TileType& type = m_tileTypes[x * m_worldTilesY + y];
+                    TileType& type = m_tileTypes.data()[x * m_worldTilesY + y];
                     if (type == TileType::DIRT)
                     {
                         type = TileType::DIRTWALL;
@@ -187,25 +187,25 @@ private:
         std::cout << "Adding buildings..." << std::endl;
 
         StructureTypes structures;
-        int numberOfBuildings = static_cast<int>(m_worldTilesX * m_worldTilesY) / 50000;
+        int numberOfBuildings = m_worldTilesX * m_worldTilesY / 50000;
         for (int i = 0; i < numberOfBuildings; ++i)
         {
             // int structType = random % numberOfBuildings;
-            size_t xPos = Random::getIntegral(0uz, m_worldTilesX); // left
-            size_t yPos = Random::getIntegral(0uz, m_worldTilesY); // top
+            int xPos = Random::getIntegral(0, m_worldTilesX); // left
+            int yPos = Random::getIntegral(0, m_worldTilesY); // top
 
-            size_t structSizeX = structures.hallway.size();
-            size_t structSizeY = structures.hallway[0].size();
+            int structSizeX = structures.hallway.size();
+            int structSizeY = structures.hallway[0].size();
 
-            for (size_t x = xPos; x < xPos + structSizeX; ++x)
+            for (int x = xPos; x < xPos + structSizeX; ++x)
             {
                 if (x >= 0 && x < m_worldTilesX)
                 {
-                    for (size_t y = yPos; y < yPos + structSizeY; ++y)
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -214,15 +214,15 @@ private:
             // int structType = random % numberOfBuildings;
             xPos += structSizeX - 1;
 
-            for (size_t x = xPos; x < xPos + structSizeX; ++x)
+            for (int x = xPos; x < xPos + structSizeX; ++x)
             {
                 if (x >= 0 && x < m_worldTilesX)
                 {
-                    for (size_t y = yPos; y < yPos + structSizeY; ++y)
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -230,15 +230,15 @@ private:
 
             yPos += structSizeY - 1;
 
-            for (size_t x = xPos; x < xPos + structSizeX; ++x)
+            for (int x = xPos; x < xPos + structSizeX; ++x)
             {
                 if (x >= 0 && x < m_worldTilesX)
                 {
-                    for (size_t y = yPos; y < yPos + structSizeY; ++y)
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -246,15 +246,15 @@ private:
 
             yPos += structSizeY - 1;
 
-            for (size_t x = xPos; x < xPos + structSizeX; ++x)
+            for (int x = xPos; x < xPos + structSizeX; ++x)
             {
                 if (x >= 0 && x < m_worldTilesX)
                 {
-                    for (size_t y = yPos; y < yPos + structSizeY; ++y)
+                    for (int y = yPos; y < yPos + structSizeY; ++y)
                     {
                         if (y >= 0 && y < m_worldTilesY)
                         {
-                            m_tileTypes[x * m_worldTilesY + y] = structures.hallway[x - xPos][y - yPos];
+                            m_tileTypes.data()[x * m_worldTilesY + y] = structures.hallway.data()[x - xPos].data()[y - yPos];
                         }
                     }
                 }
@@ -270,24 +270,24 @@ private:
         std::cout << "Creating skyline..." << std::endl;
 
         // 1D noise for skyline along x-axis
-        std::vector<unsigned int> terrainHeights(m_worldTilesX); // lighter on memory yet still unsigned, @todo: consider using uint16_t or uint8_t for smaller heights and making its max val a global bound on world size in Globals.hpp, or std::array if fixed size wherever possible
+        std::vector<int> terrainHeights(static_cast<size_t>(m_worldTilesX)); /// @todo: consider using (u)int16_t or (u)int8_t for smaller heights and making its max val a global bound on world size in Globals.hpp, or std::array if fixed size wherever possible
 
         float terrainDelta = 50.0f; // controls max deviation from sea level
         float noiseScale = 1.0f;
         float seaLevel = m_worldTilesY / 5.0f; // number of tiles below the top of the screen
 
-        for (size_t x = 0; x < m_worldTilesX; ++x)
+        for (int x = 0; x < m_worldTilesX; ++x)
         {
             float noiseVal = m_noise.GetNoise(x * noiseScale, 0.0f);
             float extraNoise = m_noise.GetNoise(0.0f, x * noiseScale);
             noiseVal += extraNoise;
-            terrainHeights[x] = static_cast<unsigned int>(noiseVal * terrainDelta + seaLevel);
+            terrainHeights.data()[x] = static_cast<int>(noiseVal * terrainDelta + seaLevel);
 
-            for (size_t y = 0; y < m_worldTilesY; ++y)
+            for (int y = 0; y < m_worldTilesY; ++y)
             {
-                if (y < terrainHeights[x])
+                if (y < terrainHeights.data()[x])
                 {
-                    m_tileTypes[x * m_worldTilesY + y] = TileType::NONE;
+                    m_tileTypes.data()[x * m_worldTilesY + y] = TileType::NONE;
                 }
             }
         }
