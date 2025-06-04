@@ -71,29 +71,34 @@ void NetworkManager::update()
                 std::cout << "Connected to " << m_peer->address.host << ":" << m_peer->address.port << "\n";
                 // store client info here if needed with event.peer->data
                 break;
+
             case ENET_EVENT_TYPE_RECEIVE:
-                std::memcpy(&m_data, event.packet->data, sizeof(NetworkData));
-                std::cout << "Received data: " << m_data << "\n";
-                m_dataVec.push_back(m_data); /// TODO: consider adding things to multiple vectors, one for each type of data so that I can access each one at separate times in ScenePlay.cpp
+            {
+                NetworkDatum received;
+                std::memcpy(&received, event.packet->data, sizeof(NetworkDatum));
+                std::cout << "Received data: " << received << "\n";
+                m_dataVec.push_back(received); /// TODO: consider adding things to multiple vectors, one for each type of data so that I can access each one at separate times in ScenePlay.cpp
 
                 enet_packet_destroy(event.packet); // clean up memory after processing message
                 break;
+            }
             case ENET_EVENT_TYPE_DISCONNECT:
                 std::cout << "Disconnected from " << m_peer->address.host << ":" << m_peer->address.port << "\n";
                 // reset peer's client info here if stored above with event.peer->data = nullptr;
                 break;
+
             case ENET_EVENT_TYPE_NONE:
                 break;
         }
     }
 }
 
-const std::vector<NetworkData>& NetworkManager::getData() const
+const std::vector<NetworkDatum>& NetworkManager::getData() const
 {
     return m_dataVec;
 }
 
-void NetworkManager::sendData(const NetworkData& data) const
+void NetworkManager::sendData(const NetworkDatum& data) const
 {
     std::cout << "Sending data: " << data << "\n";
 
@@ -117,7 +122,7 @@ void NetworkManager::sendData(const NetworkData& data) const
 
     ENetPacket* packet = enet_packet_create(
         &data,
-        sizeof(NetworkData),
+        sizeof(NetworkDatum),
         ENET_PACKET_FLAG_RELIABLE
     ); // reliable means guaranteed to be delivered
 
@@ -147,12 +152,14 @@ void NetworkManager::updateIDMaps(EntityID localID, EntityID netID)
 
 EntityID NetworkManager::getLocalID(EntityID netID) const
 {
-    return m_netToLocalID.at(netID);
+    std::cout << "Getting Local ID " << m_netToLocalID[netID] << " from Net ID " << netID << '\n';
+    return m_netToLocalID[netID];
 }
 
 EntityID NetworkManager::getNetID(EntityID localID) const
 {
-    return m_localToNetID.at(localID);
+    std::cout << "Getting Net ID " << m_localToNetID[localID] << " from Local ID " << localID << '\n';
+    return m_localToNetID[localID];
 }
 
 void NetworkManager::connectTo(int addressP1, int addressP2, int addressP3, int addressP4, int port)

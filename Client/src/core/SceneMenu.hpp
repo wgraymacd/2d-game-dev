@@ -8,7 +8,7 @@
 #include "Action.hpp"
 
 // Global
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
 
 // External libraries
 #include <SFML/Graphics.hpp>

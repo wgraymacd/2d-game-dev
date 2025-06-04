@@ -8,7 +8,8 @@
 
 // Global
 #include "Random.hpp"
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
+#include "EntityBase.hpp"
 
 // External libraries
 #include <enet/enet.h>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <limits>
 #include <cstring> // for std::memcpy
+#include <unordered_map>
 
 /// @todo might need to add mutexes to this class for thread safety, but not sure yet
 class LobbyServer
@@ -26,8 +28,6 @@ public:
 
     LobbyServer(enet_uint16 port) : m_port(port)
     {
-        m_clientIDs.reserve(m_maxPlayers);
-
         ENetAddress address;
         address.host = ENET_HOST_ANY; // Accept connections from any IP address
         address.port = m_port;
@@ -61,59 +61,78 @@ public:
             switch (event.type)
             {
                 case ENET_EVENT_TYPE_CONNECT: /// @todo this event is not processed until the first message is sent from the client, could be a localhost thing, idk, but look into it later
+                {
                     std::cout << "LOBBY: Client connected from " << event.peer->address.host << ":" << event.peer->address.port << "\n";
                     // store client info here if needed with event.peer->data
 
-                    sendData(event.peer, NetworkData { NetworkData::DataType::WORLD_SEED, .first.i = m_worldSeed });
+                    ++m_numClients;
+
+                    // Send world seed to the new client
+                    sendData(NetworkDatum { NetworkDatum::DataType::WORLD_SEED, .first.i = m_worldSeed }, event.peer);
+
+                    // Send SPAWN data for all existing entities to the new client
+                    /// TODO: look into how to batch all this data into a single packet to reduce network overhead
+                    const auto& currentState = m_lobbyEntityMan.getCurrentState(); // auto since no access to array size
+                    for (EntityID id : m_lobbyEntityMan.getActiveEntities())
+                    {
+                        sendData(currentState[id], event.peer);
+                    }
 
                     break;
+                }
 
                 case ENET_EVENT_TYPE_RECEIVE:
                 {
-                    NetworkData received;
-                    std::memcpy(&received, event.packet->data, sizeof(NetworkData));
+                    NetworkDatum received;
+                    std::memcpy(&received, event.packet->data, sizeof(NetworkDatum));
                     std::cout << "LOBBY: Received data: " << received << " from " << event.peer->address.host << ":" << event.peer->address.port << "\n";
 
                     switch (received.dataType)
                     {
-                        case NetworkData::DataType::POSITION:
-                            enet_host_broadcast(m_server, 0, event.packet);
-                            enet_host_flush(m_server); // automatically handles memory cleanup, cannot use with enet_packet_destroy
+                        case NetworkDatum::DataType::POSITION:
+                            broadcastDataExcept(event.packet, event.peer);
                             break;
 
-                        case NetworkData::DataType::VELOCITY:
-                            enet_host_broadcast(m_server, 0, event.packet);
-                            enet_host_flush(m_server);
+                        case NetworkDatum::DataType::VELOCITY:
+                            broadcastDataExcept(event.packet, event.peer);
                             break;
 
-                        case NetworkData::DataType::SPAWN:
+                        case NetworkDatum::DataType::SPAWN:
                         {
-                            float tempStorage;
+                            EntityID netID = createNetEntity(received);
 
-                            tempStorage = received.second.f;
+                            if (received.second.type == EntityBase::Type::PLAYER)
+                            {
+                                m_client2PlayerID[concatenate(event.peer->address.host, event.peer->address.port)] = netID;
 
-                            // send out LOCAL_SPAWN to specific client
-                            received.dataType = NetworkData::DataType::LOCAL_SPAWN;
-                            received.second.id = createNetEntity();
-                            sendData(event.peer, received);
+                                received.second.type = EntityBase::Type::ENEMY;
+                            }
 
-                            // send SPAWN to everyone
-                            received.dataType = NetworkData::DataType::SPAWN;
-                            received.first.id = received.second.id;
-                            received.second.f = tempStorage;
-                            broadcastData(received);
+                            // Send SPAWN to all but specific client
+                            NetworkDatum spawn {
+                                NetworkDatum::DataType::SPAWN,
+                                .first.id = netID,
+                                .second.type = received.second.type,
+                                .third.f = received.third.f,
+                                .fourth.f = received.fourth.f
+                            };
+                            broadcastDataExcept(spawn, event.peer);
 
-                            // clean up memory after processing message, careful not to clean memory in use or already cleaned memory cuz will seg fault
+                            // Send LOCAL_SPAWN to specific client
+                            NetworkDatum localSpawn {
+                                NetworkDatum::DataType::LOCAL_SPAWN,
+                                .first.id = received.first.id,
+                                .second.id = netID
+                            };
+                            sendData(localSpawn, event.peer);
+
+                            // Clean up memory after processing message, careful not to clean memory in use or already cleaned memory cuz will seg fault
                             enet_packet_destroy(event.packet);
 
                             break;
                         }
 
-                        case NetworkData::DataType::NONE:
-                        case NetworkData::DataType::LOBBY_CONNECT:
-                        case NetworkData::DataType::LOCAL_SPAWN:
-                        case NetworkData::DataType::WORLD_SEED:
-                        case NetworkData::DataType::NUM_TYPES:
+                        default:
                             break;
                     }
 
@@ -121,10 +140,28 @@ public:
                 }
 
                 case ENET_EVENT_TYPE_DISCONNECT:
+                {
                     std::cout << "LOBBY: Client " << event.peer->address.host << ":" << event.peer->address.port << " disconnected\n";
-                    // reset peer's client info here if stored above with event.peer->data = nullptr;
-                    break;
 
+                    unsigned long key = concatenate(event.peer->address.host, event.peer->address.port);
+
+                    // Remove entity from current state
+                    m_lobbyEntityMan.destroy(m_client2PlayerID[key]);
+
+                    // Send despawn data to all connected clients
+                    NetworkDatum despawn {
+                        NetworkDatum::DataType::DESPAWN,
+                        .first.id = m_client2PlayerID[key]
+                    };
+                    broadcastData(despawn);
+
+                    // Erase key-value pair for disconnected client
+                    m_client2PlayerID.erase(key);
+
+                    --m_numClients;
+
+                    break;
+                }
                 case ENET_EVENT_TYPE_NONE:
                     break;
             }
@@ -133,7 +170,7 @@ public:
 
     bool isFull() const
     {
-        return m_clientIDs.size() >= m_maxPlayers;
+        return m_numClients >= m_maxPlayers;
     }
 
     int getPort() const
@@ -147,23 +184,24 @@ private:
     enet_uint16 m_port;
 
     LobbyEntityManager m_lobbyEntityMan;
-    std::vector<EntityID> m_clientIDs;
-    const EntityID m_maxPlayers { Settings::maxLobbyPlayers };
+    size_t m_numClients = 0;
+    std::unordered_map<unsigned long, EntityID> m_client2PlayerID;
+    const size_t m_maxPlayers { Settings::maxLobbyPlayers };
 
     const int m_worldSeed { Random::getIntegral(0, std::numeric_limits<int>::max()) };
 
-    EntityID createNetEntity()
+    EntityID createNetEntity(const NetworkDatum& datum)
     {
-        return m_lobbyEntityMan.addNetEntity();
+        return m_lobbyEntityMan.addNetEntity(datum);
     }
 
-    void broadcastData(const NetworkData& data)
+    void broadcastData(const NetworkDatum& data)
     {
         std::cout << "LOBBY: Broadcasting data\n";
 
         ENetPacket* packet = enet_packet_create(
             &data,
-            sizeof(NetworkData),
+            sizeof(NetworkDatum),
             ENET_PACKET_FLAG_RELIABLE
         ); // reliable means guaranteed to be delivered
 
@@ -180,13 +218,41 @@ private:
         enet_host_flush(m_server);
     }
 
-    void sendData(ENetPeer* clientPeer, const NetworkData& data)
+    void broadcastDataExcept(const NetworkDatum& data, ENetPeer* excludedPeer)
+    {
+        std::cout << "LOBBY: Broadcasting data to all peers except " << excludedPeer->address.host << ":" << excludedPeer->address.port << "\n";
+
+        for (size_t i = 0; i < m_server->peerCount; ++i)
+        {
+            ENetPeer* peer = &m_server->peers[i];
+            if (peer != excludedPeer && peer->state == ENET_PEER_STATE_CONNECTED)
+            {
+                sendData(data, peer);
+            }
+        }
+    }
+
+    void broadcastDataExcept(ENetPacket* packet, ENetPeer* excludedPeer)
+    {
+        std::cout << "LOBBY: Broadcasting data to all peers except " << excludedPeer->address.host << ":" << excludedPeer->address.port << "\n";
+
+        for (size_t i = 0; i < m_server->peerCount; ++i)
+        {
+            ENetPeer* peer = &m_server->peers[i];
+            if (peer != excludedPeer && peer->state == ENET_PEER_STATE_CONNECTED)
+            {
+                sendData(packet, peer);
+            }
+        }
+    }
+
+    void sendData(const NetworkDatum& data, ENetPeer* clientPeer)
     {
         std::cout << "LOBBY: Sending data to client " << clientPeer->address.host << ":" << clientPeer->address.port << ": " << data << "\n";
 
         ENetPacket* packet = enet_packet_create(
             &data,
-            sizeof(NetworkData),
+            sizeof(NetworkDatum),
             ENET_PACKET_FLAG_RELIABLE
         );
 
@@ -196,7 +262,28 @@ private:
             return;
         }
 
-        enet_peer_send(clientPeer, 0, packet); // Send to a single client
+        enet_peer_send(clientPeer, 0, packet);
         enet_host_flush(m_server);
+    }
+
+    void sendData(ENetPacket* packet, ENetPeer* clientPeer)
+    {
+        std::cout << "LOBBY: Sending data to client " << clientPeer->address.host << ":" << clientPeer->address.port << ": " << packet->data << "\n";
+
+        enet_peer_send(clientPeer, 0, packet);
+        enet_host_flush(m_server);
+    }
+
+    unsigned long concatenate(unsigned int x, unsigned int y)
+    {
+        x *= 10u;
+        unsigned int temp = y;
+        while (temp >= 10u)
+        {
+            temp /= 10u;
+            x *= 10u;
+        }
+
+        return x + y;
     }
 };

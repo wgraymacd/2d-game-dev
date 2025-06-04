@@ -34,8 +34,7 @@ protected:
 
     struct PlayerConfig
     {
-        int CW, CH;
-        float SX, SY, SM, GRAVITY; // bounding box size, speed in X and Y and max, gravity
+        float CW, CH, SX, SY, SM, GRAVITY; // speed in X and Y and max, gravity
         std::string BA; // bullet animation
     };
 
@@ -48,21 +47,21 @@ protected:
     // sf::RenderTexture m_tileTexture = sf::RenderTexture({ static_cast<unsigned int>(m_mainView.getSize().x / m_cellSizePixels), static_cast<unsigned int>(m_mainView.getSize().y / m_cellSizePixels) }); /// TODO: might need a plus one since we go from xMin through xMax
     sf::View m_miniMapView = sf::View({ 0.0f, 0.0f }, sf::Vector2f(m_worldMaxCells.x, m_worldMaxCells.y) * 2.0f); // center, size
 
-    // entities
+    // Entities
     EntityManager m_entityManager;
     Entity m_player, m_weapon; // commonly used
     Entity m_head, m_torso, m_leftUpperArm, m_leftForearm, m_rightUpperArm, m_rightForearm, m_leftHandBack, m_leftHandFront, m_rightHandBack, m_rightHandFront, m_leftThigh, m_rightThigh, m_leftCalf, m_rightCalf, m_leftFoot, m_rightFoot; // body parts
     PlayerConfig m_playerConfig;
 
-    // tiles
+    // Tiles
     TileManager m_tileManager;
 
-    // rendering
+    // Rendering
     bool m_drawTextures = true;
     bool m_drawMinimap = true;
     bool m_drawCollision = false;
 
-    // fps counter
+    // FPS counter
     sf::Clock m_fpsClock;
     sf::Text m_fpsText = sf::Text(m_game.assets().getFont("Default"));
 
@@ -76,7 +75,7 @@ protected:
     void playerTileCollisions(const std::vector<Tile>& tiles);
     void projectileTileCollisions(std::vector<Tile>& tiles, std::vector<Entity>& bullets);
     void projectilePlayerCollisions(std::vector<Entity>& players, std::vector<Entity>& bullets);
-    Entity spawnRagdollElement(const Vec2f& pos, float angle, const Vec2i& boxSize, const Animation& animation);
+    Entity spawnRagdollElement(const Vec2f& pos, float angle, const Vec2f& boxSize, const Animation& animation);
     void createRagdoll(const Entity& entity, const Entity& cause);
     Vec2f gridToMidPixel(float gridX, float gridY, Entity entity);
     void findOpenTiles(int x, int y, int minX, int maxX, int minY, int maxY, const std::vector<Tile>& tiles, std::vector<Vec2i>& openTiles, std::vector<Vec2i>& tileStack, std::vector<char>& visited);
@@ -90,6 +89,7 @@ protected:
     // void resizeView(const Vec2f& size); /// TODO: could also have no arguments and go check globalsettings windowsize since updated first, this func used if resizing needs to be specific to each scene
 
     /// TODO: group these to best handle single components for multiple entities at once
+    void sNetwork(); // get net data and create entities for received spawn requests
     void sObjectMovement(); // entity: state, input, transform
     void sObjectCollision(); // entity: transform, state, bounding box, input, damage; tile:
     void sProjectiles(); // entity: input, firerate, transform, invincibility, damage, health; tile: health, type

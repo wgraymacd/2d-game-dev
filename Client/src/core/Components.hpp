@@ -124,14 +124,14 @@ public:
 class CBoundingBox : public Component
 {
 public:
-    Vec2i size { 0, 0 };
+    Vec2f size { 0.0f, 0.0f };
     Vec2f halfSize { 0.0f, 0.0f };
     bool blockMove = false;
     bool blockVision = false;
 
     CBoundingBox() = default;
-    CBoundingBox(const Vec2i& s);
-    CBoundingBox(const Vec2i& s, bool m, bool v);
+    CBoundingBox(const Vec2f& s);
+    CBoundingBox(const Vec2f& s, bool m, bool v);
 };
 
 class CAnimation : public Component

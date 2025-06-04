@@ -7,5 +7,5 @@
 
 namespace Settings
 {
-    inline constexpr int maxLobbyPlayers = 50;
+    inline constexpr unsigned int maxLobbyPlayers = 50;
 }

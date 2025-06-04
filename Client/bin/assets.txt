@@ -3,8 +3,8 @@ Texture Rifles bin/images/riflesSmall.png
 Texture BodyParts bin/images/maleSoldierLimbs.png
 Sprite Bullet Bullets 290 151 13 3
 Sprite Weapon Rifles 0 0 205 69
-Sprite Head BodyParts 0 0 210 238
-Sprite Torso BodyParts 210 0 270 500
+Sprite Head BodyParts 0 0 210 243
+Sprite Torso BodyParts 210 0 250 497
 Sprite LeftCalf BodyParts 530 0 138 444
 Sprite LeftThigh BodyParts 668 0 196 543
 Sprite LeftForearm BodyParts 864 0 100 260
@@ -14,7 +14,7 @@ Sprite RightThigh BodyParts 1204 0 224 541
 Sprite RightForearm BodyParts 1428 0 87 256
 Sprite RightUpperArm BodyParts 1515 0 112 346
 Sprite LeftFoot BodyParts 1627 0 237 132
-Sprite RightFoot BodyParts 1684 0 237 132
+Sprite RightFoot BodyParts 1864 0 237 132
 Sprite LeftHandBack BodyParts 2101 0 67 41
 Sprite LeftHandFront BodyParts 2168 0 153 89
 Sprite RightHandBack BodyParts 2321 0 54 29

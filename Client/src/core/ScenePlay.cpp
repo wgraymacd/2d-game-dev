@@ -4,6 +4,7 @@
 /// TODO: worry about signed vs unsigned and size and even int (adapts to platform's word size) and all that later after learning more about performance differences and such (e.g., may not want to mix signed and unsigned ints like uint32_t and int8_t)
 /// TODO: in some cases processing a 64-bit int is faster than a 32-bit one (or 32 faster than 16), but in many cases memory is what slows down a program, so just have to test between memory efficiency and CPU efficiency
 /// TODO: render tile layer (and any other things) at the minimum resolution in it's own view, then scale the size of that view to match with others (this way the resolution of the tile map can be shit (and minimap) but still look the same, and the character and guns and all can be great, can even put back in textures for tiles probably)
+/// TODO: refactor to more of an ECS architecture for organization and performance later on (each system handles each component at a time)
 
 // Core
 #include "ScenePlay.hpp"
@@ -49,6 +50,7 @@ ScenePlay::ScenePlay(GameEngine& gameEngine, int worldSeed) : Scene(gameEngine)
     init();
     loadGame();
     generateWorld(worldSeed);
+    sNetwork(); // call this once to process data from SceneMenu's most recent call to net man update
     spawnPlayer();
 }
 
@@ -261,14 +263,16 @@ void ScenePlay::updateState()
         // {
             // this can be infinite loop if it takes longer to do all this than the time per frame
             /// TODO: think about order here if it even matters
-        m_game.getNetManager().update(); // update network data /// TODO: may want to move this to the top/bottom of each function if data isn't arriving in time or something
 
+        m_game.getNetManager().update(); // do this first, /// TODO: may want to move this to the top/bottom of each function if data isn't arriving in time or something
+
+        sNetwork(); // get net data and create/destroy entities (rest of network data handled in corresponding systems)
         sStatus(); // lifespan and invincibility time calculations first to not waste calculations on dead entities
+        sAnimation(); // update all animations (could move this around)
         sObjectMovement(); // object movement
         sObjectCollision(); // then object collisions
         sProjectiles(); // then iterations of projectile movement and collisions, then projectile spawns
         sAI();
-        sAnimation(); // update all animations (could move this around)
         sCamera(); // finally, set camera
 
         m_entityManager.update(); // add and remove all entities staged during updates above
@@ -297,59 +301,71 @@ void ScenePlay::onEnd()
 
 /**
  * systems
- */
+*/
 
- /// @brief handle player, weapon, etc. movement per frame before bullet movement/collision (object = non-projectile); includes CTransform, CInput, CState
+void ScenePlay::sNetwork()
+{
+    NetworkManager& netMan = m_game.getNetManager();
+
+    // Get data from last net update
+    const std::vector<NetworkDatum>& netData = netMan.getData();
+
+    // Spawn in any new entities created by other players or update IDs
+    for (const NetworkDatum& netDatum : netData)
+    {
+        switch (netDatum.dataType)
+        {
+            case NetworkDatum::DataType::SPAWN:
+            {
+                Entity entity = m_entityManager.addEntity(netDatum.second.type);
+                entity.addComponent<CTransform>(Vec2f { netDatum.third.f, netDatum.fourth.f });
+                entity.addComponent<CBoundingBox>(Vec2f { m_playerConfig.CW, m_playerConfig.CH }, true, true);
+                netMan.updateIDMaps(entity.getID(), netDatum.first.id);
+                break;
+            }
+
+            case NetworkDatum::DataType::LOCAL_SPAWN:
+                netMan.updateIDMaps(netDatum.first.id, netDatum.second.id);
+                break;
+
+            case NetworkDatum::DataType::DESPAWN:
+                m_entityManager.getEntity(netMan.getLocalID(netDatum.first.id)).destroy();
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
+/// @brief handle player, weapon, etc. movement per frame before bullet movement/collision (object = non-projectile); includes CTransform, CInput, CState
 void ScenePlay::sObjectMovement()
 {
     PROFILE_FUNCTION();
 
-    /// perform updates from network
+    /// Perform updates from network
     /// TODO: consider creating separate vectors for separate data types so that they can be updated at the same time as other entities - max cache locality
 
-    // const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
+    const std::vector<NetworkDatum>& netData = m_game.getNetManager().getData();
 
-    // for (const NetworkData& netDatum : netData)
-    // {
-    //     EntityID localID;
-    //     Entity entity;
+    for (const NetworkDatum& netDatum : netData)
+    {
+        if (netDatum.dataType == NetworkDatum::DataType::POSITION)
+        {
+            EntityID localID = m_game.getNetManager().getLocalID(netDatum.first.id);
+            Entity entity = m_entityManager.getEntity(localID);
 
-    //     std::cout << netDatum << "\n";
-
-    //     switch (netDatum.dataType)
-    //     {
-    //         case NetworkData::DataType::POSITION:
-    //             localID = m_game.getNetManager().getLocalID(netDatum.first.id);
-    //             entity = m_entityManager.getEntity(localID);
-
-    //             /// TODO: update entity's position
-    //             break;
-    //         case NetworkData::DataType::VELOCITY:
-    //             localID = m_game.getNetManager().getLocalID(netDatum.first.id);
-    //             entity = m_entityManager.getEntity(localID);
-
-    //             /// TODO: update entity's velocity
-    //             break;
-    //         case NetworkData::DataType::SPAWN:
-    //             /// TODO: this
-    //             // Entity entity = m_entityManager.addEntity("CHANGE THIS");
-    //             // m_game.getNetManager().updateIDMaps(netDatum.netID, entity.getID());
-    //             break;
-    //         case NetworkData::DataType::LOCAL_SPAWN:
-    //             m_game.getNetManager().updateIDMaps(netDatum.first.id, netDatum.second.id);
-    //             break;
-
-    //         default:
-    //             std::cerr << "Invalid data type received\n";
-    //     }
-    // }
+            entity.getComponent<CTransform>().pos.x = netDatum.second.f;
+            entity.getComponent<CTransform>().pos.y = netDatum.third.f;
+        }
+    }
 
 
-    /// perform local updates
+    /// Perform local updates
 
     float airResistance = 15.0f; // m/s slow-down
 
-    // local player
+    // Local player
     if (m_player.isActive())
     {
         CState& playerState = m_player.getComponent<CState>();
@@ -397,7 +413,7 @@ void ScenePlay::sObjectMovement()
             }
         }
 
-        // move right until reaching max speed and face the direction we are moving in
+        // Move right until reaching max speed and face the direction we are moving in
         if (playerInput.right)
         {
             if (playerTrans.velocity.x + m_playerConfig.SX <= m_playerConfig.SM)
@@ -445,18 +461,6 @@ void ScenePlay::sObjectMovement()
         playerTrans.prevPos = playerTrans.pos;
         playerTrans.pos += playerTrans.velocity;
 
-        /// send network updates to server
-        // if (playerTrans.prevPos != playerTrans.pos)
-        // {
-        //     NetworkData netData {
-        //         .dataType = NetworkData::DataType::POSITION,
-        //         .first.id = m_game.getNetManager().getNetID(m_player.getID()),
-        //         .second.f = playerTrans.pos.x,
-        //         .third.f = playerTrans.pos.y
-        //     };
-        //     m_game.getNetManager().sendData(netData);
-        // }
-
         /// TODO: have crouching? does this then go in sUserInput?
         // if (playerTrans.velocity.x == 0 && playerTrans.velocity.y == 0)
         // {
@@ -470,7 +474,7 @@ void ScenePlay::sObjectMovement()
         //     }
         // }
 
-        // weapon held by player
+        // Weapon held by player
         weaponTrans.pos.x = playerTrans.pos.x;
         weaponTrans.pos.y = playerTrans.pos.y - 20.0f;
         const sf::Vector2f& worldTarget = m_game.window().mapPixelToCoords(sf::Mouse::getPosition(m_game.window()));
@@ -478,38 +482,39 @@ void ScenePlay::sObjectMovement()
         weaponTrans.pos += aimVec.norm() * weaponBox.halfSize.x / 2.0f;
         weaponTrans.angle = aimVec.angle();
 
-        // set scale based on mouse position
+        // Set scale based on mouse position
         if (aimVec.x < 0)
         {
-            playerTrans.scale.x = -abs(playerTrans.scale.x);
+            // playerTrans.scale.x = -abs(playerTrans.scale.x);
             weaponTrans.scale.y = -abs(weaponTrans.scale.x);
         }
         else
         {
-            playerTrans.scale.x = abs(playerTrans.scale.x);
+            // playerTrans.scale.x = abs(playerTrans.scale.x);
             weaponTrans.scale.y = abs(weaponTrans.scale.x);
         }
-        for (Entity& part : m_entityManager.getEntities("playerPart"))
-        {
-            CTransform& partTrans = part.getComponent<CTransform>();
 
-            partTrans.pos.x = playerTrans.pos.x;
-            partTrans.angle = aimVec.angle();
+        /// TODO: aim the arms and head toward mouse, and the torso a lil toward mouse maybe?
+        // for (Entity& part : m_entityManager.getEntities("bodyPart"))
+        // {
+        //     CTransform& partTrans = part.getComponent<CTransform>();
 
-            // set scale based on mouse position
-            if (aimVec.x < 0)
-            {
-                partTrans.scale.y = -abs(partTrans.scale.y);
-            }
-            else
-            {
-                partTrans.scale.y = abs(partTrans.scale.y);
-            }
-        }
+        //     partTrans.angle = aimVec.angle();
+
+        //     // Set scale based on mouse position
+        //     if (aimVec.x < 0)
+        //     {
+        //         partTrans.scale.y = -abs(partTrans.scale.y);
+        //     }
+        //     else
+        //     {
+        //         partTrans.scale.y = abs(partTrans.scale.y);
+        //     }
+        // }
     }
 
     // ragdolls
-    for (Entity& ragA : m_entityManager.getEntities("ragdoll"))
+    for (Entity& ragA : m_entityManager.getEntities(Entity::Type::RAGDOLL_PART))
     {
         CTransform& ragATrans = ragA.getComponent<CTransform>();
         CBoundingBox& ragABox = ragA.getComponent<CBoundingBox>();
@@ -644,7 +649,7 @@ void ScenePlay::sObjectCollision()
     /// TODO: weapon-tile collisions (like pistol that fell out of someones hand when killed), other object collisions
 
     // ragdoll-tile collisions /// TODO: could just do two vertices on a stick and call it a day (or give the vertices a circular distance for collisions)
-    for (Entity& rag : m_entityManager.getEntities("ragdoll"))
+    for (Entity& rag : m_entityManager.getEntities(Entity::Type::RAGDOLL_PART))
     {
         CTransform& trans = rag.getComponent<CTransform>();
         CBoundingBox& box = rag.getComponent<CBoundingBox>();
@@ -872,19 +877,14 @@ void ScenePlay::sProjectiles()
 {
     PROFILE_FUNCTION();
 
-    std::vector<Entity>& bullets = m_entityManager.getEntities("bullet");
+    std::vector<Entity>& bullets = m_entityManager.getEntities(Entity::Type::BULLET);
 
-    // move and possibly destroy existing projectiles first
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
-    updateProjectiles(bullets);
+    // Move and possibly destroy existing projectiles first
+    // Done many times per frame to catch collisions in between frames
+    for (int i = 0; i < 10; ++i)
+    {
+        updateProjectiles(bullets);
+    }
 
     // then handle bullet spawning
     CInput& input = m_player.getComponent<CInput>();
@@ -988,7 +988,7 @@ void ScenePlay::sStatus()
     /// TODO: may want to separate lifespan and health since shit is stored so that components are cached together, or change the way components and entities are stored
 
     // bullets lifespan
-    for (Entity& e : m_entityManager.getEntities("bullet"))
+    for (Entity& e : m_entityManager.getEntities(Entity::Type::BULLET))
     {
         int& lifespan = e.getComponent<CLifespan>().lifespan;
         if (lifespan <= 0)
@@ -1002,7 +1002,7 @@ void ScenePlay::sStatus()
     }
 
     // players have invincibility times
-    for (Entity& e : m_entityManager.getEntities("player"))
+    for (Entity& e : m_entityManager.getEntities(Entity::Type::PLAYER))
     {
         int& invTime = e.getComponent<CInvincibility>().timeRemaining;
         if (invTime > 0)
@@ -1045,17 +1045,45 @@ void ScenePlay::sAnimation()
 {
     PROFILE_FUNCTION();
     /// TODO: create an "animation" which is just data on where each limb should be and what angle it should be at, and could then use this data to control rigid bodies when alive by forcing them toward the angle and position needed. Easy transition to ragdoll from there by just letting the entity bodies fall (they're already created, in the right places, and have the right velocities to have a smooth transition)
-    // CSkelAnim& playerSkelAnim = m_player.getComponent<CSkelAnim>();
-    CState& playerState = m_player.getComponent<CState>();
-    if (playerState.state == State::WALK)
-    {
-        /// @todo tweening to get correct current frame
-    }
+    CSkelAnim& playerSkelAnim = m_player.getComponent<CSkelAnim>();
+    // CState& playerState = m_player.getComponent<CState>();
+    CTransform& playerTrans = m_player.getComponent<CTransform>();
 
+    playerSkelAnim.skelAnims[static_cast<size_t>(State::WALK)].update(0); /// TODO: change state to playerState
+    const std::array<Bone, 7>& currentBones = playerSkelAnim.skelAnims[static_cast<size_t>(State::WALK)].getCurrentFrame().getBones();
+    Vec2f scale { AnimConfig::scaleFactor, AnimConfig::scaleFactor }; /// TODO: could set scales in the spawn area since they won't change ever
 
-    /// TODO: if animation is not repeated, and it has ended, destroy the entity
+    /// TODO: consider having CKeyFrame instead of storing everything in a component (memory pool for each entity) and use the SkelAnim class in sAnimation to update CKeyFrame (would also not have to check CState then), would also make things cleaner
 
-    // set animation of player based on its CState component
+    CTransform& ltTrans = m_leftThigh.getComponent<CTransform>();
+    // ltTrans.angle = currentBones[AnimConfig::Index::LEFT_THIGH].angle;
+    ltTrans.pos = playerTrans.pos + currentBones[AnimConfig::Index::LEFT_THIGH].pos;
+    ltTrans.scale = scale;
+
+    CTransform& lcTrans = m_leftCalf.getComponent<CTransform>();
+    // lcTrans.angle = currentBones[AnimConfig::Index::LEFT_CALF].angle;
+    lcTrans.pos = ltTrans.pos + currentBones[AnimConfig::Index::LEFT_CALF].pos.rotate(ltTrans.angle);
+    lcTrans.scale = scale;
+
+    CTransform& lfTrans = m_leftFoot.getComponent<CTransform>();
+    // lfTrans.angle = currentBones[AnimConfig::Index::LEFT_FOOT].angle;
+    lfTrans.pos = lcTrans.pos + currentBones[AnimConfig::Index::LEFT_FOOT].pos.rotate(lcTrans.angle);
+    lfTrans.scale = scale;
+
+    CTransform& rtTrans = m_rightThigh.getComponent<CTransform>();
+    // rtTrans.angle = currentBones[AnimConfig::Index::RIGHT_THIGH].angle;
+    rtTrans.pos = playerTrans.pos + currentBones[AnimConfig::Index::RIGHT_THIGH].pos;
+    rtTrans.scale = scale;
+
+    CTransform& rcTrans = m_rightCalf.getComponent<CTransform>();
+    // rcTrans.angle = currentBones[AnimConfig::Index::RIGHT_CALF].angle;
+    rcTrans.pos = rtTrans.pos + currentBones[AnimConfig::Index::RIGHT_CALF].pos.rotate(rtTrans.angle);
+    rcTrans.scale = scale;
+
+    CTransform& rfTrans = m_rightFoot.getComponent<CTransform>();
+    // rfTrans.angle = currentBones[AnimConfig::Index::RIGHT_FOOT].angle;
+    rfTrans.pos = rcTrans.pos + currentBones[AnimConfig::Index::RIGHT_FOOT].pos.rotate(rcTrans.angle);
+    rfTrans.scale = scale;
 }
 
 /// @brief handles camera view logic; includes CTransform
@@ -1080,6 +1108,7 @@ void ScenePlay::sCamera()
 }
 
 /// @brief handles all rendering of textures (animations), grid boxes, collision boxes, and fps counter; includes CTransform, CAnimation, tile matrix
+/// @todo doing a lot of "get all entities of this type and do the shit", but if I'm going through them all then maybe I should just do a "get all entities and do everything for each component at a time" type deal
 void ScenePlay::sRender()
 {
     PROFILE_FUNCTION();
@@ -1446,7 +1475,7 @@ void ScenePlay::sRender()
     window.draw(fan);
 
     // Bullets
-    for (Entity& bullet : m_entityManager.getEntities("bullet"))
+    for (Entity& bullet : m_entityManager.getEntities(Entity::Type::BULLET))
     {
         const CTransform& transform = bullet.getComponent<CTransform>();
 
@@ -1459,7 +1488,7 @@ void ScenePlay::sRender()
     }
 
     // Ragdolls
-    for (Entity& rag : m_entityManager.getEntities("ragdoll"))
+    for (Entity& rag : m_entityManager.getEntities(Entity::Type::RAGDOLL_PART))
     {
         const CTransform& trans = rag.getComponent<CTransform>();
         sf::Sprite& sprite = rag.getComponent<CAnimation>().animation.getSprite();
@@ -1480,68 +1509,53 @@ void ScenePlay::sRender()
         window.draw(rect);
     }
 
+    // Enenmy players
+    for (Entity& enemy : m_entityManager.getEntities(Entity::Type::ENEMY))
+    {
+        const CTransform& trans = enemy.getComponent<CTransform>();
+        const CBoundingBox& box = enemy.getComponent<CBoundingBox>();
+
+        sf::RectangleShape rect;
+        rect.setSize({ box.size.x, box.size.y });
+        rect.setOrigin({ box.halfSize.x, box.halfSize.y });
+        rect.setPosition({ trans.pos.x, trans.pos.y });
+        rect.setFillColor(sf::Color::Red);
+        window.draw(rect);
+    }
+
     // Player parts and weapon held
     if (m_player.isActive())
     {
-        // Player head and arms
-        // sf::Sprite& lForearm = m_game.assets().getAnimation("LeftForearm").getSprite();
-        // sf::Sprite& lUpperArm = m_game.assets().getAnimation("LeftUpperArm").getSprite();
-        // sf::Sprite& head = m_game.assets().getAnimation("Head").getSprite();
-        // sf::Sprite& rForearm = m_game.assets().getAnimation("RightForearm").getSprite();
-        // sf::Sprite& rUpperArm = m_game.assets().getAnimation("RightUpperArm").getSprite();
-        /// TODO: add in hands too
+        // Set origin for positioning and rotation of sprites
+        // m_leftThigh.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::leftThighOffset.x, AnimConfig::leftThighOffset.y });
+        // m_leftCalf.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::leftCalfOffset.x, AnimConfig::leftCalfOffset.y });
+        // m_leftFoot.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::leftFootOffset.x, AnimConfig::leftFootOffset.y });
+        // m_rightThigh.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::rightThighOffset.x, AnimConfig::rightThighOffset.y });
+        // m_rightCalf.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::rightCalfOffset.x, AnimConfig::rightCalfOffset.y });
+        // m_rightFoot.getComponent<CAnimation>().animation.getSprite().setOrigin({ AnimConfig::rightFootOffset.x, AnimConfig::rightFootOffset.y });
 
-        /// TODO: position, rotate, scale
+        // // Render each sprite
+        // for (Entity& part : m_entityManager.getEntities("bodyPart"))
+        // {
+        //     sf::Sprite& sprite = part.getComponent<CAnimation>().animation.getSprite();
+        //     const CTransform& trans = part.getComponent<CTransform>();
+        //     sprite.setPosition({ trans.pos.x, trans.pos.y });
+        //     sprite.setRotation(sf::radians(trans.angle));
+        //     sprite.setScale({ trans.scale.x, trans.scale.y });
+        //     window.draw(sprite); // ensure parts added to body parts such that this loop draws things in correct order
+        // }
 
-        // window.draw(lForearm);
-        // window.draw(lUpperArm);
-        // window.draw(head);
-        // window.draw(rForearm);
-        // window.draw(rUpperArm);
-
-        // Player SkelAnim
-        // CSkelAnim& playerAnim = m_player.getComponent<CSkelAnim>();
-        // const CState& playerState = m_player.getComponent<CState>();
-        sf::Sprite& lFoot = m_leftFoot.getComponent<CAnimation>().animation.getSprite();
-        // sf::Sprite& lCalf = m_leftCalf.getComponent<CAnimation>().animation.getSprite();
-        // sf::Sprite& lThigh = m_leftThigh.getComponent<CAnimation>().animation.getSprite();
-        // sf::Sprite& rFoot = m_rightFoot.getComponent<CAnimation>().animation.getSprite();
-        // sf::Sprite& rCalf = m_rightCalf.getComponent<CAnimation>().animation.getSprite();
-        // sf::Sprite& rThigh = m_rightThigh.getComponent<CAnimation>().animation.getSprite();
-
-        /// TODO: consider having CKeyFrame instead of storing everything in a component (memory pool for each entity) and use the SkelAnim class in sAnimation to update CKeyFrame (would also not have to check CState then), would also make things cleaner
-
-        // const Bone& bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_FOOT];
-        lFoot.setPosition({ playerTrans.pos.x, playerTrans.pos.y });
-        lFoot.setRotation(sf::radians(0));
-        lFoot.setScale({ .1f, .1f });
-
-        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_CALF];
-        // lCalf.setPosition({ bone.pos.x, bone.pos.y });
-        // lCalf.setRotation(sf::radians(bone.angle));
-
-        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::LEFT_THIGH];
-        // lThigh.setPosition({ bone.pos.x, bone.pos.y });
-        // lThigh.setRotation(sf::radians(bone.angle));
-
-        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_FOOT];
-        // rFoot.setPosition({ bone.pos.x, bone.pos.y });
-        // rFoot.setRotation(sf::radians(bone.angle));
-
-        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_CALF];
-        // rCalf.setPosition({ bone.pos.x, bone.pos.y });
-        // rCalf.setRotation(sf::radians(bone.angle));
-
-        // bone = playerAnim.skelAnims[static_cast<size_t>(playerState.state)].getCurrentFrame().getBones()[AnimConfig::Index::RIGHT_THIGH];
-        // rThigh.setPosition({ bone.pos.x, bone.pos.y });
-        // rThigh.setRotation(sf::radians(bone.angle));
-
-        window.draw(lFoot);
-        // window.draw(lCalf);
-        // window.draw(lThigh);
-        // window.draw(rFoot);
-        // window.draw(rCalf);
-        // window.draw(rThigh);
+        // Temporary shit
+        {
+            const CTransform& trans = m_player.getComponent<CTransform>();
+            const CBoundingBox& box = m_player.getComponent<CBoundingBox>();
+            sf::RectangleShape rect;
+            rect.setSize({ box.size.x, box.size.y });
+            rect.setOrigin({ box.halfSize.x, box.halfSize.y });
+            rect.setPosition({ trans.pos.x, trans.pos.y });
+            rect.setFillColor(sf::Color::Black);
+            window.draw(rect);
+        }
 
         // Health bar
         sf::RectangleShape healthBarOutline({ 30, 5 });
@@ -1702,82 +1716,87 @@ void ScenePlay::spawnPlayer()
     PROFILE_FUNCTION();
 
     // Set player components (like the hip of the player skeleton)
-    m_player = m_entityManager.addEntity("player");
-    m_player.addComponent<CBoundingBox>(Vec2i { m_playerConfig.CW, m_playerConfig.CH }, true, false);
-    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic
+    m_player = m_entityManager.addEntity(Entity::Type::PLAYER);
+    m_player.addComponent<CBoundingBox>(Vec2f { m_playerConfig.CW, m_playerConfig.CH }, true, false);
+    m_player.addComponent<CTransform>(gridToMidPixel(m_worldMaxCells.x / 2, m_worldMaxCells.y / 2, m_player)); // must be after bounding box /// TODO: make spawning in dynamic, could j place a box house around spawn position and spawn player inside it
     m_player.addComponent<CState>(State::AIR);
     m_player.addComponent<CInput>();
     m_player.addComponent<CGravity>(m_playerConfig.GRAVITY);
     m_player.addComponent<CInvincibility>(30); // in frames for now, will change /// TODO: that
     m_player.addComponent<CHealth>(100);
-    m_player.addComponent<CSkelAnim>(std::vector<SkelAnim> { SkelAnim { AnimConfig::walkKeyFrames } });
+
+    std::vector<SkelAnim> playerAnim { static_cast<size_t>(State::NUM_STATES) };
+    playerAnim[static_cast<size_t>(State::WALK)] = AnimConfig::walkKeyFrames;
+
+    m_player.addComponent<CSkelAnim>(playerAnim);
 
     /// @todo set scales of parts here
     // Set player body parts components
-    m_head = m_entityManager.addEntity("bodyPart");
-    m_head.addComponent<CTransform>();
-    m_head.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
-    m_torso = m_entityManager.addEntity("bodyPart");
-    m_torso.addComponent<CTransform>();
-    m_torso.addComponent<CAnimation>(m_game.assets().getAnimation("Torso"), false);
-    m_leftUpperArm = m_entityManager.addEntity("bodyPart");
-    m_leftUpperArm.addComponent<CTransform>();
-    m_leftUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftUpperArm"), false);
-    m_leftForearm = m_entityManager.addEntity("bodyPart");
-    m_leftForearm.addComponent<CTransform>();
-    m_leftForearm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftForearm"), false);
-    m_leftHandBack = m_entityManager.addEntity("bodyPart");
-    m_leftHandBack.addComponent<CTransform>();
-    m_leftHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("LeftHandBack"), false);
-    m_leftHandFront = m_entityManager.addEntity("bodyPart");
+    m_leftHandFront = m_entityManager.addEntity(Entity::Type::BODY_PART);
     m_leftHandFront.addComponent<CTransform>();
     m_leftHandFront.addComponent<CAnimation>(m_game.assets().getAnimation("LeftHandFront"), false);
-    m_rightUpperArm = m_entityManager.addEntity("bodyPart");
-    m_rightUpperArm.addComponent<CTransform>();
-    m_rightUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("RightUpperArm"), false);
-    m_rightForearm = m_entityManager.addEntity("bodyPart");
-    m_rightForearm.addComponent<CTransform>();
-    m_rightForearm.addComponent<CAnimation>(m_game.assets().getAnimation("RightForearm"), false);
-    m_rightHandBack = m_entityManager.addEntity("bodyPart");
-    m_rightHandBack.addComponent<CTransform>();
-    m_rightHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandBack"), false);
-    m_rightHandFront = m_entityManager.addEntity("bodyPart");
-    m_rightHandFront.addComponent<CTransform>();
-    m_rightHandFront.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandFront"), false);
-    m_leftThigh = m_entityManager.addEntity("bodyPart");
-    m_leftThigh.addComponent<CTransform>();
-    m_leftThigh.addComponent<CAnimation>(m_game.assets().getAnimation("LeftThigh"), false);
-    m_leftCalf = m_entityManager.addEntity("bodyPart");
-    m_leftCalf.addComponent<CTransform>();
-    m_leftCalf.addComponent<CAnimation>(m_game.assets().getAnimation("LeftCalf"), false);
-    m_leftFoot = m_entityManager.addEntity("bodyPart");
+    m_leftHandBack = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_leftHandBack.addComponent<CTransform>();
+    m_leftHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("LeftHandBack"), false);
+    m_leftForearm = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_leftForearm.addComponent<CTransform>();
+    m_leftForearm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftForearm"), false);
+    m_leftUpperArm = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_leftUpperArm.addComponent<CTransform>();
+    m_leftUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("LeftUpperArm"), false);
+    m_leftFoot = m_entityManager.addEntity(Entity::Type::BODY_PART);
     m_leftFoot.addComponent<CTransform>();
     m_leftFoot.addComponent<CAnimation>(m_game.assets().getAnimation("LeftFoot"), false);
-    m_rightThigh = m_entityManager.addEntity("bodyPart");
-    m_rightThigh.addComponent<CTransform>();
-    m_rightThigh.addComponent<CAnimation>(m_game.assets().getAnimation("RightThigh"), false);
-    m_rightCalf = m_entityManager.addEntity("bodyPart");
-    m_rightCalf.addComponent<CTransform>();
-    m_rightCalf.addComponent<CAnimation>(m_game.assets().getAnimation("RightCalf"), false);
-    m_rightFoot = m_entityManager.addEntity("bodyPart");
+    m_leftCalf = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_leftCalf.addComponent<CTransform>();
+    m_leftCalf.addComponent<CAnimation>(m_game.assets().getAnimation("LeftCalf"), false);
+    m_leftThigh = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_leftThigh.addComponent<CTransform>();
+    m_leftThigh.addComponent<CAnimation>(m_game.assets().getAnimation("LeftThigh"), false);
+    m_head = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_head.addComponent<CTransform>();
+    m_head.addComponent<CAnimation>(m_game.assets().getAnimation("Head"), false);
+    m_torso = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_torso.addComponent<CTransform>();
+    m_torso.addComponent<CAnimation>(m_game.assets().getAnimation("Torso"), false);
+    m_rightFoot = m_entityManager.addEntity(Entity::Type::BODY_PART);
     m_rightFoot.addComponent<CTransform>();
     m_rightFoot.addComponent<CAnimation>(m_game.assets().getAnimation("RightFoot"), false);
+    m_rightCalf = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightCalf.addComponent<CTransform>();
+    m_rightCalf.addComponent<CAnimation>(m_game.assets().getAnimation("RightCalf"), false);
+    m_rightThigh = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightThigh.addComponent<CTransform>();
+    m_rightThigh.addComponent<CAnimation>(m_game.assets().getAnimation("RightThigh"), false);
+    m_rightHandBack = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightHandBack.addComponent<CTransform>();
+    m_rightHandBack.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandBack"), false);
+    m_rightHandFront = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightHandFront.addComponent<CTransform>();
+    m_rightHandFront.addComponent<CAnimation>(m_game.assets().getAnimation("RightHandFront"), false);
+    m_rightForearm = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightForearm.addComponent<CTransform>();
+    m_rightForearm.addComponent<CAnimation>(m_game.assets().getAnimation("RightForearm"), false);
+    m_rightUpperArm = m_entityManager.addEntity(Entity::Type::BODY_PART);
+    m_rightUpperArm.addComponent<CTransform>();
+    m_rightUpperArm.addComponent<CAnimation>(m_game.assets().getAnimation("RightUpperArm"), false);
 
-    /// @todo send spawn to network
-    // NetworkData data {
-    //     .dataType = NetworkData::DataType::SPAWN,
-    //     .first.id = m_player.getID(),
-    //     .second.f = playerTrans.pos.x,
-    //     .third.f = playerTrans.pos.y
-    // };
-    // m_game.getNetManager().sendData(data);
+    // Send player spawn to network
+    NetworkDatum data {
+        .dataType = NetworkDatum::DataType::SPAWN,
+        .first.id = m_player.getID(),
+        .second.type = Entity::Type::PLAYER,
+        .third.f = m_player.getComponent<CTransform>().pos.x,
+        .fourth.f = m_player.getComponent<CTransform>().pos.y
+    };
+    m_game.getNetManager().sendData(data);
 
     // Spawn player weapon
-    m_weapon = m_entityManager.addEntity("weapon");
+    m_weapon = m_entityManager.addEntity(Entity::Type::WEAPON);
     m_weapon.addComponent<CFire>(50, 0.97f, 1.0f);
     m_weapon.addComponent<CDamage>(50);
-    m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos).scale = Vec2f(0.3f, 0.3f); /// TODO: make this a lil infront of player
-    m_weapon.addComponent<CBoundingBox>(Vec2i(50, 10), false, false); /// TODO: make this dynamic for each weapon
+    m_weapon.addComponent<CTransform>(m_player.getComponent<CTransform>().pos).scale = Vec2f { 0.3f, 0.3f }; /// TODO: make this a lil infront of player
+    m_weapon.addComponent<CBoundingBox>(Vec2f { 50.0f, 10.0f }, false, false); /// TODO: make this dynamic for each weapon
     m_weapon.addComponent<CAnimation>(m_game.assets().getAnimation("Weapon"), false);
     /// TODO: add animation, gravity, bounding box, transform, state, etc. since weapons will drop from player on death
 }
@@ -1798,7 +1817,7 @@ void ScenePlay::spawnBullet(Entity entity)
     const Vec2f worldTarget(worldTargetSFML.x, worldTargetSFML.y);
     const Vec2f bulletVec = Vec2f(worldTarget.x - entityTrans.pos.x, worldTarget.y - entityTrans.pos.y).rotate(Random::getFloatingPoint(entityFire.accuracy - 1.f, 1.f - entityFire.accuracy) * static_cast<float>(M_PI));
 
-    Entity bullet = m_entityManager.addEntity("bullet");
+    Entity bullet = m_entityManager.addEntity(Entity::Type::BULLET);
     bullet.addComponent<CTransform>(spawnPos, bulletVec * bulletSpeed / (worldTarget - entityTrans.pos).length(), Vec2f(2.0f, 2.0f), bulletVec.angle(), 0.0f);
     bullet.addComponent<CAnimation>(m_game.assets().getAnimation(m_playerConfig.BA), false);
     bullet.addComponent<CLifespan>(300);
@@ -1863,7 +1882,7 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
                         if (playerTrans.velocity.y > 0)
                         {
                             playerTrans.pos.y -= yOverlap; // player can't fall below tile
-                            playerState.state = abs(playerTrans.velocity.x) > 0 ? State::RUN : State::IDLE;
+                            playerState.state = abs(playerTrans.velocity.x) > 0 ? State::WALK : State::IDLE;
                         }
 
                         // player moving up
@@ -1925,6 +1944,18 @@ void ScenePlay::playerTileCollisions(const std::vector<Tile>& tiles)
     {
         playerTrans.pos.y = m_worldMaxPixels.y - bBoxHalfSize.y;
         playerTrans.velocity.y = 0;
+    }
+
+    // Send position update to network
+    if (playerTrans.prevPos != playerTrans.pos)
+    {
+        NetworkDatum netDatum {
+            .dataType = NetworkDatum::DataType::POSITION,
+            .first.id = m_game.getNetManager().getNetID(m_player.getID()),
+            .second.f = playerTrans.pos.x,
+            .third.f = playerTrans.pos.y
+        };
+        m_game.getNetManager().sendData(netDatum);
     }
 }
 
@@ -2101,9 +2132,9 @@ void ScenePlay::projectilePlayerCollisions(std::vector<Entity>& players, std::ve
 }
 
 /// @brief replace entity with ragdoll version created when cause kills entity
-Entity ScenePlay::spawnRagdollElement(const Vec2f& pos, float angle, const Vec2i& boxSize, const Animation& animation)
+Entity ScenePlay::spawnRagdollElement(const Vec2f& pos, float angle, const Vec2f& boxSize, const Animation& animation)
 {
-    Entity ragdoll = m_entityManager.addEntity("ragdoll");
+    Entity ragdoll = m_entityManager.addEntity(Entity::Type::RAGDOLL_PART);
     ragdoll.addComponent<CTransform>(pos, angle);
     ragdoll.addComponent<CGravity>(m_playerConfig.GRAVITY);
     ragdoll.addComponent<CBoundingBox>(boxSize);
@@ -2259,7 +2290,7 @@ void ScenePlay::updateProjectiles(std::vector<Entity>& projectiles)
         // }
     }
 
-    std::vector<Entity>& players = m_entityManager.getEntities("player");
+    std::vector<Entity>& players = m_entityManager.getEntities(Entity::Type::PLAYER);
 
     // move other existing projectiles (like bombs, affected by gravity)
     /// TODO: remember to group these checks so that it's fast, might want to use "projectile" tag in entity manager and use an if (hasComponent(<CGravity>)) or whatever to find the bombs vs bullets vs whatever, all in one loop

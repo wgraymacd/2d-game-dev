@@ -6,7 +6,7 @@
 #include "LobbyServer.hpp"
 
 // Global
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
 
 // External libraries
 #include <enet/enet.h>
@@ -81,16 +81,16 @@ public:
 
                 case ENET_EVENT_TYPE_RECEIVE:
                 {
-                    NetworkData received;
-                    std::memcpy(&received, event.packet->data, sizeof(NetworkData));
+                    NetworkDatum received;
+                    std::memcpy(&received, event.packet->data, sizeof(NetworkDatum));
                     std::cout << "MATCHMAKING: Received data: " << received << " from " << event.peer->address.host << ":" << event.peer->address.port << "\n";
 
-                    if (received.dataType == NetworkData::DataType::LOBBY_CONNECT)
+                    if (received.dataType == NetworkDatum::DataType::LOBBY_CONNECT)
                     {
                         /// @todo change this from being hardcoded to 127.0.0.1
                         const LobbyServer* lobby = getFreeLoby();
-                        NetworkData data {
-                            NetworkData::DataType::LOBBY_CONNECT,
+                        NetworkDatum data {
+                            NetworkDatum::DataType::LOBBY_CONNECT,
                             .first.i = 127,
                             .second.i = 0,
                             .third.i = 0,
@@ -130,13 +130,13 @@ private:
 
     bool m_isRunning = true;
 
-    void sendData(ENetPeer* clientPeer, const NetworkData& data)
+    void sendData(ENetPeer* clientPeer, const NetworkDatum& data)
     {
         std::cout << "MATCHMAKING: Sending data to client at " << clientPeer->address.host << ":" << clientPeer->address.port << ": " << data << "\n";
 
         ENetPacket* packet = enet_packet_create(
             &data,
-            sizeof(NetworkData),
+            sizeof(NetworkDatum),
             ENET_PACKET_FLAG_RELIABLE
         );
 

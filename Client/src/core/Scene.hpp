@@ -6,7 +6,7 @@
 #include "Action.hpp"
 
 // Global
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
 
 // C++ standard libraries
 #include <map>

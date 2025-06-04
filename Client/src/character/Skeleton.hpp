@@ -11,9 +11,16 @@ class Skeleton
 {
 public:
 
-    constexpr Skeleton(const std::array<Bone, 7>& bones)
-        : m_bones(bones)
-    { }
+    Skeleton() = default;
+
+    /// @todo look into the constexpr thing again later
+    constexpr Skeleton(const std::array<Bone, 7>& bones, float scale)
+    {
+        for (size_t i = 0; i < bones.size(); ++i)
+        {
+            m_bones[i] = Bone { bones[i].pos * scale, bones[i].angle };
+        }
+    }
 
     std::array<Bone, 7>& getBones()
     {

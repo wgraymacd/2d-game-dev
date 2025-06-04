@@ -9,23 +9,23 @@
 #include "utility/ClientGlobals.hpp"
 
 // Global
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
 
 // C++ standard libraries
 #include <enet/enet.h>
-#include <unordered_map>
+#include <array>
 #include <vector>
 
 class NetworkManager
 {
-    ENetHost* m_client;
-    ENetPeer* m_peer;
+    ENetHost* m_client = nullptr;
+    ENetPeer* m_peer = nullptr;
 
-    NetworkData m_data;
-    std::vector<NetworkData> m_dataVec;
+    std::vector<NetworkDatum> m_dataVec;
 
-    std::unordered_map<EntityID, EntityID> m_netToLocalID; // map[net] = local
-    std::unordered_map<EntityID, EntityID> m_localToNetID; // map[local] = net
+    /// @todo could make unordered_map instead, removal of IDs fast with map.erase(key) function
+    std::array<EntityID, Settings::worldMaxEntities> m_netToLocalID; // map[net] = local
+    std::array<EntityID, Settings::worldMaxEntities> m_localToNetID; // map[local] = net
 
 public:
 
@@ -35,11 +35,11 @@ public:
     void update(); // called every frame to process network events
 
     /// @brief get data received from server
-    const std::vector<NetworkData>& getData() const;
+    const std::vector<NetworkDatum>& getData() const;
 
     /// TODO: test this with different OSs, check for endianness, same floating-point rep, padding
     /// @brief send data to server, only works with POD
-    void sendData(const NetworkData& data) const;
+    void sendData(const NetworkDatum& data) const;
 
     void updateIDMaps(EntityID localID, EntityID netID);
 

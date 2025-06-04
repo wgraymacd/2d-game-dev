@@ -10,10 +10,11 @@
 
 // Global
 #include "Timer.hpp"
+#include "EntityBase.hpp"
 
 /// TODO: consider adding subtypes of entities like Tiles so that entity ids (check EntityMemoryPool) don't have to be offset for different memory pools (requires taking entityID - maxTiles as index to memory pool after tile memory pool)
 
-class Entity
+class Entity : public EntityBase
 {
     EntityID m_id = 0; // defaults to 0, don't use 0 as a valid entity
     Entity(EntityID id);

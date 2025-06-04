@@ -26,8 +26,8 @@ CInvincibility::CInvincibility(int t) : timeRemaining(t) { }
 CHealth::CHealth(int m) : max(m), current(m) { }
 CHealth::CHealth(int m, int c) : max(m), current(c) { }
 
-CBoundingBox::CBoundingBox(const Vec2i& s) : size(s), halfSize(s.x / 2, s.y / 2) { }
-CBoundingBox::CBoundingBox(const Vec2i& s, bool m, bool v) : size(s), halfSize(s.x / 2.0f, s.y / 2.0f), blockMove(m), blockVision(v) { }
+CBoundingBox::CBoundingBox(const Vec2f& s) : size(s), halfSize(s.x / 2, s.y / 2) { }
+CBoundingBox::CBoundingBox(const Vec2f& s, bool m, bool v) : size(s), halfSize(s.x / 2.0f, s.y / 2.0f), blockMove(m), blockVision(v) { }
 
 CAnimation::CAnimation(const Animation& animation, bool r) : animation(animation), repeat(r) { }
 

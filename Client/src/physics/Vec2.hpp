@@ -33,58 +33,58 @@ public:
 
     /// @brief convert from Vec2<T> to Vec2<U>
     template <typename U>
-    Vec2<U> to() const
+    constexpr Vec2<U> to() const
     {
         return Vec2<U>(static_cast<U>(x), static_cast<U>(y));
     }
 
-    Vec2 operator-() const
+    constexpr Vec2 operator-() const
     {
         return Vec2(-x, -y);
     }
-    Vec2 operator+(const Vec2& rhs) const
+    constexpr Vec2 operator+(const Vec2& rhs) const
     {
         return Vec2(x + rhs.x, y + rhs.y);
     }
-    Vec2 operator-(const Vec2& rhs) const
+    constexpr Vec2 operator-(const Vec2& rhs) const
     {
         return Vec2(x - rhs.x, y - rhs.y);
     }
-    Vec2 operator/(const T val) const
+    constexpr Vec2 operator/(const T val) const
     {
         return Vec2(x / val, y / val);
     }
-    Vec2 operator*(const T val) const
+    constexpr Vec2 operator*(const T val) const
     {
         return Vec2(x * val, y * val);
     }
-    void operator+=(const Vec2& rhs)
+    constexpr void operator+=(const Vec2& rhs)
     {
         x += rhs.x;
         y += rhs.y;
     }
-    void operator-=(const Vec2& rhs)
+    constexpr void operator-=(const Vec2& rhs)
     {
         x -= rhs.x;
         y -= rhs.y;
     }
-    void operator/=(const T val)
+    constexpr void operator/=(const T val)
     {
         x /= val;
         y /= val;
     }
-    void operator*=(const T val)
+    constexpr void operator*=(const T val)
     {
         x *= val;
         y *= val;
     }
-    bool operator==(const Vec2& rhs) const
+    constexpr bool operator==(const Vec2& rhs) const
     {
         return (x == rhs.x) && (y == rhs.y);
     }
-    bool operator!=(const Vec2& rhs) const
+    constexpr bool operator!=(const Vec2& rhs) const
     {
-        return (x != rhs.x) && (y != rhs.y);
+        return (x != rhs.x) || (y != rhs.y);
     }
 
     /// @brief returns the manhattan distance of this entity from the point vec
@@ -133,7 +133,7 @@ public:
     }
 
     /// @brief returns a rotated version of this vector by angle, where angle is given from [-π, π]
-    Vec2 rotate(const float angle)
+    Vec2 rotate(const float angle) const
     {
         return Vec2(cosf(angle) * x - sinf(angle) * y, sinf(angle) * x + cosf(angle) * y);
     }

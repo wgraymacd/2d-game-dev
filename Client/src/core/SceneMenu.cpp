@@ -9,7 +9,7 @@
 #include "Action.hpp"
 
 // Global
-#include "NetworkData.hpp"
+#include "NetworkDatum.hpp"
 
 // Exernal libraries
 #include <SFML/Graphics.hpp>
@@ -63,8 +63,8 @@ void SceneMenu::sDoAction(const Action& action)
         }
         else if (action.name() == "PLAY")
         {
-            // attempt to connect to a lobby
-            NetworkData data { .dataType = NetworkData::DataType::LOBBY_CONNECT };
+            // Attempt to connect to a lobby
+            NetworkDatum data { .dataType = NetworkDatum::DataType::LOBBY_CONNECT };
             m_game.getNetManager().sendData(data);
         }
         else if (action.name() == "QUIT")
@@ -117,13 +117,13 @@ void SceneMenu::updateFromNetwork()
 {
     m_game.getNetManager().update();
 
-    const std::vector<NetworkData>& netData = m_game.getNetManager().getData();
+    const std::vector<NetworkDatum>& netData = m_game.getNetManager().getData();
 
-    for (const NetworkData& netDatum : netData)
+    for (const NetworkDatum& netDatum : netData)
     { /// @todo this is only one item of data as of now, think about this
-        if (netDatum.dataType == NetworkData::DataType::LOBBY_CONNECT)
+        if (netDatum.dataType == NetworkDatum::DataType::LOBBY_CONNECT)
         {
-            // connect to lobby here (so that if it fails we still in menu scene)
+            // Connect to lobby here (so that if it fails we still in menu scene)
             m_game.getNetManager().connectTo(
                 netDatum.first.i,
                 netDatum.second.i,
@@ -132,10 +132,11 @@ void SceneMenu::updateFromNetwork()
                 netDatum.fifth.i
             );
         }
-        else if (netDatum.dataType == NetworkData::DataType::WORLD_SEED)
+        else if (netDatum.dataType == NetworkDatum::DataType::WORLD_SEED)
         {
             std::cout << "Initializing world with seed from lobby\n";
-            // get world seed, then pass that to ScenePlay and join game
+
+            // Get world seed, then pass that to ScenePlay and join game
             m_game.addScene("PLAY", std::make_shared<ScenePlay>(m_game, netDatum.first.i));
         }
     }
